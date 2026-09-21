@@ -1,0 +1,10 @@
+{
+  "description": "This modern login interface streamlines user access with intuitive login and registration buttons, enhancing user experience for websites and applications.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
