@@ -1,8 +1,11 @@
+# Entornos y secretos de Python
 venv/
 __pycache__/
 *.pyc
 .env
 db.sqlite3
+
+# Basura de compilación de Flutter
 frontend/build/
 frontend/.dart_tool/
 frontend/.pub-cache/
