@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 440">      <defs>
+        <radialGradient id="tBodyG" cx="38%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#1e2f5e"/>
+          <stop offset="60%" stop-color="#111a3a"/>
+          <stop offset="100%" stop-color="#080d1e"/>
+        </radialGradient>
+        <radialGradient id="tBellyG" cx="48%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="70%" stop-color="#e0ecfa"/>
+          <stop offset="100%" stop-color="#bdd4ed"/>
+        </radialGradient>
+        <radialGradient id="tEyeG" cx="45%" cy="42%" r="58%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#e8f2ff"/>
+        </radialGradient>
+        <radialGradient id="tHeadG" cx="35%" cy="28%" r="68%">
+          <stop offset="0%" stop-color="#263060"/>
+          <stop offset="100%" stop-color="#090e20"/>
+        </radialGradient>
+        <linearGradient id="tBeakG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fcd34d"/>
+          <stop offset="100%" stop-color="#d97706"/>
+        </linearGradient>
+        <linearGradient id="tFootG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fcd34d"/>
+          <stop offset="100%" stop-color="#c2690a"/>
+        </linearGradient>
+        <radialGradient id="tWingG" cx="60%" cy="25%" r="70%">
+          <stop offset="0%" stop-color="#1e2f5e"/>
+          <stop offset="100%" stop-color="#080d1e"/>
+        </radialGradient>
+        <filter id="tShadow">
+          <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+        </filter>
+        <filter id="tGlow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+
+      
+      <ellipse cx="150" cy="432" rx="80" ry="8" fill="rgb(0,0,0)" fill-opacity="0.3"/>
+
+      
+      
+      <g>
+        <path d="M100 418 Q90 408 82 412 Q76 420 84 424 Q92 428 100 418Z" fill="url(#tFootG)"/>
+        <path d="M112 420 Q104 408 96 410 Q90 416 96 422 Q104 426 112 420Z" fill="url(#tFootG)"/>
+        <path d="M124 418 Q118 408 110 412 Q106 420 114 424 Q122 426 124 418Z" fill="url(#tFootG)"/>
+        <ellipse cx="104" cy="420" rx="26" ry="10" fill="url(#tFootG)" opacity="0.7"/>
+      </g>
+      
+      <g>
+        <path d="M176 418 Q172 408 164 412 Q160 420 168 424 Q176 426 176 418Z" fill="url(#tFootG)"/>
+        <path d="M188 420 Q184 408 176 410 Q170 416 176 422 Q184 426 188 420Z" fill="url(#tFootG)"/>
+        <path d="M200 418 Q198 408 190 408 Q182 412 186 420 Q192 426 200 418Z" fill="url(#tFootG)"/>
+        <ellipse cx="188" cy="420" rx="26" ry="10" fill="url(#tFootG)" opacity="0.7"/>
+      </g>
+
+      
+      
+      <ellipse cx="150" cy="298" rx="90" ry="115" fill="url(#tBodyG)" filter="url(#tShadow)"/>
+
+      
+      <ellipse cx="150" cy="308" rx="58" ry="88" fill="url(#tBellyG)"/>
+      
+      <ellipse cx="140" cy="275" rx="18" ry="26" fill="rgb(255,255,255)" fill-opacity="0.22" transform="rotate(-12 140 275)"/>
+
+      
+      
+      <g transform="rotate(0 72 238)">
+        
+        <path d="M72 238 C46 260 34 300 36 348 C48 328 60 300 68 278 C72 300 74 330 72 355 C82 330 86 295 78 238 Z" fill="url(#tWingG)"/>
+        <path d="M52 330 C46 340 40 350 42 358 C48 348 52 338 52 330Z" fill="rgb(255,255,255)" fill-opacity="0.07"/>
+      </g>
+
+      
+      <g transform="rotate(0 228 238)">
+        <path d="M228 238 C254 260 266 300 264 348 C252 328 240 300 232 278 C228 300 226 330 228 355 C218 330 214 295 222 238 Z" fill="url(#tWingG)"/>
+        <path d="M248 330 C254 340 260 350 258 358 C252 348 248 338 248 330Z" fill="rgb(255,255,255)" fill-opacity="0.07"/>
+      </g>
+
+      
+      
+      <ellipse cx="150" cy="162" rx="72" ry="70" fill="url(#tHeadG)" filter="url(#tShadow)"/>
+      
+      <ellipse cx="128" cy="118" rx="22" ry="14" fill="rgb(255,255,255)" fill-opacity="0.07" transform="rotate(-25 128 118)"/>
+
+      
+      <ellipse cx="150" cy="162" rx="46" ry="44" fill="url(#tBellyG)" opacity="0.22"/>
+
+      
+      
+      <circle cx="120" cy="152" r="25" fill="rgb(0,0,0)" fill-opacity="0.2"/>
+      <circle cx="180" cy="152" r="25" fill="rgb(0,0,0)" fill-opacity="0.2"/>
+      
+      <circle cx="120" cy="152" r="22" fill="url(#tEyeG)"/>
+      <circle cx="180" cy="152" r="22" fill="url(#tEyeG)"/>
+
+      
+      
+
+      
+      
+        
+          
+          <circle cx="120" cy="158" r="13" fill="#08111f"/>
+          <circle cx="120" cy="158" r="10" fill="#0d1a30"/>
+          <circle cx="120" cy="158" r="6.5" fill="#030a15"/>
+          <circle cx="116" cy="154" r="3.2" fill="white" opacity="0.9"/>
+          <circle cx="122.5" cy="156.5" r="1.5" fill="white" opacity="0.45"/>
+          
+          <circle cx="180" cy="158" r="13" fill="#08111f"/>
+          <circle cx="180" cy="158" r="10" fill="#0d1a30"/>
+          <circle cx="180" cy="158" r="6.5" fill="#030a15"/>
+          <circle cx="176" cy="154" r="3.2" fill="white" opacity="0.9"/>
+          <circle cx="182.5" cy="156.5" r="1.5" fill="white" opacity="0.45"/>
+        
+      
+
+      
+      
+      <path d="M132 156 Q150 148 168 156 Q164 170 150 178 Q136 170 132 156Z" fill="url(#tBeakG)"/>
+      
+      <path d="M140 163 Q150 168 160 163" fill="none" stroke="#c2690a" stroke-width="1.8" stroke-linecap="round"/>
+      
+      <ellipse cx="146" cy="157" rx="7" ry="4" fill="rgb(255,255,255)" fill-opacity="0.3" transform="rotate(-8 146 157)"/>
+
+      
+      <ellipse cx="150" cy="210" rx="56" ry="26" fill="url(#tBodyG)"/>
+</svg>
