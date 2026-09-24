@@ -1,8 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=D:\src\flutter"
-export "FLUTTER_APPLICATION_PATH=D:\UNIX\frontend"
-export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=D:\UNIX\frontend\macos\Flutter\ephemeral\Packages\.packages\FlutterFramework"
+export "FLUTTER_ROOT=/opt/homebrew/share/flutter"
+export "FLUTTER_APPLICATION_PATH=/Users/bryanalexanderperezgonzalez/Documents/comunidad_frontend"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"
