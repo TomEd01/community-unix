@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_web/web_only.dart' as web;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 void main() => runApp(const ComunidadApp());
 
 const ink = Color(0xFF080C18);
@@ -50,10 +53,66 @@ class _AccessScreenState extends State<AccessScreen> {
   Timer? blinkTimer;
   Timer? unblinkTimer;
   Timer? eyeTimer;
+  late final Widget googleButton = web.renderButton();
+
+StreamSubscription<GoogleSignInAuthenticationEvent>? googleSubscription;
+String? authError;
+bool sendingToken = false;
+
+Future<void> sendGoogleToken(GoogleSignInAccount user) async {
+  final idToken = user.authentication.idToken;
+  if (idToken == null) {
+    setState(() => authError = 'Google no devolvió un ID token.');
+    return;
+  }
+
+  setState(() {
+    sendingToken = true;
+    authError = null;
+  });
+
+  try {
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:8000/api/auth/google/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'id_token': idToken}),
+    );
+
+    if (!mounted) return;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      setState(() => authError =
+          'El servidor rechazó el acceso (${response.statusCode}): ${response.body}');
+      return;
+    }
+
+    // Aquí procesaremos la respuesta real del backend para continuar
+    // al registro o entrar a la aplicación.
+    debugPrint('Respuesta del backend: ${response.body}');
+  } catch (error) {
+    if (mounted) setState(() => authError = 'No se pudo conectar: $error');
+  } finally {
+    if (mounted) setState(() => sendingToken = false);
+  }
+}
 
   @override
   void initState() {
     super.initState();
+    GoogleSignIn.instance.initialize().then((_) {
+    googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
+      (event) {
+        if (event is GoogleSignInAuthenticationEventSignIn) {
+          sendGoogleToken(event.user);
+        }
+      },
+      onError: (Object error) {
+        if (mounted) setState(() => authError = 'Error de Google: $error');
+      },
+    );
+  }).catchError((Object error) {
+    if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
+  });
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       final desired = sensitiveFocused ? const Offset(8, 0) : targetPupil;
       if (!mounted || (pupil - desired).distance < 0.03) return;
@@ -74,6 +133,7 @@ class _AccessScreenState extends State<AccessScreen> {
     blinkTimer?.cancel();
     unblinkTimer?.cancel();
     eyeTimer?.cancel();
+    googleSubscription?.cancel();
     super.dispose();
   }
 
@@ -266,24 +326,15 @@ class _AccessScreenState extends State<AccessScreen> {
                 Text(tab == AccessTab.signin ? 'Inicia sesión para continuar aprendiendo.' : 'Únete y comienza aprender.',
                     style: style(14, color: muted)),
                 gap(28), tabSwitcher(), gap(28), form(),
-                GestureDetector(
-                  onTap: () {}, // Tu compañero puede conectar la autenticación aquí.
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(colors: [orange, Color(0xFFEA580C)]),
-                      boxShadow: const [BoxShadow(color: Color(0x553F1E0D), blurRadius: 20, offset: Offset(0, 8))],
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Text('G', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: white)),
-                      const SizedBox(width: 10),
-                      Flexible(child: Text(tab == AccessTab.signin ? 'Iniciar sesión con Google' : 'Registrarse con Google',
-                          style: style(15, weight: FontWeight.w700))),
-                    ]),
-                  ),
+                Center(
+                  child: googleButton,
                 ),
+                if (sendingToken) const Center(child: CircularProgressIndicator()),
+                if (authError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(authError!, style: const TextStyle(color: Colors.redAccent)),
+                  ),
                 gap(24),
                 Center(child: Wrap(alignment: WrapAlignment.center, children: [
                   Text(tab == AccessTab.signin ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? ', style: style(13, color: muted)),
