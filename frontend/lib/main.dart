@@ -55,8 +55,9 @@ class _AccessScreenState extends State<AccessScreen> {
   void initState() {
     super.initState();
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!mounted || sensitiveFocused || (pupil - targetPupil).distance < 0.03) return;
-      setState(() => pupil = Offset.lerp(pupil, targetPupil, 0.14)!);
+      final desired = sensitiveFocused ? const Offset(8, 0) : targetPupil;
+      if (!mounted || (pupil - desired).distance < 0.03) return;
+      setState(() => pupil = Offset.lerp(pupil, desired, 0.14)!);
     });
     blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || sensitiveFocused) return;
@@ -96,7 +97,7 @@ class _AccessScreenState extends State<AccessScreen> {
         Text(label, style: style(13, color: muted, weight: FontWeight.w500)),
         gap(8),
         Focus(
-          onFocusChange: sensitive ? (focus) => setState(() => sensitiveFocused = focus) : null,
+          onFocusChange: sensitive ? (focus) => setState(() {sensitiveFocused = focus;if (focus) blink = false;}): null,
           child: TextField(
             style: style(14),
             decoration: InputDecoration(
@@ -309,14 +310,14 @@ class _AccessScreenState extends State<AccessScreen> {
           child: SizedBox(height: height * 0.19, child: CustomPaint(painter: MountainPainter()))),
         Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
           SizedBox(width: imageWidth, height: imageWidth * 440 / 300, child: Stack(fit: StackFit.expand, children: [
-            Image.asset(sensitiveFocused ? 'assets/lexus_covered.png' : blink ? 'assets/lexus_blink.png' : 'assets/lexus_base.png', fit: BoxFit.fill),
+            Image.asset(!sensitiveFocused && blink? 'assets/lexus_blink.png': 'assets/lexus_base.png',fit: BoxFit.fill,),if (sensitiveFocused || !blink)CustomPaint(painter: PupilPainter(pupil)),
             if (!sensitiveFocused && !blink) CustomPaint(painter: PupilPainter(pupil)),
           ])),
           const SizedBox(height: 14),
           Text(sensitiveFocused ? '¡No miro, lo prometo!' : '¡Hola! Soy Lexus🐧',
               textAlign: TextAlign.center, style: style(23, weight: FontWeight.w700)),
           gap(7),
-          Text(sensitiveFocused ? 'Estoy mirando hacia otro lado.' : 'Tu compañero de confianza en Linux.',
+          Text(sensitiveFocused ? 'Confia en mí.' : 'Tu compañero de confianza en Linux.',
               textAlign: TextAlign.center, style: style(13, color: const Color(0xFFABB4D5))),
         ])),
         Positioned(bottom: 24, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
