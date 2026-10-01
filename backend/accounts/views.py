@@ -7,8 +7,8 @@ from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from .serializers import GoogleAuthSerializer
-# get_user_model() manda llamar al AUTH_USER_MODEL del settings.py de forma segura
-Usuario = get_user_model()
+from rest_framework.views import APIView
+from .models import Usuario, Alumno, Instructor, Externo
 
 class GoogleLoginView(generics.CreateAPIView):
     # Usamos el serializador de Google
@@ -25,7 +25,6 @@ class GoogleLoginView(generics.CreateAPIView):
 
         try:
             # Verificamos el token con Google
-            # PISTA 1: Necesitas agregar GOOGLE_CLIENT_ID a tu settings.py (con un string vacío por ahora) y llamarlo aquí.
             idinfo = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
             
             # Si Google aprueba el token, nos devuelve un diccionario con los datos
@@ -33,7 +32,6 @@ class GoogleLoginView(generics.CreateAPIView):
             nombre = idinfo.get('name', '')
 
             # Buscamos si el usuario ya existe o lo creamos
-            # PISTA 2: Analiza este bloque. ¿Qué método de tu ManejadorUsuario debes usar si 'created' es True?
             user, created = Usuario.objects.get_or_create(
                 email=email,
                 defaults={
@@ -50,8 +48,64 @@ class GoogleLoginView(generics.CreateAPIView):
             # Generamos los tokens de sesión de nuestro backend (JWT)
             # ..................
             
-            return Response({"mensaje": "Autenticación exitosa", "email": user.email}, status=status.HTTP_200_OK)
+            return Response({
+                "mensaje": "Autenticación exitosa",
+                "Email": user.email,
+                "Nombre": user.nombre_completo,
+                "Rol": user.rol,
+                "Nuevo": created,
+                }, status=status.HTTP_200_OK)
 
         except ValueError:
             # Si el token es inválido o expiró
             return Response({"error": "Token de Google inválido"}, status=status.HTTP_400_BAD_REQUEST)
+class CompletarPerfilView(APIView):
+    def post(self, request):
+        # 1. Extraemos los datos que nos envía Fish desde Flutter
+        data = request.data
+        email = data.get('email')
+        rol = data.get('rol')
+
+        try:
+            # Buscamos al usuario que Google creó en el paso anterior
+            user = Usuario.objects.get(email=email)
+        except Usuario.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Le actualizamos el rol definitivo en su registro principal
+        user.rol = rol
+        user.save()
+
+        # 3. Guardamos los datos en la tabla específica según lo que eligió
+        if rol == 'Alumno':
+            Alumno.objects.create(
+                usuario=user,
+                numero_control=data.get('numero_control'),
+                procedencia=data.get('procedencia')
+            )
+        
+        elif rol == 'Instructor':
+            Instructor.objects.create(
+                usuario=user,
+                numero_control=data.get('numero_control'),
+                procedencia=data.get('procedencia'),
+                departamento=data.get('departamento'),
+                especialidad=data.get('especialidad'),
+                grado_academico=data.get('grado_academico')
+            )
+            
+        elif rol == 'Externo':
+            Externo.objects.create(
+                usuario=user,
+                tipo_experiencia=data.get('tipo_experiencia'),
+                organizacion=data.get('organizacion')
+                # Recuerda: numero_control se genera solo gracias a tu def save()
+            )
+        else:
+            return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 4. Le avisamos a Fish que todo salió bien para que lo redirija
+        return Response({
+            "mensaje": "Perfil completado exitosamente",
+            "rol_confirmado": user.rol
+        }, status=status.HTTP_200_OK)
