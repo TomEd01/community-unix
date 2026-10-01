@@ -61,22 +61,22 @@ class GoogleLoginView(generics.CreateAPIView):
             return Response({"error": "Token de Google inválido"}, status=status.HTTP_400_BAD_REQUEST)
 class CompletarPerfilView(APIView):
     def post(self, request):
-        # 1. Extraemos los datos que nos envía Fish desde Flutter
+        # Extraemos los datos que nos envían desde Flutter
         data = request.data
         email = data.get('email')
         rol = data.get('rol')
 
         try:
-            # Buscamos al usuario que Google creó en el paso anterior
+            # Verificamos si el usuario que Google creó en el paso anterior
             user = Usuario.objects.get(email=email)
         except Usuario.DoesNotExist:
             return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Le actualizamos el rol definitivo en su registro principal
+        # Actualizamos el rol definitivo en su registro principal
         user.rol = rol
         user.save()
 
-        # 3. Guardamos los datos en la tabla específica según lo que eligió
+        # Guardamos los datos en la tabla específica según lo que eligió el usuario
         if rol == 'Alumno':
             Alumno.objects.create(
                 usuario=user,
@@ -99,12 +99,11 @@ class CompletarPerfilView(APIView):
                 usuario=user,
                 tipo_experiencia=data.get('tipo_experiencia'),
                 organizacion=data.get('organizacion')
-                # Recuerda: numero_control se genera solo gracias a tu def save()
             )
         else:
             return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 4. Le avisamos a Fish que todo salió bien para que lo redirija
+        # Verificamos que todo este en orden y perfectamente guardado
         return Response({
             "mensaje": "Perfil completado exitosamente",
             "rol_confirmado": user.rol
