@@ -1,20 +1,7 @@
 from django.urls import path
-
-from .views import (
-    CompleteProfileView,
-    GoogleLoginView,
-)
-
+from .views import GoogleLoginView
 
 urlpatterns = [
-    path(
-        "google/",
-        GoogleLoginView.as_view(),
-        name="google_login",
-    ),
-    path(
-        "complete-profile/",
-        CompleteProfileView.as_view(),
-        name="complete_profile",
-    ),
+    # Django exige que las vistas basadas en clases usen el método .as_view() al final.
+    path('google/', GoogleLoginView.as_view(), name='google_login'),
 ]
