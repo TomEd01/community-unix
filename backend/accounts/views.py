@@ -122,10 +122,6 @@ class GoogleLoginView(generics.CreateAPIView):
             # ----------------------------------------------------
             # TOKEN INTERNO PARA COMPLETAR EL REGISTRO
             # ----------------------------------------------------
-            #
-            # Flutter no enviara simplemente un email para crear
-            # un perfil. Django firma la identidad del usuario.
-            # ----------------------------------------------------
 
             onboarding_token = signing.dumps(
                 {
@@ -287,12 +283,8 @@ class CompleteProfileView(APIView):
                         )
                     ).strip()
 
-                    procedencia = str(
-                        request.data.get(
-                            "procedencia",
-                            "itc",
-                        )
-                    ).strip()
+                    # Los alumnos por ahora son únicamente del ITC.
+                    procedencia = "itc"
 
                     if not numero_control:
                         return Response(
@@ -308,7 +300,7 @@ class CompleteProfileView(APIView):
                     Alumno.objects.create(
                         usuario=user,
                         numero_control=numero_control,
-                        procedencia=procedencia or "itc",
+                        procedencia=procedencia,
                     )
 
                     rol_final = "Alumno"
@@ -342,6 +334,13 @@ class CompleteProfileView(APIView):
                     grado_academico = str(
                         request.data.get(
                             "grado_academico",
+                            "",
+                        )
+                    ).strip()
+
+                    procedencia = str(
+                        request.data.get(
+                            "procedencia",
                             "",
                         )
                     ).strip()
@@ -390,12 +389,23 @@ class CompleteProfileView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
+                    if not procedencia:
+                        return Response(
+                            {
+                                "error": (
+                                    "La procedencia es obligatoria."
+                                ),
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                     Instructor.objects.create(
                         usuario=user,
                         numero_control=numero_control,
                         departamento=departamento,
                         especialidad=especialidad,
                         grado_academico=grado_academico,
+                        procedencia=procedencia,
                     )
 
                     rol_final = "Instructor"

@@ -110,15 +110,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
       // ========================================================
 
       if (role == UserRole.alumno) {
-        String procedenciaFinal = institution ?? 'itc';
-
-        if (procedenciaFinal == 'otra') {
-          procedenciaFinal = otherInstitutionController.text.trim();
-        }
-
         body.addAll({
           'numero_control': controlNumberController.text.trim(),
-          'procedencia': procedenciaFinal,
+          'procedencia': 'itc',
         });
       }
       // ========================================================
@@ -131,11 +125,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
           gradoFinal = otherDegreeController.text.trim();
         }
 
+        String procedenciaFinal = institution ?? 'itc';
+
+        if (procedenciaFinal == 'otra') {
+          procedenciaFinal = otherInstitutionController.text.trim();
+        }
+
         body.addAll({
           'numero_control': controlNumberController.text.trim(),
           'departamento': departmentController.text.trim(),
           'especialidad': specialtyController.text.trim(),
           'grado_academico': gradoFinal,
+          'procedencia': procedenciaFinal,
         });
       }
       // ========================================================
@@ -579,19 +580,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           hint: 'Ej. 21040123',
           controller: controlNumberController,
         ),
-
-        const SizedBox(height: 24),
-
-        institutionField(),
-
-        if (institution == 'otra') ...[
-          const SizedBox(height: 24),
-          textField(
-            label: 'Nombre de la institución',
-            hint: 'Escribe el nombre de tu institución',
-            controller: otherInstitutionController,
-          ),
-        ],
       ],
     );
   }
@@ -604,26 +592,46 @@ class _OnboardingPageState extends State<OnboardingPage> {
           hint: 'Ingresa tu matrícula',
           controller: controlNumberController,
         ),
+
         const SizedBox(height: 24),
+
         textField(
           label: 'Departamento / Academia',
           hint: 'Ej. Academia de Sistemas',
           controller: departmentController,
         ),
+
         const SizedBox(height: 24),
+
         textField(
           label: 'Especialidad / Área de conocimiento',
           hint: 'Ej. Desarrollo de Software',
           controller: specialtyController,
         ),
+
         const SizedBox(height: 24),
+
         academicDegreeField(),
+
         if (academicDegree == 'otro') ...[
           const SizedBox(height: 24),
           textField(
             label: 'Especifica tu grado o título',
             hint: 'Escribe tu grado o título',
             controller: otherDegreeController,
+          ),
+        ],
+
+        const SizedBox(height: 24),
+
+        institutionField(),
+
+        if (institution == 'otra') ...[
+          const SizedBox(height: 24),
+          textField(
+            label: 'Nombre de la institución',
+            hint: 'Escribe el nombre de tu institución',
+            controller: otherInstitutionController,
           ),
         ],
       ],
