@@ -1,25 +1,36 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'alumno_page.dart';
 import 'instructor_page.dart';
 
+// Distingo los tres perfiles que puede registrar la pantalla y las dos
+// modalidades que especifico cuando alguien se registra como usuario externo.
 enum UserRole { alumno, instructor, externo }
 
 enum ExternalExperience { sector, propia }
 
+// Recibo del acceso de Google los datos y el token temporal del registro.
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key, required this.onboardingToken});
+  const OnboardingPage({
+    super.key,
+    required this.onboardingToken,
+    required this.email,
+    required this.nombre,
+  });
 
   final String onboardingToken;
+  final String email;
+  final String nombre;
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
+  // Centralizo la paleta para reutilizar los mismos tonos en campos,
+  // estados de selección, texto y elementos de énfasis.
   static const Color background = Color(0xFF050C1D);
   static const Color card = Color(0xFF081329);
   static const Color fieldColor = Color(0xFF111D36);
@@ -30,6 +41,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   static const Color orange = Color(0xFFF28A3A);
   static const Color green = Color(0xFF41D6A3);
 
+  // Conservo la clave que valida el formulario y las opciones que determinan
+  // qué campos muestro y qué información preparo para cada perfil.
   final _formKey = GlobalKey<FormState>();
 
   UserRole role = UserRole.alumno;
@@ -38,6 +51,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String? institution = 'itc';
   String? academicDegree;
 
+  // Vinculo cada campo de texto con su propio controlador para leerlo,
+  // validarlo y liberar sus recursos al cerrar esta pantalla.
+  final nameController = TextEditingController();
   final controlNumberController = TextEditingController();
   final departmentController = TextEditingController();
   final specialtyController = TextEditingController();
@@ -47,8 +63,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   bool submitting = false;
 
+  // Inicio el nombre con el dato de Google, pero lo dejo editable; más abajo
+  // libero todos los controladores cuando Flutter retira esta pantalla.
+  @override
+  void initState() {
+    super.initState();
+    nameController.text = widget.nombre;
+  }
+
   @override
   void dispose() {
+    nameController.dispose();
     controlNumberController.dispose();
     departmentController.dispose();
     specialtyController.dispose();
@@ -58,251 +83,157 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
+  // Rechazo los valores vacíos o compuestos solo por espacios para que el
+  // usuario no pueda completar el registro con un dato visualmente en blanco.
   String? requiredValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    if (value == null || value.trim().isEmpty)
       return 'Este campo es obligatorio.';
-    }
-
     return null;
   }
 
+  // Guardo el perfil elegido para reconstruir sus campos y limpio la
+  // experiencia externa si se cambia a un perfil que no la utiliza.
   void selectRole(UserRole selectedRole) {
     setState(() {
       role = selectedRole;
-
-      if (role != UserRole.externo) {
-        externalExperience = null;
-      }
+      if (role != UserRole.externo) externalExperience = null;
     });
   }
 
-  // ============================================================
-  // COMPLETAR REGISTRO Y GUARDAR EN DJANGO
-  // ============================================================
-
+  // Coordino la validación, la creación del payload, la petición al backend
+  // y la navegación que ocurre cuando el perfil queda registrado.
   Future<void> completeRegistration() async {
     FocusManager.instance.primaryFocus?.unfocus();
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    // Valido los campos visibles antes de iniciar la petición para evitar
+    // enviar datos incompletos o mantener el teclado abierto durante el envío.
+    if (!_formKey.currentState!.validate()) return;
 
+    // La experiencia externa no es un campo de texto del Form, por eso
+    // compruebo explícitamente que se haya elegido una de sus dos opciones.
     if (role == UserRole.externo && externalExperience == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecciona tu tipo de experiencia.')),
       );
-
       return;
     }
 
-    setState(() {
-      submitting = true;
-    });
+    // Bloqueo el botón y muestro el estado de carga mientras espero respuesta.
+    setState(() => submitting = true);
 
     try {
+      // Incluyo primero los datos compartidos por todos los perfiles y uso
+      // el rol seleccionado para añadir después sus datos particulares.
       final Map<String, dynamic> body = {
-        'onboarding_token': widget.onboardingToken,
+        'token': widget.onboardingToken,
+        'email': widget.email,
+        'nombre_completo': nameController.text.trim(),
         'rol': role.name,
       };
 
-      // ========================================================
-      // ALUMNO
-      // ========================================================
-
       if (role == UserRole.alumno) {
+        // Para el alumno envío su número de control y normalizo la procedencia;
+        // solo solicito el nombre cuando eligió una institución distinta.
         body.addAll({
           'numero_control': controlNumberController.text.trim(),
-          'procedencia': 'itc',
+          'procedencia': institution == 'otra'
+              ? 'Otra institución'
+              : 'Instituto Tecnológico de Cancún',
         });
-      }
-      // ========================================================
-      // INSTRUCTOR
-      // ========================================================
-      else if (role == UserRole.instructor) {
-        String gradoFinal = academicDegree ?? '';
-
-        if (gradoFinal == 'otro') {
-          gradoFinal = otherDegreeController.text.trim();
+        if (institution == 'otra') {
+          body['nombre_institucion'] = otherInstitutionController.text.trim();
         }
-
-        String procedenciaFinal = institution ?? 'itc';
-
-        if (procedenciaFinal == 'otra') {
-          procedenciaFinal = otherInstitutionController.text.trim();
-        }
-
+      } else if (role == UserRole.instructor) {
+        // Para el instructor agrego sus datos académicos y convierto la opción
+        // "Otro" en el valor que espera el backend junto con su especificación.
         body.addAll({
           'numero_control': controlNumberController.text.trim(),
           'departamento': departmentController.text.trim(),
           'especialidad': specialtyController.text.trim(),
-          'grado_academico': gradoFinal,
-          'procedencia': procedenciaFinal,
+          'grado_academico': academicDegree == 'otro' ? 'Otro' : academicDegree,
+          'procedencia': institution == 'otra'
+              ? 'Otra institución'
+              : 'Instituto Tecnológico de Cancún',
         });
-      }
-      // ========================================================
-      // EXTERNO
-      // ========================================================
-      else if (role == UserRole.externo) {
+        if (academicDegree == 'otro')
+          body['especifica_grado'] = otherDegreeController.text.trim();
+        if (institution == 'otra')
+          body['nombre_institucion'] = otherInstitutionController.text.trim();
+      } else if (role == UserRole.externo) {
+        // Traduzco la opción elegida a los valores del backend y envío una
+        // organización solo cuando la experiencia corresponde al sector.
         final bool trabajaEnSector =
             externalExperience == ExternalExperience.sector;
-
         body.addAll({
-          'procedencia': trabajaEnSector ? 'sector' : 'experiencia_propia',
+          'tipo_experiencia': trabajaEnSector
+              ? 'Trabajo en el sector'
+              : 'Experiencia propia',
           'organizacion': trabajaEnSector
               ? organizationController.text.trim()
-              : 'Experiencia propia',
+              : 'Independiente / Autodidacta',
         });
       }
 
-      debugPrint('====================================');
-      debugPrint('ENVIANDO PERFIL A DJANGO');
-      debugPrint(body.toString());
-      debugPrint('====================================');
-
-      // ========================================================
-      // PETICIÓN AL BACKEND
-      // ========================================================
-
+      // Serializo el payload como JSON y lo envío al endpoint de onboarding.
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/auth/complete-profile/'),
+        Uri.parse('http://127.0.0.1:8000/api/auth/completar_perfil/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      debugPrint('STATUS complete-profile: ${response.statusCode}');
-
-      debugPrint('RESPUESTA complete-profile: ${response.body}');
-
-      Map<String, dynamic>? data;
-
-      try {
-        final dynamic decoded = jsonDecode(response.body);
-
-        if (decoded is Map<String, dynamic>) {
-          data = decoded;
-        }
-      } catch (error) {
-        debugPrint('No se pudo leer JSON del backend: $error');
-      }
-
-      // ========================================================
-      // ERROR DEL BACKEND
-      // ========================================================
-
+      // Informo cualquier respuesta no exitosa y conservo al usuario en el form.
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        String mensaje = 'No se pudo completar el registro.';
-
-        if (data != null) {
-          if (data['error'] != null) {
-            mensaje = data['error'].toString();
-          } else if (data['detail'] != null) {
-            mensaje = data['detail'].toString();
-          }
-        }
-
-        if (!mounted) {
-          return;
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(mensaje), backgroundColor: Colors.redAccent),
-        );
-
-        return;
-      }
-
-      // ========================================================
-      // RESPUESTA NO VÁLIDA
-      // ========================================================
-
-      if (data == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('El servidor devolvió una respuesta inválida.'),
+          SnackBar(
+            content: Text('Error del servidor: ${response.statusCode}'),
             backgroundColor: Colors.redAccent,
           ),
         );
-
         return;
       }
 
-      // ========================================================
-      // COMPROBAR QUE EL PERFIL FUE GUARDADO
-      // ========================================================
-
-      if (data['perfil_completo'] != true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'El servidor no confirmó que el perfil esté completo.',
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-
-        return;
-      }
-
-      // ========================================================
-      // REDIRECCIÓN SEGÚN EL ROL
-      //
-      // Alumno     -> AlumnoPage
-      // Instructor -> InstructorPage
-      // Externo    -> AlumnoPage
-      // ========================================================
-
+      // Dirijo al usuario a su área según el perfil que acaba de registrar;
+      // por ahora, el perfil externo comparte la pantalla del alumno.
       Widget destination;
-
       switch (role) {
         case UserRole.alumno:
           destination = const AlumnoPage();
           break;
-
         case UserRole.instructor:
           destination = const InstructorPage();
           break;
-
         case UserRole.externo:
           destination = const AlumnoPage();
           break;
       }
 
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
+      // Reemplazo onboarding para que volver atrás no reenvíe el mismo registro.
       Navigator.of(
         context,
       ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
     } catch (error) {
-      debugPrint('ERROR completeRegistration: $error');
-
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo conectar con el servidor: $error'),
+          content: Text('Error de red: $error'),
           backgroundColor: Colors.redAccent,
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          submitting = false;
-        });
-      }
+      // Muestro los fallos de red sin perder el formulario que ya completó.
+      if (mounted) setState(() => submitting = false);
     }
   }
+  // Restauro el botón tanto si la petición termina bien como si falla.
 
+  // Construyo estilos reutilizables para los campos y sus etiquetas.
   InputDecoration inputDecoration(String hint) {
     return InputDecoration(
-      hintText: hint,
+      // Defino la decoración común de los campos para que sus estados normal,
+      // enfocado y con error mantengan una apariencia coherente.
       hintStyle: const TextStyle(color: textSecondary, fontSize: 16),
       filled: true,
       fillColor: fieldColor,
@@ -326,6 +257,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Presento una etiqueta y marco visualmente los campos obligatorios;
+  // permito omitir el asterisco cuando una sección sea opcional.
   Widget sectionLabel(String text, {bool required = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -349,6 +282,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Construyo una opción de perfil que refleja la selección actual y delega
+  // el cambio en selectRole para mantener sincronizados sus campos asociados.
   Widget roleOption({
     required UserRole value,
     required String title,
@@ -356,11 +291,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     required IconData icon,
   }) {
     final selected = role == value;
-
     return InkWell(
-      onTap: () {
-        selectRole(value);
-      },
+      onTap: () => selectRole(value),
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -442,6 +374,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Combino etiqueta, validación y decoración para reutilizar el mismo patrón
+  // en los campos de texto de los distintos perfiles.
   Widget textField({
     required String label,
     required String hint,
@@ -461,6 +395,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Muestro la procedencia elegida y guardo el valor para adaptar los campos
+  // visibles y el dato que envío al backend.
   Widget institutionField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,23 +415,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
             DropdownMenuItem(value: 'otra', child: Text('Otra institución')),
           ],
-          onChanged: (value) {
-            setState(() {
-              institution = value;
-            });
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Selecciona una institución.';
-            }
-
-            return null;
-          },
+          onChanged: (value) => setState(() => institution = value),
         ),
       ],
     );
   }
 
+  // Muestro los grados permitidos y guardo la opción para revelar una
+  // especificación adicional cuando el usuario seleccione "Otro".
   Widget academicDegreeField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,35 +441,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
             DropdownMenuItem(value: 'dr', child: Text('Dr.')),
             DropdownMenuItem(value: 'otro', child: Text('Otro')),
           ],
-          onChanged: (value) {
-            setState(() {
-              academicDegree = value;
-            });
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Selecciona tu grado académico.';
-            }
-
-            return null;
-          },
+          onChanged: (value) => setState(() => academicDegree = value),
         ),
       ],
     );
   }
 
+  // Represento cada modalidad externa como una opción seleccionable y
+  // mantengo su estado para decidir si debo pedir una organización.
   Widget externalExperienceOption({
     required ExternalExperience value,
     required String title,
   }) {
     final selected = externalExperience == value;
-
     return InkWell(
-      onTap: () {
-        setState(() {
-          externalExperience = value;
-        });
-      },
+      onTap: () => setState(() => externalExperience = value),
       borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
@@ -572,6 +485,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Solicito los datos exclusivos del alumno y solo expando la institución
+  // cuando su elección requiere capturar un nombre personalizado.
   Widget alumnoFields() {
     return Column(
       children: [
@@ -580,52 +495,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
           hint: 'Ej. 21040123',
           controller: controlNumberController,
         ),
-      ],
-    );
-  }
-
-  Widget instructorFields() {
-    return Column(
-      children: [
-        textField(
-          label: 'Matrícula del instructor',
-          hint: 'Ingresa tu matrícula',
-          controller: controlNumberController,
-        ),
-
         const SizedBox(height: 24),
-
-        textField(
-          label: 'Departamento / Academia',
-          hint: 'Ej. Academia de Sistemas',
-          controller: departmentController,
-        ),
-
-        const SizedBox(height: 24),
-
-        textField(
-          label: 'Especialidad / Área de conocimiento',
-          hint: 'Ej. Desarrollo de Software',
-          controller: specialtyController,
-        ),
-
-        const SizedBox(height: 24),
-
-        academicDegreeField(),
-
-        if (academicDegree == 'otro') ...[
-          const SizedBox(height: 24),
-          textField(
-            label: 'Especifica tu grado o título',
-            hint: 'Escribe tu grado o título',
-            controller: otherDegreeController,
-          ),
-        ],
-
-        const SizedBox(height: 24),
-
         institutionField(),
-
         if (institution == 'otra') ...[
           const SizedBox(height: 24),
           textField(
@@ -638,6 +509,54 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Reúno los datos académicos del instructor y revelo los campos de detalle
+  // únicamente cuando selecciona un grado o una institución "Otra".
+  Widget instructorFields() {
+    return Column(
+      children: [
+        textField(
+          label: 'Matrícula del instructor',
+          hint: 'Ingresa tu matrícula',
+          controller: controlNumberController,
+        ),
+        const SizedBox(height: 24),
+        textField(
+          label: 'Departamento / Academia',
+          hint: 'Ej. Academia de Sistemas',
+          controller: departmentController,
+        ),
+        const SizedBox(height: 24),
+        textField(
+          label: 'Especialidad / Área de conocimiento',
+          hint: 'Ej. Desarrollo de Software',
+          controller: specialtyController,
+        ),
+        const SizedBox(height: 24),
+        academicDegreeField(),
+        if (academicDegree == 'otro') ...[
+          const SizedBox(height: 24),
+          textField(
+            label: 'Especifica tu grado o título',
+            hint: 'Escribe tu grado o título',
+            controller: otherDegreeController,
+          ),
+        ],
+        const SizedBox(height: 24),
+        institutionField(),
+        if (institution == 'otra') ...[
+          const SizedBox(height: 24),
+          textField(
+            label: 'Nombre de la institución',
+            hint: 'Escribe el nombre de tu institución',
+            controller: otherInstitutionController,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Solicito la modalidad externa y pido la organización solo para experiencia
+  // laboral; para experiencia propia uso el valor independiente predefinido.
   Widget externoFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,19 +583,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Selecciono los campos que corresponden al rol actual y mantengo cada
+  // formulario específico en su propio método.
   Widget roleFields() {
     switch (role) {
       case UserRole.alumno:
         return alumnoFields();
-
       case UserRole.instructor:
         return instructorFields();
-
       case UserRole.externo:
         return externoFields();
     }
   }
 
+  // Presento la identidad de la comunidad, el aviso de protección y el
+  // propósito de esta etapa antes de que el usuario complete sus datos.
   Widget buildHeader() {
     return Container(
       width: double.infinity,
@@ -725,7 +646,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 13),
           const Text(
-            'Selecciona tu tipo de usuario y completa los datos de tu perfil.',
+            'Verifica tu nombre y selecciona tu tipo de usuario.',
             style: TextStyle(color: textSecondary, fontSize: 17, height: 1.55),
           ),
         ],
@@ -733,6 +654,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Ordeno el nombre, la elección del perfil, sus campos dinámicos y la acción
+  // final, manteniendo todo dentro del Form asociado a _formKey.
   Widget buildForm() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(34, 34, 34, 40),
@@ -741,37 +664,39 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            sectionLabel('Tipo de usuario'),
+            // Conservo editable el nombre recibido durante el acceso.
+            textField(
+              label: 'Nombre completo (Editable)',
+              hint: 'Tu nombre completo',
+              controller: nameController,
+            ),
+            const SizedBox(height: 34),
 
+            // Hago explícita la selección del perfil antes de mostrar sus datos.
+            sectionLabel('Tipo de usuario'),
             roleOption(
               value: UserRole.alumno,
               title: 'Alumno',
               subtitle: 'Estudiante de la comunidad',
               icon: Icons.school_outlined,
             ),
-
             const SizedBox(height: 14),
-
             roleOption(
               value: UserRole.instructor,
               title: 'Instructor',
               subtitle: 'Docente o instructor',
               icon: Icons.co_present_outlined,
             ),
-
             const SizedBox(height: 14),
-
             roleOption(
               value: UserRole.externo,
               title: 'Externo',
               subtitle: 'Miembro externo',
               icon: Icons.public_outlined,
             ),
-
             const SizedBox(height: 34),
-
+            // Cambio los campos visibles de acuerdo con el perfil seleccionado.
             roleFields(),
-
             const SizedBox(height: 34),
 
             SizedBox(
@@ -787,6 +712,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                 ),
                 child: submitting
+                    // Reemplazo el contenido del botón por un indicador durante
+                    // la petición para evitar envíos repetidos.
                     ? const SizedBox(
                         width: 23,
                         height: 23,
@@ -818,6 +745,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  // Compongo la pantalla desplazable y limito su ancho para conservar la
+  // legibilidad del formulario en ventanas grandes y pequeñas.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

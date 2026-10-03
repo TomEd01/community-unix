@@ -8,11 +8,15 @@ import 'package:google_sign_in_web/web_only.dart' as web;
 import 'package:http/http.dart' as http;
 
 import 'pages/onboarding_page.dart';
+import 'pages/alumno_page.dart';
+import 'pages/instructor_page.dart';
 
+// Inicio la aplicación desde la pantalla de acceso.
 void main() {
   runApp(const ComunidadApp());
 }
 
+// Centralizo los colores que comparto entre las distintas secciones.
 const Color ink = Color(0xFF080C18);
 const Color orange = Color(0xFFF97316);
 const Color muted = Color(0xFF9899A8);
@@ -21,6 +25,7 @@ const Color white = Colors.white;
 class ComunidadApp extends StatelessWidget {
   const ComunidadApp({super.key});
 
+  // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -51,9 +56,11 @@ class AccessScreen extends StatefulWidget {
 }
 
 class _AccessScreenState extends State<AccessScreen> {
+  // Conservo la posición actual y el destino animado de las pupilas.
   Offset pupil = Offset.zero;
   Offset targetPupil = Offset.zero;
 
+  // Coordino el parpadeo, el envío de credenciales y los eventos de Google.
   bool blink = false;
   bool sendingToken = false;
   bool googleRequestInFlight = false;
@@ -68,144 +75,115 @@ class _AccessScreenState extends State<AccessScreen> {
 
   late final Widget googleButton = web.renderButton();
 
-  // ============================================================
-  // GOOGLE + DJANGO
-  // ============================================================
-
+  // Envío el token de Google y preparo los datos para completar el perfil.
   Future<void> sendGoogleToken(GoogleSignInAccount user) async {
-    if (googleRequestInFlight) {
-      return;
-    }
-
+    // Evito procesar más de una solicitud de autenticación a la vez.
+    if (googleRequestInFlight) return;
     googleRequestInFlight = true;
 
     final idToken = user.authentication.idToken;
 
+    // Detengo el flujo si Google no proporciona el token requerido.
     if (idToken == null) {
       googleRequestInFlight = false;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        authError = 'Google no devolvió un ID token.';
-      });
-
+      if (mounted)
+        setState(() => authError = 'Google no devolvió un ID token.');
       return;
     }
 
-    if (mounted) {
+    if (mounted)
       setState(() {
         sendingToken = true;
         authError = null;
       });
-    }
 
     try {
+      // Envío el token al backend para validar la cuenta.
       final response = await http.post(
         Uri.parse('http://127.0.0.1:8000/api/auth/google/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id_token': idToken}),
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
+      // Muestro el rechazo del servidor antes de interpretar su respuesta.
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        setState(() {
-          authError =
-              'El servidor rechazó el acceso '
-              '(${response.statusCode}): ${response.body}';
-        });
-
+        setState(
+          () => authError =
+              'El servidor rechazó el acceso (${response.statusCode})',
+        );
         return;
       }
 
       final dynamic decoded = jsonDecode(response.body);
 
+      // Compruebo que la respuesta tenga la estructura que espera la aplicación.
       if (decoded is! Map<String, dynamic>) {
-        setState(() {
-          authError = 'El servidor devolvió una respuesta inválida.';
-        });
-
+        setState(
+          () => authError = 'El servidor devolvió una respuesta inválida.',
+        );
         return;
       }
 
       final Map<String, dynamic> data = decoded;
-
       debugPrint('Respuesta del backend: $data');
 
-      // ========================================================
-      // SIEMPRE CONTINUAR AL FORMULARIO
-      //
-      // Por ahora NO comprobamos perfil_completo.
-      // El backend solamente valida Google y nos entrega
-      // el onboarding_token.
-      //
-      // Flujo:
-      // Google -> Formulario -> EnDesarrolloPage
-      // ========================================================
-
+      // Extraigo los datos que necesito para abrir el formulario de perfil.
       final String? onboardingToken = data['token']?.toString();
+      final String? email = data['Email']?.toString();
+      final String? nombre = data['Nombre']?.toString();
+      final bool esNuevo = data['Nuevo'] == true;
+      final String rol = data['Rol']?.toString() ?? 'Alumno';
 
-      if (onboardingToken == null || onboardingToken.isEmpty) {
-        setState(() {
-          authError =
-              'Tu cuenta fue validada, pero el servidor '
-              'no devolvió el token necesario para completar '
-              'el registro.';
-        });
-
+      if (onboardingToken == null || onboardingToken.isEmpty || email == null) {
+        setState(() => authError = 'El servidor no devolvió los datos necesarios.');
         return;
       }
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) =>
-              OnboardingPage(onboardingToken: onboardingToken),
-        ),
-      );
-    } on FormatException {
-      if (!mounted) {
-        return;
-      }
+      // Sustituyo la pantalla actual para que el usuario continúe el registro.
+      if (esNuevo){
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => OnboardingPage(
+              onboardingToken: onboardingToken,
+              email: email,
+              nombre: nombre ?? '',
+            ),
+          ),
+        );
+      } else {
+        // Si ya existe, entonces se salta directo a su panel según el rol
+        Widget destination;
+        if (rol == 'Instructor') {
+          destination = const InstructorPage();
+        } else {
+          destination = const AlumnoPage(); // Alumnos y Externos
+        }
 
-      setState(() {
-        authError = 'El servidor devolvió una respuesta inválida.';
-      });
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => destination),
+        );
+      }
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        authError = 'No se pudo conectar con el servidor: $error';
-      });
+      // Presento el error de conexión sin actualizar una pantalla desmontada.
+      if (mounted)
+        setState(
+          () => authError = 'No se pudo conectar con el servidor: $error',
+        );
     } finally {
+      // Restablezco el estado de envío incluso si la solicitud falla.
       googleRequestInFlight = false;
-
-      if (mounted) {
-        setState(() {
-          sendingToken = false;
-        });
-      }
+      if (mounted) setState(() => sendingToken = false);
     }
   }
-
-  // ============================================================
-  // INICIALIZACIÓN
-  // ============================================================
 
   @override
   void initState() {
     super.initState();
-
+    // Escucho los inicios de sesión y envío cada cuenta autenticada al backend.
     GoogleSignIn.instance
         .initialize()
         .then((_) {
@@ -217,74 +195,42 @@ class _AccessScreenState extends State<AccessScreen> {
                   }
                 },
                 onError: (Object error) {
-                  if (!mounted) {
-                    return;
-                  }
-
-                  setState(() {
-                    authError = 'Error de Google: $error';
-                  });
+                  if (mounted)
+                    setState(() => authError = 'Error de Google: $error');
                 },
               );
         })
         .catchError((Object error) {
-          if (!mounted) {
-            return;
-          }
-
-          setState(() {
-            authError = 'No se pudo iniciar Google: $error';
-          });
+          if (mounted)
+            setState(() => authError = 'No se pudo iniciar Google: $error');
         });
 
-    // Movimiento suave de los ojos.
+    // Animo gradualmente las pupilas hacia la posición indicada por el puntero.
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!mounted || (pupil - targetPupil).distance < 0.03) {
-        return;
-      }
-
-      setState(() {
-        pupil = Offset.lerp(pupil, targetPupil, 0.14)!;
-      });
+      if (!mounted || (pupil - targetPupil).distance < 0.03) return;
+      setState(() => pupil = Offset.lerp(pupil, targetPupil, 0.14)!);
     });
 
-    // Parpadeo automático.
+    // Reproduzco un parpadeo periódico y restauro enseguida la imagen abierta.
     blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        blink = true;
-      });
-
+      if (!mounted) return;
+      setState(() => blink = true);
       unblinkTimer?.cancel();
-
       unblinkTimer = Timer(const Duration(milliseconds: 150), () {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          blink = false;
-        });
+        if (mounted) setState(() => blink = false);
       });
     });
   }
 
   @override
   void dispose() {
+    // Cancelo temporizadores y eventos para liberar recursos al cerrar la pantalla.
     blinkTimer?.cancel();
     unblinkTimer?.cancel();
     eyeTimer?.cancel();
     googleSubscription?.cancel();
-
     super.dispose();
   }
-
-  // ============================================================
-  // ESTILOS
-  // ============================================================
 
   TextStyle style(
     double size, {
@@ -299,17 +245,12 @@ class _AccessScreenState extends State<AccessScreen> {
     );
   }
 
-  Widget gap(double height) {
-    return SizedBox(height: height);
-  }
+  // Mantengo una función breve para espaciar los elementos de la interfaz.
+  Widget gap(double height) => SizedBox(height: height);
 
-  // ============================================================
-  // PANEL IZQUIERDO
-  // ============================================================
-
+  // Construyo el panel de acceso y adapto sus elementos al ancho disponible.
   Widget leftPanel(double availableWidth, double height) {
     final bool showToucan = availableWidth > 750;
-
     return Container(
       constraints: BoxConstraints(minHeight: height),
       decoration: const BoxDecoration(
@@ -323,6 +264,7 @@ class _AccessScreenState extends State<AccessScreen> {
       child: Stack(
         children: [
           if (showToucan)
+            // Muestro el tucán solo cuando hay espacio suficiente.
             Positioned(
               top: 95,
               right: 20,
@@ -333,7 +275,6 @@ class _AccessScreenState extends State<AccessScreen> {
                 ),
               ),
             ),
-
           Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -350,23 +291,17 @@ class _AccessScreenState extends State<AccessScreen> {
                       'Innovación Tucán',
                       style: style(20, weight: FontWeight.w700),
                     ),
-
                     gap(55),
-
                     Text(
                       'Bienvenido a Comunidad Unix ITC',
                       style: style(36, weight: FontWeight.w700),
                     ),
-
                     gap(10),
-
                     Text(
                       'Inicia sesión con tu cuenta de Google para continuar.',
                       style: style(14, color: muted),
                     ),
-
                     gap(42),
-
                     Row(
                       children: [
                         const Expanded(
@@ -388,33 +323,21 @@ class _AccessScreenState extends State<AccessScreen> {
                         ),
                       ],
                     ),
-
                     gap(28),
-
-                    // ==========================================
-                    // ACCESO CON GOOGLE
-                    // ==========================================
                     Text(
                       'Continúa con Google',
                       textAlign: TextAlign.center,
                       style: style(17, weight: FontWeight.w600),
                     ),
-
                     gap(7),
-
                     Text(
                       'Usa tu cuenta de Google para registrarte y completar tu perfil.',
                       textAlign: TextAlign.center,
                       style: style(13, color: muted),
                     ),
-
                     gap(20),
-
                     Center(child: googleButton),
-
-                    // ==========================================
-                    // CARGANDO
-                    // ==========================================
+                    // Explico visualmente que la autenticación sigue en curso.
                     if (sendingToken) ...[
                       gap(24),
                       const Center(
@@ -428,10 +351,7 @@ class _AccessScreenState extends State<AccessScreen> {
                         ),
                       ),
                     ],
-
-                    // ==========================================
-                    // ERROR
-                    // ==========================================
+                    // Mantengo visible el detalle del error junto al acceso.
                     if (authError != null) ...[
                       gap(20),
                       Container(
@@ -463,9 +383,7 @@ class _AccessScreenState extends State<AccessScreen> {
                         ),
                       ),
                     ],
-
                     gap(34),
-
                     Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -493,16 +411,12 @@ class _AccessScreenState extends State<AccessScreen> {
     );
   }
 
-  // ============================================================
-  // PANEL DERECHO - LEXUS
-  // ============================================================
-
+  // Compongo el panel ilustrado con sus capas y la mascota animada.
   Widget rightPanel(double width, double height) {
     final double imageWidth = math.min(
       260.0,
       math.min(width * 0.47, height * 0.48 * 300 / 440),
     );
-
     return SizedBox(
       height: height,
       width: width,
@@ -523,9 +437,8 @@ class _AccessScreenState extends State<AccessScreen> {
               ),
             ),
           ),
-
+          // Superpongo el cielo, las montañas y los ojos sobre el fondo.
           Positioned.fill(child: CustomPaint(painter: SkyPainter())),
-
           Positioned(
             bottom: 0,
             left: 0,
@@ -535,7 +448,6 @@ class _AccessScreenState extends State<AccessScreen> {
               child: CustomPaint(painter: MountainPainter()),
             ),
           ),
-
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -556,17 +468,13 @@ class _AccessScreenState extends State<AccessScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 14),
-
                 Text(
                   '¡Hola! Soy Lexus 🐧',
                   textAlign: TextAlign.center,
                   style: style(23, weight: FontWeight.w700),
                 ),
-
                 gap(7),
-
                 Text(
                   'Tu compañero de confianza en Linux.',
                   textAlign: TextAlign.center,
@@ -575,7 +483,6 @@ class _AccessScreenState extends State<AccessScreen> {
               ],
             ),
           ),
-
           Positioned(
             bottom: 24,
             left: 0,
@@ -607,63 +514,45 @@ class _AccessScreenState extends State<AccessScreen> {
     );
   }
 
-  // ============================================================
-  // SEGUIMIENTO DEL CURSOR
-  // ============================================================
-
+  // Calculo el desplazamiento de la mirada únicamente en pantallas amplias.
   void followPointer(PointerEvent event, double width, double height) {
-    if (width < 950) {
-      return;
-    }
-
+    if (width < 950) return;
     final double imageWidth = math.min(
       260.0,
       math.min(width * 0.36 * 0.47, height * 0.48 * 300 / 440),
     );
-
     final Offset eyeCenter = Offset(
       width * 0.82,
       height * 0.5 - 34 - imageWidth * 68 / 300,
     );
-
     final Offset direction = event.localPosition - eyeCenter;
-
     final double distance = direction.distance;
 
     if (distance == 0) {
       targetPupil = Offset.zero;
       return;
     }
-
     final double amount = math.min(distance / 160, 1.0) * 8;
-
     targetPupil = Offset(
       direction.dx / distance * amount,
       direction.dy / distance * amount,
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
+  // Distribuyo los paneles en escritorio y conservo una columna en pantallas estrechas.
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
         final bool desktop = box.maxWidth >= 950;
-
         final double panel = box.maxWidth * 0.36;
-
         return Scaffold(
           body: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerHover: (event) {
-              followPointer(event, box.maxWidth, box.maxHeight);
-            },
-            onPointerMove: (event) {
-              followPointer(event, box.maxWidth, box.maxHeight);
-            },
+            onPointerHover: (event) =>
+                followPointer(event, box.maxWidth, box.maxHeight),
+            onPointerMove: (event) =>
+                followPointer(event, box.maxWidth, box.maxHeight),
             child: SafeArea(
               child: desktop
                   ? Row(
