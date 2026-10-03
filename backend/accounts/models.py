@@ -60,6 +60,7 @@ class Instructor(models.Model):
     departamento = models.CharField(max_length=100)
     especialidad = models.CharField(max_length=100)
     grado_academico = models.CharField(max_length=50)
+    procedencia = models.CharField(max_length=100, default='itc')
 
 class Externo(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)

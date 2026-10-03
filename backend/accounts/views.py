@@ -1,27 +1,31 @@
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from django.contrib.auth import get_user_model
 from django.conf import settings
-# Importación de Google
-from google.oauth2 import id_token
+from django.contrib.auth import get_user_model
+from django.core import signing
+from django.db import IntegrityError, transaction
+
 from google.auth.transport import requests
+from google.oauth2 import id_token
+
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Alumno, Instructor, Externo
 from .serializers import GoogleAuthSerializer
 from rest_framework.views import APIView
 from .models import Usuario, Alumno, Instructor, Externo
 
 class GoogleLoginView(generics.CreateAPIView):
-    # Usamos el serializador de Google
     serializer_class = GoogleAuthSerializer
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
-        # Validamos que el JSON entrante tenga el 'id_token'
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        token = serializer.validated_data.get('id_token')
-        rol = serializer.validated_data.get('rol', 'Externo') # Valor por defecto
+
+        token = serializer.validated_data.get("id_token")
+        rol_recibido = serializer.validated_data.get("rol")
 
         try:
             # Verificamos el token con Google
