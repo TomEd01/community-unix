@@ -93,7 +93,7 @@ class CompletarPerfilView(APIView):
 
         # Guardamos los datos en la tabla específica según lo que eligió el usuario
         if rol == 'Alumno':
-            Alumno.objects.create(
+            Alumno.objects.update_or_create(
                 usuario=user,
                 numero_control=data.get('numero_control'),
                 procedencia=procedencia_final
@@ -106,7 +106,7 @@ class CompletarPerfilView(APIView):
                 grado_final = data.get('especifica_grado', 'No especificado')
             else:
                 grado_final = grado_seleccion
-            Instructor.objects.create(
+            Instructor.objects.update_or_create(
                 usuario=user,
                 numero_control=data.get('numero_control'),
                 procedencia=procedencia_final,
@@ -122,7 +122,7 @@ class CompletarPerfilView(APIView):
                 org_final = 'Independiente / Autodidacta'
             else:
                 org_final = data.get('organizacion')
-            Externo.objects.create(
+            Externo.objects.update_or_create(
                 usuario=user,
                 tipo_experiencia=tipo_exp,
                 organizacion=org_final
