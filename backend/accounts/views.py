@@ -1,20 +1,16 @@
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.core import signing
-from django.db import IntegrityError, transaction
-
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+#Librerias de Google
 from google.auth.transport import requests
 from google.oauth2 import id_token
-
-from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from .models import Alumno, Instructor, Externo
+#Modelos locales
 from .serializers import GoogleAuthSerializer
-from rest_framework.views import APIView
 from .models import Usuario, Alumno, Instructor, Externo
+#Libreria para crear un JSON Web Token (JWT)
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class GoogleLoginView(generics.CreateAPIView):
     serializer_class = GoogleAuthSerializer
@@ -25,7 +21,7 @@ class GoogleLoginView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         token = serializer.validated_data.get("id_token")
-        rol_recibido = serializer.validated_data.get("rol")
+        rol = serializer.validated_data.get("rol", "Externo")
 
         try:
             # Verificamos el token con Google
@@ -50,7 +46,8 @@ class GoogleLoginView(generics.CreateAPIView):
                 user.save()
 
             # Generamos los tokens de sesión de nuestro backend (JWT)
-            # ..................
+            refresh = RefreshToken.for_user(user)
+            token_acceso = str(refresh.access_token)
             
             return Response({
                 "mensaje": "Autenticación exitosa",
@@ -58,6 +55,7 @@ class GoogleLoginView(generics.CreateAPIView):
                 "Nombre": user.nombre_completo,
                 "Rol": user.rol,
                 "Nuevo": created,
+                "token": token_acceso,
                 }, status=status.HTTP_200_OK)
 
         except ValueError:

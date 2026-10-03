@@ -148,7 +148,7 @@ class _AccessScreenState extends State<AccessScreen> {
       // Google -> Formulario -> EnDesarrolloPage
       // ========================================================
 
-      final String? onboardingToken = data['onboarding_token']?.toString();
+      final String? onboardingToken = data['token']?.toString();
 
       if (onboardingToken == null || onboardingToken.isEmpty) {
         setState(() {
