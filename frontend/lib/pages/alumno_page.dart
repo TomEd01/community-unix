@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../main.dart'; // Para poder navegar a AccessScreen
+
 class AlumnoPage extends StatelessWidget {
   const AlumnoPage({super.key});
 
@@ -19,8 +23,29 @@ class AlumnoPage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
+            onPressed: () async {
+              // Abrimos la memoria del teléfono
+              final prefs = await SharedPreferences.getInstance();
+
+              // Borramos absolutamente todo (Token y Rol)
+              await prefs.clear();
+
+              // Cerramos la sesión activa de Google en el navegador
+              try {
+                await GoogleSignIn.instance.signOut();
+              } catch (_) {
+                // Si falla porque ya estaba cerrada, lo ignoramos silenciosamente
+              }
+
+              // Verificamos que el widget siga activo antes de navegar
+              if (!context.mounted) return;
+
+              // Navegamos al Login destruyendo el historial hacia atrás
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const AccessScreen()),
+                (Route<dynamic> route) => false,
+              );
             },
             icon: const Icon(Icons.logout),
           ),

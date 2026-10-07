@@ -11,9 +11,22 @@ import 'pages/onboarding_page.dart';
 import 'pages/alumno_page.dart';
 import 'pages/instructor_page.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 // Inicio la aplicación desde la pantalla de acceso.
-void main() {
-  runApp(const ComunidadApp());
+void main() async{
+  // Asegura que Flutter esté listo antes de leer la memoria
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Leemos la memoria del dispositivo
+  final prefs = await SharedPreferences.getInstance();
+  final String? tokenGuardado = prefs.getString('jwt_token');
+  final String? rolGuardado = prefs.getString('user_rol');
+
+  runApp(ComunidadApp(
+    tokenInicial: tokenGuardado,
+    rolInicial: rolGuardado,
+  ));
 }
 
 // Centralizo los colores que comparto entre las distintas secciones.
@@ -23,11 +36,22 @@ const Color muted = Color(0xFF9899A8);
 const Color white = Colors.white;
 
 class ComunidadApp extends StatelessWidget {
-  const ComunidadApp({super.key});
+  final String? tokenInicial;
+  final String? rolInicial;
+  const ComunidadApp({super.key, this.tokenInicial, this.rolInicial});
 
   // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) {// Lógica de enrutamiento inicial
+    Widget pantallaInicial = const AccessScreen();
+    
+    if (tokenInicial != null && tokenInicial!.isNotEmpty) {
+      if (rolInicial == 'Instructor') {
+        pantallaInicial = const InstructorPage();
+      } else {
+        pantallaInicial = const AlumnoPage();
+      }
+    }
     return MaterialApp(
       title: 'Comunidad Unix ITC',
       debugShowCheckedModeBanner: false,
@@ -43,7 +67,7 @@ class ComunidadApp extends StatelessWidget {
         ),
         splashFactory: NoSplash.splashFactory,
       ),
-      home: const AccessScreen(),
+      home: pantallaInicial,
     );
   }
 }
@@ -56,6 +80,7 @@ class AccessScreen extends StatefulWidget {
 }
 
 class _AccessScreenState extends State<AccessScreen> {
+  static bool _googleIniciado = false;
   // Conservo la posición actual y el destino animado de las pupilas.
   Offset pupil = Offset.zero;
   Offset targetPupil = Offset.zero;
@@ -155,6 +180,11 @@ class _AccessScreenState extends State<AccessScreen> {
           ),
         );
       } else {
+        // Guardamos los datos en la memoria persistente
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', onboardingToken);
+        await prefs.setString('user_rol', rol);
+        
         // Si ya existe, entonces se salta directo a su panel según el rol
         Widget destination;
         if (rol == 'Instructor') {
@@ -183,27 +213,37 @@ class _AccessScreenState extends State<AccessScreen> {
   @override
   void initState() {
     super.initState();
-    // Escucho los inicios de sesión y envío cada cuenta autenticada al backend.
-    GoogleSignIn.instance
-        .initialize()
-        .then((_) {
-          googleSubscription = GoogleSignIn.instance.authenticationEvents
-              .listen(
-                (event) {
-                  if (event is GoogleSignInAuthenticationEventSignIn) {
-                    sendGoogleToken(event.user);
-                  }
-                },
-                onError: (Object error) {
-                  if (mounted)
-                    setState(() => authError = 'Error de Google: $error');
-                },
-              );
-        })
-        .catchError((Object error) {
-          if (mounted)
-            setState(() => authError = 'No se pudo iniciar Google: $error');
-        });
+    // Función auxiliar para no repetir código
+    void activarEscuchaGoogle() {
+      googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
+        (event) {
+          if (event is GoogleSignInAuthenticationEventSignIn) {
+            sendGoogleToken(event.user);
+          }
+        },
+        onError: (Object error) {
+          if (mounted) setState(() => authError = 'Error de Google: $error');
+        },
+      );
+    }
+    // Escucho los inicios de sesión y envío cada cuenta autenticada al backend, manteniendo
+    // una mejora de logica inteligente de inicialización.
+    if (!_googleIniciado) {
+      GoogleSignIn.instance.initialize().then((_) {
+        _googleIniciado = true;
+        activarEscuchaGoogle();
+      }).catchError((Object error) {
+        // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
+        if (error.toString().contains('already been called')) {
+          _googleIniciado = true;
+          activarEscuchaGoogle();
+        } else {
+          if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
+        }
+      });
+    } else {
+      activarEscuchaGoogle();
+    }
 
     // Animo gradualmente las pupilas hacia la posición indicada por el puntero.
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {

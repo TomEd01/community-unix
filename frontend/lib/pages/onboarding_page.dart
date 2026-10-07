@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'alumno_page.dart';
 import 'instructor_page.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 // Distingo los tres perfiles que puede registrar la pantalla y las dos
 // modalidades que especifico cuando alguien se registra como usuario externo.
 enum UserRole { alumno, instructor, externo }
@@ -194,6 +196,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return;
       }
 
+      // ¡El perfil se guardó en Django! Guardamos la sesión en el teléfono
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('jwt_token', widget.onboardingToken);
+      
+      // Guardamos el rol capitalizado para mantener el estándar ('Alumno', 'Instructor', 'Externo')
+      String rolFinal = role.name.substring(0, 1).toUpperCase() + role.name.substring(1);
+      await prefs.setString('user_rol', rolFinal);
+
       // Dirijo al usuario a su área según el perfil que acaba de registrar;
       // por ahora, el perfil externo comparte la pantalla del alumno.
       Widget destination;
@@ -211,9 +221,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
       if (!mounted) return;
       // Reemplazo onboarding para que volver atrás no reenvíe el mismo registro.
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => destination));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
