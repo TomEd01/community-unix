@@ -56,14 +56,16 @@ class Alumno(models.Model):
 class Instructor(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
     numero_control = models.CharField(max_length=20, unique=True)
+    procedencia = models.CharField(max_length=100, default='', blank=True)
     departamento = models.CharField(max_length=100)
     especialidad = models.CharField(max_length=100)
     grado_academico = models.CharField(max_length=50)
+    procedencia = models.CharField(max_length=100, default='itc')
 
 class Externo(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
     numero_control = models.CharField(max_length=50, unique=True, blank=True)
-    procedencia = models.CharField(max_length=100)
+    tipo_experiencia = models.CharField(max_length=50, default='Experiencia propia')
     organizacion = models.CharField(max_length=100)
 
     # Sobrescribimos el método save para autogenerar el ID del externo
@@ -71,5 +73,5 @@ class Externo(models.Model):
         # Primero generamos el ID si no existe 
         if not self.numero_control:
             generado = str(uuid.uuid4())[:8] # Genera un código aleatorio de 8 caracteres
-            self.numero_control = f"unix-{generado}"
+            self.numero_control = f"U{generado}"
         super().save(*args, **kwargs)
