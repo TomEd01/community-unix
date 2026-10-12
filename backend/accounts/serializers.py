@@ -7,3 +7,38 @@ class GoogleAuthSerializer(serializers.Serializer):
     # El rol es opcional porque, si el usuario ya existe y solo está iniciando sesión,
     # no necesita mandarnos su rol otra vez. Solo lo manda en su primer registro.
     rol = serializers.CharField(max_length=50, required=False)
+class CompletarPerfilSerializer(serializers.Serializer):
+    # Se arreglan las mayúsculas automáticamente
+    def to_internal_value(self, data):
+        # Hacemos una copia para no modificar el inmutable original
+        mutable_data = data.copy()
+        
+        # Si viene un rol en minúscula, lo capitalizamos ('alumno' -> 'Alumno')
+        if 'rol' in mutable_data and isinstance(mutable_data['rol'], str):
+            mutable_data['rol'] = mutable_data['rol'].capitalize()
+            
+        # Le pasamos los datos arreglados al validador normal
+        return super().to_internal_value(mutable_data)
+    """
+    Bloqueará automáticamente cualquier campo extraño,
+    inyección de código o tipos de datos incorrectos (ej. arrays en lugar de texto).
+    """
+    email = serializers.EmailField(required=False)
+    # Validamos que no intenten inyectar un rol de administrador
+    rol = serializers.ChoiceField(choices=['Alumno', 'Instructor', 'Externo'])
+    nombre_completo = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    
+    # Campos de Alumno e Instructor
+    numero_control = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    procedencia = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    nombre_institucion = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    
+    # Campos exclusivos de Instructor
+    departamento = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    especialidad = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    grado_academico = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    especifica_grado = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    
+    # Campos exclusivos de Externo
+    tipo_experiencia = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    organizacion = serializers.CharField(max_length=100, required=False, allow_blank=True)
