@@ -11,3 +11,13 @@ frontend/.dart_tool/
 frontend/.pub-cache/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
+# Entorno virtual local de Django
+backend/.venv/
+
+# Configuracion local de Flutter
+frontend/android/local.properties
+
+# Archivos temporales generados por Flutter
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh

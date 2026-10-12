@@ -11,8 +11,11 @@ import 'pages/onboarding_page.dart';
 import 'pages/alumno_page.dart';
 import 'pages/instructor_page.dart';
 
-// Inicio la aplicación desde la pantalla de acceso.
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await GoogleSignIn.instance.initialize();
+
   runApp(const ComunidadApp());
 }
 
@@ -137,14 +140,16 @@ class _AccessScreenState extends State<AccessScreen> {
       final String rol = data['Rol']?.toString() ?? 'Alumno';
 
       if (onboardingToken == null || onboardingToken.isEmpty || email == null) {
-        setState(() => authError = 'El servidor no devolvió los datos necesarios.');
+        setState(
+          () => authError = 'El servidor no devolvió los datos necesarios.',
+        );
         return;
       }
 
       if (!mounted) return;
 
       // Sustituyo la pantalla actual para que el usuario continúe el registro.
-      if (esNuevo){
+      if (esNuevo) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => OnboardingPage(
@@ -163,9 +168,9 @@ class _AccessScreenState extends State<AccessScreen> {
           destination = const AlumnoPage(); // Alumnos y Externos
         }
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => destination),
-        );
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
       }
     } catch (error) {
       // Presento el error de conexión sin actualizar una pantalla desmontada.
@@ -183,27 +188,20 @@ class _AccessScreenState extends State<AccessScreen> {
   @override
   void initState() {
     super.initState();
-    // Escucho los inicios de sesión y envío cada cuenta autenticada al backend.
-    GoogleSignIn.instance
-        .initialize()
-        .then((_) {
-          googleSubscription = GoogleSignIn.instance.authenticationEvents
-              .listen(
-                (event) {
-                  if (event is GoogleSignInAuthenticationEventSignIn) {
-                    sendGoogleToken(event.user);
-                  }
-                },
-                onError: (Object error) {
-                  if (mounted)
-                    setState(() => authError = 'Error de Google: $error');
-                },
-              );
-        })
-        .catchError((Object error) {
-          if (mounted)
-            setState(() => authError = 'No se pudo iniciar Google: $error');
-        });
+    // Escucho los inicios de sesión de Google.
+    // La inicialización ya se completó en main().
+    googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
+      (event) {
+        if (event is GoogleSignInAuthenticationEventSignIn) {
+          sendGoogleToken(event.user);
+        }
+      },
+      onError: (Object error) {
+        if (mounted) {
+          setState(() => authError = 'Error de Google: $error');
+        }
+      },
+    );
 
     // Animo gradualmente las pupilas hacia la posición indicada por el puntero.
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {

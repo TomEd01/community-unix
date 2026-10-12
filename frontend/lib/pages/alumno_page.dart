@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'alumno/alumno_comunidad_page.dart';
 import 'alumno/alumno_cursos_page.dart';
@@ -23,26 +24,11 @@ class _AlumnoPageState extends State<AlumnoPage> {
   int _selectedIndex = 0;
 
   final List<_NavItem> _items = const [
-    _NavItem(
-      icon: Icons.home_rounded,
-      label: 'Inicio',
-    ),
-    _NavItem(
-      icon: Icons.menu_book_rounded,
-      label: 'Cursos',
-    ),
-    _NavItem(
-      icon: Icons.event_rounded,
-      label: 'Eventos',
-    ),
-    _NavItem(
-      icon: Icons.groups_rounded,
-      label: 'Comunidad',
-    ),
-    _NavItem(
-      icon: Icons.person_rounded,
-      label: 'Mi perfil',
-    ),
+    _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
+    _NavItem(icon: Icons.menu_book_rounded, label: 'Cursos'),
+    _NavItem(icon: Icons.event_rounded, label: 'Eventos'),
+    _NavItem(icon: Icons.groups_rounded, label: 'Comunidad'),
+    _NavItem(icon: Icons.person_rounded, label: 'Mi perfil'),
   ];
 
   @override
@@ -75,9 +61,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
           child: Column(
             children: [
               _buildTopBar(),
-              Expanded(
-                child: _buildCurrentPage(),
-              ),
+              Expanded(child: _buildCurrentPage()),
             ],
           ),
         ),
@@ -93,9 +77,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
     return Column(
       children: [
         _buildMobileHeader(),
-        Expanded(
-          child: _buildCurrentPage(),
-        ),
+        Expanded(child: _buildCurrentPage()),
         _buildBottomNavigation(),
       ],
     );
@@ -110,22 +92,13 @@ class _AlumnoPageState extends State<AlumnoPage> {
       width: 245,
       decoration: const BoxDecoration(
         color: _sidebar,
-        border: Border(
-          right: BorderSide(
-            color: _border,
-          ),
-        ),
+        border: Border(right: BorderSide(color: _border)),
       ),
       child: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                22,
-                25,
-                22,
-                30,
-              ),
+              padding: const EdgeInsets.fromLTRB(22, 25, 22, 30),
               child: Row(
                 children: [
                   Container(
@@ -172,18 +145,13 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13),
                 itemCount: _items.length,
                 separatorBuilder: (_, _) {
                   return const SizedBox(height: 5);
                 },
                 itemBuilder: (context, index) {
-                  return _buildSidebarItem(
-                    index,
-                    _items[index],
-                  );
+                  return _buildSidebarItem(index, _items[index]);
                 },
               ),
             ),
@@ -196,9 +164,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
                 decoration: BoxDecoration(
                   color: _background,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _border,
-                  ),
+                  border: Border.all(color: _border),
                 ),
                 child: const Row(
                   children: [
@@ -228,10 +194,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
                           SizedBox(height: 2),
                           Text(
                             'Estudiante',
-                            style: TextStyle(
-                              color: _muted,
-                              fontSize: 10,
-                            ),
+                            style: TextStyle(color: _muted, fontSize: 10),
                           ),
                         ],
                       ),
@@ -246,10 +209,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
     );
   }
 
-  Widget _buildSidebarItem(
-    int index,
-    _NavItem item,
-  ) {
+  Widget _buildSidebarItem(int index, _NavItem item) {
     final bool selected = _selectedIndex == index;
 
     return Material(
@@ -263,10 +223,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
         borderRadius: BorderRadius.circular(11),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             color: selected
                 ? _orange.withValues(alpha: 0.13)
@@ -275,19 +232,14 @@ class _AlumnoPageState extends State<AlumnoPage> {
           ),
           child: Row(
             children: [
-              Icon(
-                item.icon,
-                size: 20,
-                color: selected ? _orange : _muted,
-              ),
+              Icon(item.icon, size: 20, color: selected ? _orange : _muted),
               const SizedBox(width: 13),
               Text(
                 item.label,
                 style: TextStyle(
                   color: selected ? Colors.white : _muted,
                   fontSize: 13,
-                  fontWeight:
-                      selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],
@@ -304,52 +256,34 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildTopBar() {
     return Container(
       height: 72,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 28,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       decoration: const BoxDecoration(
         color: _sidebar,
-        border: Border(
-          bottom: BorderSide(
-            color: _border,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: _border)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              constraints: const BoxConstraints(
-                maxWidth: 430,
-              ),
+              constraints: const BoxConstraints(maxWidth: 430),
               height: 42,
               decoration: BoxDecoration(
                 color: _background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _border,
-                ),
+                border: Border.all(color: _border),
               ),
               child: const TextField(
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Buscar cursos, eventos o comunidad...',
-                  hintStyle: TextStyle(
-                    color: _muted,
-                    fontSize: 12,
-                  ),
+                  hintStyle: TextStyle(color: _muted, fontSize: 12),
                   prefixIcon: Icon(
                     Icons.search_rounded,
                     color: _muted,
                     size: 20,
                   ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    vertical: 12,
-                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -360,30 +294,19 @@ class _AlumnoPageState extends State<AlumnoPage> {
           IconButton(
             tooltip: 'Notificaciones',
             onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              color: _muted,
-            ),
+            icon: const Icon(Icons.notifications_none_rounded, color: _muted),
           ),
 
           const SizedBox(width: 8),
 
-          Container(
-            width: 1,
-            height: 28,
-            color: _border,
-          ),
+          Container(width: 1, height: 28, color: _border),
 
           const SizedBox(width: 16),
 
           const CircleAvatar(
             radius: 18,
             backgroundColor: Color(0xFF123451),
-            child: Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
+            child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
           ),
 
           const SizedBox(width: 10),
@@ -402,10 +325,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
               ),
               Text(
                 'Comunidad UNIX',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: _muted, fontSize: 10),
               ),
             ],
           ),
@@ -415,34 +335,35 @@ class _AlumnoPageState extends State<AlumnoPage> {
           PopupMenuButton<String>(
             tooltip: 'Opciones',
             color: _sidebar,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: _muted,
-            ),
-            onSelected: (value) {
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+
+            onSelected: (value) async {
               if (value == 'logout') {
-                Navigator.of(context).popUntil(
-                  (route) => route.isFirst,
-                );
+                try {
+                  await GoogleSignIn.instance.signOut();
+                } catch (error) {
+                  debugPrint('Error al cerrar sesión de Google: $error');
+                }
+
+                if (!context.mounted) return;
+
+                Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil('/', (Route<dynamic> route) => false);
               }
             },
+
             itemBuilder: (context) {
               return const [
                 PopupMenuItem<String>(
                   value: 'logout',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.logout_rounded,
-                        color: Colors.white,
-                        size: 19,
-                      ),
+                      Icon(Icons.logout_rounded, color: Colors.white, size: 19),
                       SizedBox(width: 10),
                       Text(
                         'Cerrar sesión',
-                        style: TextStyle(
-                          color: Colors.white,
-                        ),
+                        style: TextStyle(color: Colors.white),
                       ),
                     ],
                   ),
@@ -454,7 +375,6 @@ class _AlumnoPageState extends State<AlumnoPage> {
       ),
     );
   }
-
   // ============================================================
   // HEADER MOBILE
   // ============================================================
@@ -462,16 +382,10 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildMobileHeader() {
     return Container(
       height: 65,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: _sidebar,
-        border: Border(
-          bottom: BorderSide(
-            color: _border,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: _border)),
       ),
       child: SafeArea(
         bottom: false,
@@ -507,19 +421,13 @@ class _AlumnoPageState extends State<AlumnoPage> {
             IconButton(
               tooltip: 'Buscar',
               onPressed: () {},
-              icon: const Icon(
-                Icons.search_rounded,
-                color: _muted,
-              ),
+              icon: const Icon(Icons.search_rounded, color: _muted),
             ),
 
             IconButton(
               tooltip: 'Notificaciones',
               onPressed: () {},
-              icon: const Icon(
-                Icons.notifications_none_rounded,
-                color: _muted,
-              ),
+              icon: const Icon(Icons.notifications_none_rounded, color: _muted),
             ),
           ],
         ),
@@ -534,11 +442,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildBottomNavigation() {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: _border,
-          ),
-        ),
+        border: Border(top: BorderSide(color: _border)),
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -581,7 +485,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
   }
 
   // ============================================================
-  // CAMBIO DE PÁGINA
+  // CAMBIO DE PÃGINA
   // ============================================================
 
   Widget _buildCurrentPage() {
@@ -608,15 +512,12 @@ class _AlumnoPageState extends State<AlumnoPage> {
 }
 
 // ================================================================
-// MODELO DE NAVEGACIÓN
+// MODELO DE NAVEGACIÃ“N
 // ================================================================
 
 class _NavItem {
   final IconData icon;
   final String label;
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-  });
+  const _NavItem({required this.icon, required this.label});
 }
