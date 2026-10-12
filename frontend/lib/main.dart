@@ -1,125 +1,259 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
-import 'package:flutter/gestures.dart';
+
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_web/web_only.dart' as web;
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-void main() => runApp(const ComunidadApp());
 
-const ink = Color(0xFF080C18);
-const orange = Color(0xFFF97316);
-const muted = Color(0xFF9899A8);
-const white = Colors.white;
+import 'pages/onboarding_page.dart';
+import 'pages/alumno_page.dart';
+import 'pages/instructor_page.dart';
 
-enum AccessTab { signin, signup }
-enum Role { alumno, instructor, externo }
-enum Experience { sector, propia }
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Inicio la aplicación desde la pantalla de acceso.
+void main() async{
+  // Asegura que Flutter esté listo antes de leer la memoria
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Leemos la memoria del dispositivo
+  final prefs = await SharedPreferences.getInstance();
+  final String? tokenGuardado = prefs.getString('jwt_token');
+  final String? rolGuardado = prefs.getString('user_rol');
+
+  runApp(ComunidadApp(
+    tokenInicial: tokenGuardado,
+    rolInicial: rolGuardado,
+  ));
+}
+
+// Centralizo los colores que comparto entre las distintas secciones.
+const Color ink = Color(0xFF080C18);
+const Color orange = Color(0xFFF97316);
+const Color muted = Color(0xFF9899A8);
+const Color white = Colors.white;
 
 class ComunidadApp extends StatelessWidget {
-  const ComunidadApp({super.key});
+  final String? tokenInicial;
+  final String? rolInicial;
+  const ComunidadApp({super.key, this.tokenInicial, this.rolInicial});
+
+  // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Comunidad Unix ITC',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
+  Widget build(BuildContext context) {// Lógica de enrutamiento inicial
+    Widget pantallaInicial = const AccessScreen();
+    
+    if (tokenInicial != null && tokenInicial!.isNotEmpty) {
+      if (rolInicial == 'Instructor') {
+        pantallaInicial = const InstructorPage();
+      } else {
+        pantallaInicial = const AlumnoPage();
+      }
+    }
+    return MaterialApp(
+      title: 'Comunidad Unix ITC',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: ink,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: orange,
           brightness: Brightness.dark,
-          scaffoldBackgroundColor: ink,
-          colorScheme: ColorScheme.fromSeed(seedColor: orange, brightness: Brightness.dark),
-          textTheme: const TextTheme(bodyMedium: TextStyle(fontSize: 14, color: white)),
-          splashFactory: NoSplash.splashFactory,
         ),
-        home: const AccessScreen(),
-      );
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(fontSize: 14, color: white),
+        ),
+        splashFactory: NoSplash.splashFactory,
+      ),
+      home: pantallaInicial,
+    );
+  }
 }
 
 class AccessScreen extends StatefulWidget {
   const AccessScreen({super.key});
+
   @override
   State<AccessScreen> createState() => _AccessScreenState();
 }
 
 class _AccessScreenState extends State<AccessScreen> {
-  AccessTab tab = AccessTab.signin;
-  Role role = Role.alumno;
-  Experience? experience;
-  String? institution;
-  String? degree;
-  bool sensitiveFocused = false;
+  static bool _googleIniciado = false;
+  // Conservo la posición actual y el destino animado de las pupilas.
   Offset pupil = Offset.zero;
   Offset targetPupil = Offset.zero;
+
+  // Coordino el parpadeo, el envío de credenciales y los eventos de Google.
   bool blink = false;
+  bool sendingToken = false;
+  bool googleRequestInFlight = false;
+
   Timer? blinkTimer;
   Timer? unblinkTimer;
   Timer? eyeTimer;
+
+  StreamSubscription<GoogleSignInAuthenticationEvent>? googleSubscription;
+
+  String? authError;
+
   late final Widget googleButton = web.renderButton();
 
-StreamSubscription<GoogleSignInAuthenticationEvent>? googleSubscription;
-String? authError;
-bool sendingToken = false;
+  // Envío el token de Google y preparo los datos para completar el perfil.
+  Future<void> sendGoogleToken(GoogleSignInAccount user) async {
+    // Evito procesar más de una solicitud de autenticación a la vez.
+    if (googleRequestInFlight) return;
+    googleRequestInFlight = true;
 
-Future<void> sendGoogleToken(GoogleSignInAccount user) async {
-  final idToken = user.authentication.idToken;
-  if (idToken == null) {
-    setState(() => authError = 'Google no devolvió un ID token.');
-    return;
-  }
+    final idToken = user.authentication.idToken;
 
-  setState(() {
-    sendingToken = true;
-    authError = null;
-  });
-
-  try {
-    final response = await http.post(
-      Uri.parse('http://127.0.0.1:8000/api/auth/google/'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'id_token': idToken}),
-    );
-
-    if (!mounted) return;
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      setState(() => authError =
-          'El servidor rechazó el acceso (${response.statusCode}): ${response.body}');
+    // Detengo el flujo si Google no proporciona el token requerido.
+    if (idToken == null) {
+      googleRequestInFlight = false;
+      if (mounted)
+        setState(() => authError = 'Google no devolvió un ID token.');
       return;
     }
 
-    // Aquí procesaremos la respuesta real del backend para continuar
-    // al registro o entrar a la aplicación.
-    debugPrint('Respuesta del backend: ${response.body}');
-  } catch (error) {
-    if (mounted) setState(() => authError = 'No se pudo conectar: $error');
-  } finally {
-    if (mounted) setState(() => sendingToken = false);
+    if (mounted)
+      setState(() {
+        sendingToken = true;
+        authError = null;
+      });
+
+    try {
+      // Envío el token al backend para validar la cuenta.
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8000/api/auth/google/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id_token': idToken}),
+      );
+
+      if (!mounted) return;
+
+      // Muestro el rechazo del servidor antes de interpretar su respuesta.
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        setState(
+          () => authError =
+              'El servidor rechazó el acceso (${response.statusCode})',
+        );
+        return;
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+
+      // Compruebo que la respuesta tenga la estructura que espera la aplicación.
+      if (decoded is! Map<String, dynamic>) {
+        setState(
+          () => authError = 'El servidor devolvió una respuesta inválida.',
+        );
+        return;
+      }
+
+      final Map<String, dynamic> data = decoded;
+      debugPrint('Respuesta del backend: $data');
+
+      // Extraigo los datos que necesito para abrir el formulario de perfil.
+      final String? onboardingToken = data['token']?.toString();
+      final String? email = data['Email']?.toString();
+      final String? nombre = data['Nombre']?.toString();
+      final bool esNuevo = data['Nuevo'] == true;
+      final String rol = data['Rol']?.toString() ?? 'Alumno';
+
+      if (onboardingToken == null || onboardingToken.isEmpty || email == null) {
+        setState(() => authError = 'El servidor no devolvió los datos necesarios.');
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Sustituyo la pantalla actual para que el usuario continúe el registro.
+      if (esNuevo){
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => OnboardingPage(
+              onboardingToken: onboardingToken,
+              email: email,
+              nombre: nombre ?? '',
+            ),
+          ),
+        );
+      } else {
+        // Guardamos los datos en la memoria persistente
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', onboardingToken);
+        await prefs.setString('user_rol', rol);
+        
+        // Si ya existe, entonces se salta directo a su panel según el rol
+        Widget destination;
+        if (rol == 'Instructor') {
+          destination = const InstructorPage();
+        } else {
+          destination = const AlumnoPage(); // Alumnos y Externos
+        }
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => destination),
+        );
+      }
+    } catch (error) {
+      // Presento el error de conexión sin actualizar una pantalla desmontada.
+      if (mounted)
+        setState(
+          () => authError = 'No se pudo conectar con el servidor: $error',
+        );
+    } finally {
+      // Restablezco el estado de envío incluso si la solicitud falla.
+      googleRequestInFlight = false;
+      if (mounted) setState(() => sendingToken = false);
+    }
   }
-}
 
   @override
   void initState() {
     super.initState();
-    GoogleSignIn.instance.initialize().then((_) {
-    googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
-      (event) {
-        if (event is GoogleSignInAuthenticationEventSignIn) {
-          sendGoogleToken(event.user);
+    // Función auxiliar para no repetir código
+    void activarEscuchaGoogle() {
+      googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
+        (event) {
+          if (event is GoogleSignInAuthenticationEventSignIn) {
+            sendGoogleToken(event.user);
+          }
+        },
+        onError: (Object error) {
+          if (mounted) setState(() => authError = 'Error de Google: $error');
+        },
+      );
+    }
+    // Escucho los inicios de sesión y envío cada cuenta autenticada al backend, manteniendo
+    // una mejora de logica inteligente de inicialización.
+    if (!_googleIniciado) {
+      GoogleSignIn.instance.initialize().then((_) {
+        _googleIniciado = true;
+        activarEscuchaGoogle();
+      }).catchError((Object error) {
+        // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
+        if (error.toString().contains('already been called')) {
+          _googleIniciado = true;
+          activarEscuchaGoogle();
+        } else {
+          if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
         }
-      },
-      onError: (Object error) {
-        if (mounted) setState(() => authError = 'Error de Google: $error');
-      },
-    );
-  }).catchError((Object error) {
-    if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
-  });
+      });
+    } else {
+      activarEscuchaGoogle();
+    }
+
+    // Animo gradualmente las pupilas hacia la posición indicada por el puntero.
     eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      final desired = sensitiveFocused ? const Offset(8, 0) : targetPupil;
-      if (!mounted || (pupil - desired).distance < 0.03) return;
-      setState(() => pupil = Offset.lerp(pupil, desired, 0.14)!);
+      if (!mounted || (pupil - targetPupil).distance < 0.03) return;
+      setState(() => pupil = Offset.lerp(pupil, targetPupil, 0.14)!);
     });
+
+    // Reproduzco un parpadeo periódico y restauro enseguida la imagen abierta.
     blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted || sensitiveFocused) return;
+      if (!mounted) return;
       setState(() => blink = true);
       unblinkTimer?.cancel();
       unblinkTimer = Timer(const Duration(milliseconds: 150), () {
@@ -130,6 +264,7 @@ Future<void> sendGoogleToken(GoogleSignInAccount user) async {
 
   @override
   void dispose() {
+    // Cancelo temporizadores y eventos para liberar recursos al cerrar la pantalla.
     blinkTimer?.cancel();
     unblinkTimer?.cancel();
     eyeTimer?.cancel();
@@ -137,337 +272,482 @@ Future<void> sendGoogleToken(GoogleSignInAccount user) async {
     super.dispose();
   }
 
-  void switchTab(AccessTab value) {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() { tab = value; sensitiveFocused = false; });
-  }
-
-  void switchRole(Role value) {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() { role = value; sensitiveFocused = false; });
-  }
-
-  TextStyle style(double size, {Color color = white, FontWeight weight = FontWeight.w400}) =>
-      TextStyle(fontSize: size, color: color, fontWeight: weight, height: 1.25);
-
-  Widget gap(double h) => SizedBox(height: h);
-
-  Widget field(String label, String placeholder, {bool sensitive = false}) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: style(13, color: muted, weight: FontWeight.w500)),
-        gap(8),
-        Focus(
-          onFocusChange: sensitive ? (focus) => setState(() {sensitiveFocused = focus;if (focus) blink = false;}): null,
-          child: TextField(
-            style: style(14),
-            decoration: InputDecoration(
-              hintText: placeholder,
-              hintStyle: style(14, color: const Color(0xFF9997A8)),
-              filled: true,
-              fillColor: const Color(0xFF222033),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3A394C))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: orange)),
-            ),
-          ),
-        ),
-      ]);
-
-  Widget dropdown(String label, String? value, List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: style(13, color: muted, weight: FontWeight.w500)),
-        gap(8),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          dropdownColor: const Color(0xFF222033),
-          hint: Text('Selecciona una opción', style: style(14, color: muted)),
-          decoration: InputDecoration(
-            filled: true, fillColor: const Color(0xFF222033),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3A394C))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: orange)),
-          ),
-          items: items, onChanged: onChanged,
-        ),
-      ]);
-
-  Widget roleCard(Role option, IconData icon, String name) {
-    final selected = role == option;
-    return Expanded(child: InkWell(
-      borderRadius: BorderRadius.circular(13),
-      onTap: () => switchRole(option),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 84,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(13),
-          gradient: selected ? const LinearGradient(colors: [Color(0xFF4D2B36), Color(0xFF342748)]) : null,
-          color: selected ? null : const Color(0xFF232035),
-          border: Border.all(color: selected ? orange : const Color(0xFF403A51)),
-        ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: selected ? white : muted, size: 22),
-          gap(6), Text(name, style: style(12, color: selected ? white : muted, weight: FontWeight.w600)),
-        ]),
-      ),
-    ));
-  }
-
-  Widget experienceChoice(Experience choice, String label) {
-    final selected = experience == choice;
-    return InkWell(
-      onTap: () => setState(() => experience = choice),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3B2935) : const Color(0xFF222033),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? orange : const Color(0xFF3A394C)),
-        ),
-        child: Row(children: [
-          Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? orange : muted, size: 18),
-          const SizedBox(width: 12), Text(label, style: style(14)),
-        ]),
-      ),
+  TextStyle style(
+    double size, {
+    Color color = white,
+    FontWeight weight = FontWeight.w400,
+  }) {
+    return TextStyle(
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+      height: 1.25,
     );
   }
 
-  Widget form() {
-    if (tab == AccessTab.signin) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Selecciona tu tipo de registro', style: style(13, color: muted)), gap(10),
-      Row(children: [
-        roleCard(Role.alumno, Icons.school_outlined, 'Alumno'), const SizedBox(width: 8),
-        roleCard(Role.instructor, Icons.co_present_outlined, 'Instructor'), const SizedBox(width: 8),
-        roleCard(Role.externo, Icons.people_outline, 'Externo'),
-      ]),
-      gap(24), field('Nombre completo *', 'Tu nombre completo'), gap(16),
-      if (role == Role.alumno || role == Role.instructor) ...[
-        field(role == Role.alumno ? 'ID / número de control *' : 'Matrícula del instructor *',
-            role == Role.alumno ? 'Ej. 21040123' : 'Tu matrícula', sensitive: true),
-        gap(16),
-        dropdown('Procedencia / Institución *', institution, const [
-          DropdownMenuItem(value: 'itc', child: Text('Instituto Tecnológico de Cancún')),
-          DropdownMenuItem(value: 'otra', child: Text('Otra institución')),
-        ], (v) => setState(() => institution = v)),
-        gap(16),
-      ],
-      if (role == Role.instructor) ...[
-        field('Departamento / Academia *', 'Ej. Academia de Sistemas'), gap(16),
-        field('Especialidad / Área de conocimiento *', 'Ej. Desarrollo de Software'), gap(16),
-        dropdown('Grado académico / Título *', degree, const [
-          DropdownMenuItem(value: 'mtro', child: Text('Mtro.')),
-          DropdownMenuItem(value: 'dr', child: Text('Dr.')),
-          DropdownMenuItem(value: 'ing', child: Text('Ing.')),
-          DropdownMenuItem(value: 'lic', child: Text('Lic.')),
-          DropdownMenuItem(value: 'otro', child: Text('Otro (escribe cuál)')),
-        ], (v) => setState(() => degree = v)),
-        gap(16),
-        if (degree == 'otro') ...[field('Especifica tu grado o título *', 'Escribe tu grado o título'), gap(16)],
-      ],
-      if (role == Role.externo) ...[
-        Text('Tipo de experiencia *', style: style(13, color: muted, weight: FontWeight.w500)),
-        gap(9), experienceChoice(Experience.sector, 'Trabajo en el sector'), gap(8),
-        experienceChoice(Experience.propia, 'Experiencia propia'), gap(16),
-        if (experience == Experience.sector) ...[
-          field('Organización / procedencia *', 'Escribe tu organización o procedencia'), gap(16),
-        ],
-      ],
-    ]);
-  }
+  // Mantengo una función breve para espaciar los elementos de la interfaz.
+  Widget gap(double height) => SizedBox(height: height);
 
-  Widget tabSwitcher() => Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: const Color(0xFF242036), borderRadius: BorderRadius.circular(13)),
-        child: Row(children: [
-          for (final item in AccessTab.values)
-            Expanded(child: InkWell(
-              onTap: () => switchTab(item), borderRadius: BorderRadius.circular(10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: tab == item ? const LinearGradient(colors: [Color(0xFF59343A), Color(0xFF3D2B55)]) : null,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(item == AccessTab.signin ? 'Iniciar sesión' : 'Registrarse',
-                    style: style(13, color: tab == item ? white : muted, weight: FontWeight.w600)),
-              ),
-            )),
-        ]),
-      );
-
+  // Construyo el panel de acceso y adapto sus elementos al ancho disponible.
   Widget leftPanel(double availableWidth, double height) {
-    final showToucan = availableWidth > 750;
+    final bool showToucan = availableWidth > 750;
     return Container(
       constraints: BoxConstraints(minHeight: height),
-      decoration: const BoxDecoration(gradient: RadialGradient(
-        center: Alignment(-0.65, -0.75), radius: 1.3,
-        colors: [Color(0xFF231039), Color(0xFF111321), ink],
-        stops: [0, 0.55, 1],
-      )),
-      child: Stack(children: [
-        if (showToucan)
-          Positioned(top: tab == AccessTab.signin ? 110 : 8, right: 20,
-            child: IgnorePointer(child: Image.asset('assets/toucan.png', width: math.min(215, availableWidth * 0.22)))),
-        Align(alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 46),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text('Innovación Tucán', style: style(20, weight: FontWeight.w700)), gap(32),
-                Text(tab == AccessTab.signin ? 'Bienvenido a Comunidad Unix ITC' : 'Crea tu cuenta',
-                    style: style(36, weight: FontWeight.w700)),
-                gap(8),
-                Text(tab == AccessTab.signin ? 'Inicia sesión para continuar aprendiendo.' : 'Únete y comienza aprender.',
-                    style: style(14, color: muted)),
-                gap(28), tabSwitcher(), gap(28), form(),
-                Center(
-                  child: googleButton,
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(-0.65, -0.75),
+          radius: 1.3,
+          colors: [Color(0xFF231039), Color(0xFF111321), ink],
+          stops: [0, 0.55, 1],
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (showToucan)
+            // Muestro el tucán solo cuando hay espacio suficiente.
+            Positioned(
+              top: 95,
+              right: 20,
+              child: IgnorePointer(
+                child: Image.asset(
+                  'assets/toucan.png',
+                  width: math.min(215, availableWidth * 0.22),
                 ),
-                if (sendingToken) const Center(child: CircularProgressIndicator()),
-                if (authError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(authError!, style: const TextStyle(color: Colors.redAccent)),
-                  ),
-                gap(24),
-                Center(child: Wrap(alignment: WrapAlignment.center, children: [
-                  Text(tab == AccessTab.signin ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? ', style: style(13, color: muted)),
-                  InkWell(onTap: () => switchTab(tab == AccessTab.signin ? AccessTab.signup : AccessTab.signin),
-                    child: Text(tab == AccessTab.signin ? 'Regístrate' : 'Inicia sesión', style: style(13, color: orange, weight: FontWeight.w600))),
-                ])),
-              ]),
+              ),
+            ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 46,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Innovación Tucán',
+                      style: style(20, weight: FontWeight.w700),
+                    ),
+                    gap(55),
+                    Text(
+                      'Bienvenido a Comunidad Unix ITC',
+                      style: style(36, weight: FontWeight.w700),
+                    ),
+                    gap(10),
+                    Text(
+                      'Inicia sesión con tu cuenta de Google para continuar.',
+                      style: style(14, color: muted),
+                    ),
+                    gap(42),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Divider(color: Color(0xFF343246)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text(
+                            'ACCESO',
+                            style: style(
+                              11,
+                              color: muted,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const Expanded(
+                          child: Divider(color: Color(0xFF343246)),
+                        ),
+                      ],
+                    ),
+                    gap(28),
+                    Text(
+                      'Continúa con Google',
+                      textAlign: TextAlign.center,
+                      style: style(17, weight: FontWeight.w600),
+                    ),
+                    gap(7),
+                    Text(
+                      'Usa tu cuenta de Google para registrarte y completar tu perfil.',
+                      textAlign: TextAlign.center,
+                      style: style(13, color: muted),
+                    ),
+                    gap(20),
+                    Center(child: googleButton),
+                    // Explico visualmente que la autenticación sigue en curso.
+                    if (sendingToken) ...[
+                      gap(24),
+                      const Center(
+                        child: CircularProgressIndicator(color: orange),
+                      ),
+                      gap(10),
+                      Center(
+                        child: Text(
+                          'Verificando tu cuenta...',
+                          style: style(13, color: muted),
+                        ),
+                      ),
+                    ],
+                    // Mantengo visible el detalle del error junto al acceso.
+                    if (authError != null) ...[
+                      gap(20),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF321C26),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF713446)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                authError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    gap(34),
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.shield_outlined,
+                            color: Color(0xFF52D7A7),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Acceso seguro con Google',
+                            style: style(12, color: muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 
+  // Compongo el panel ilustrado con sus capas y la mascota animada.
   Widget rightPanel(double width, double height) {
-    final imageWidth = math.min(260.0, math.min(width * 0.47, height * 0.48 * 300 / 440));
-    return SizedBox(height: height, width: width, child: Stack(children: [
-        const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [Color(0xFF10143C), Color(0xFF202C70), Color(0xFF142052)],
-        )))),
-        Positioned.fill(child: CustomPaint(painter: SkyPainter())),
-        Positioned(bottom: 0, left: 0, right: 0,
-          child: SizedBox(height: height * 0.19, child: CustomPaint(painter: MountainPainter()))),
-        Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          SizedBox(width: imageWidth, height: imageWidth * 440 / 300, child: Stack(fit: StackFit.expand, children: [
-            Image.asset(!sensitiveFocused && blink? 'assets/lexus_blink.png': 'assets/lexus_base.png',fit: BoxFit.fill,),if (sensitiveFocused || !blink)CustomPaint(painter: PupilPainter(pupil)),
-            if (!sensitiveFocused && !blink) CustomPaint(painter: PupilPainter(pupil)),
-          ])),
-          const SizedBox(height: 14),
-          Text(sensitiveFocused ? '¡No miro, lo prometo!' : '¡Hola! Soy Lexus🐧',
-              textAlign: TextAlign.center, style: style(23, weight: FontWeight.w700)),
-          gap(7),
-          Text(sensitiveFocused ? 'Confia en mí.' : 'Tu compañero de confianza en Linux.',
-              textAlign: TextAlign.center, style: style(13, color: const Color(0xFFABB4D5))),
-        ])),
-        Positioned(bottom: 24, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(width: 20, height: 6, decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(4))),
-          const SizedBox(width: 8),
-          for (var i = 0; i < 2; i++) ...[
-            const CircleAvatar(radius: 3, backgroundColor: Color(0xFF6B789B)), const SizedBox(width: 8),
-          ],
-        ])),
-      ]));
+    final double imageWidth = math.min(
+      260.0,
+      math.min(width * 0.47, height * 0.48 * 300 / 440),
+    );
+    return SizedBox(
+      height: height,
+      width: width,
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF10143C),
+                    Color(0xFF202C70),
+                    Color(0xFF142052),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Superpongo el cielo, las montañas y los ojos sobre el fondo.
+          Positioned.fill(child: CustomPaint(painter: SkyPainter())),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: height * 0.19,
+              child: CustomPaint(painter: MountainPainter()),
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: imageWidth,
+                  height: imageWidth * 440 / 300,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        blink
+                            ? 'assets/lexus_blink.png'
+                            : 'assets/lexus_base.png',
+                        fit: BoxFit.fill,
+                      ),
+                      if (!blink) CustomPaint(painter: PupilPainter(pupil)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  '¡Hola! Soy Lexus 🐧',
+                  textAlign: TextAlign.center,
+                  style: style(23, weight: FontWeight.w700),
+                ),
+                gap(7),
+                Text(
+                  'Tu compañero de confianza en Linux.',
+                  textAlign: TextAlign.center,
+                  style: style(13, color: const Color(0xFFABB4D5)),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 24,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 20,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: orange,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                for (var i = 0; i < 2; i++) ...[
+                  const CircleAvatar(
+                    radius: 3,
+                    backgroundColor: Color(0xFF6B789B),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
+  // Calculo el desplazamiento de la mirada únicamente en pantallas amplias.
   void followPointer(PointerEvent event, double width, double height) {
-    if (sensitiveFocused || width < 950) return;
-    // Eyes are centered in the illustration, which sits in the right panel.
-    final imageWidth = math.min(260.0, math.min(width * 0.36 * 0.47, height * 0.48 * 300 / 440));
-    final eyeCenter = Offset(width * 0.82, height * 0.5 - 34 - imageWidth * 68 / 300);
-    final direction = event.localPosition - eyeCenter;
-    final distance = direction.distance;
-    if (distance == 0) { targetPupil = Offset.zero; return; }
-    final amount = math.min(distance / 160, 1.0) * 8;
-    targetPupil = Offset(direction.dx / distance * amount, direction.dy / distance * amount);
+    if (width < 950) return;
+    final double imageWidth = math.min(
+      260.0,
+      math.min(width * 0.36 * 0.47, height * 0.48 * 300 / 440),
+    );
+    final Offset eyeCenter = Offset(
+      width * 0.82,
+      height * 0.5 - 34 - imageWidth * 68 / 300,
+    );
+    final Offset direction = event.localPosition - eyeCenter;
+    final double distance = direction.distance;
+
+    if (distance == 0) {
+      targetPupil = Offset.zero;
+      return;
+    }
+    final double amount = math.min(distance / 160, 1.0) * 8;
+    targetPupil = Offset(
+      direction.dx / distance * amount,
+      direction.dy / distance * amount,
+    );
   }
 
+  // Distribuyo los paneles en escritorio y conservo una columna en pantallas estrechas.
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final desktop = box.maxWidth >= 950;
-        final panel = box.maxWidth * 0.36;
-        return Scaffold(body: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerHover: (event) => followPointer(event, box.maxWidth, box.maxHeight),
-          onPointerMove: (event) => followPointer(event, box.maxWidth, box.maxHeight),
-          child: SafeArea(child: desktop
-          ? Row(children: [
-              Expanded(child: SingleChildScrollView(child: leftPanel(box.maxWidth - panel, box.maxHeight))),
-              rightPanel(panel, box.maxHeight),
-            ])
-          : SingleChildScrollView(child: leftPanel(box.maxWidth, box.maxHeight)),
-        )));
-      });
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final bool desktop = box.maxWidth >= 950;
+        final double panel = box.maxWidth * 0.36;
+        return Scaffold(
+          body: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerHover: (event) =>
+                followPointer(event, box.maxWidth, box.maxHeight),
+            onPointerMove: (event) =>
+                followPointer(event, box.maxWidth, box.maxHeight),
+            child: SafeArea(
+              child: desktop
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: leftPanel(
+                              box.maxWidth - panel,
+                              box.maxHeight,
+                            ),
+                          ),
+                        ),
+                        rightPanel(panel, box.maxHeight),
+                      ],
+                    )
+                  : SingleChildScrollView(
+                      child: leftPanel(box.maxWidth, box.maxHeight),
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+
+// ============================================================
+// OJOS DE LEXUS
+// ============================================================
 
 class PupilPainter extends CustomPainter {
   const PupilPainter(this.offset);
+
   final Offset offset;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
+
     canvas.scale(size.width / 300, size.height / 440);
-    for (final center in [const Offset(120, 152), const Offset(180, 152)]) {
-      final eye = center + offset;
+
+    for (final Offset center in [
+      const Offset(120, 152),
+      const Offset(180, 152),
+    ]) {
+      final Offset eye = center + offset;
+
       canvas.drawCircle(eye, 13, Paint()..color = const Color(0xFF08111F));
+
       canvas.drawCircle(eye, 10, Paint()..color = const Color(0xFF0D1A30));
+
       canvas.drawCircle(eye, 6.5, Paint()..color = const Color(0xFF030A15));
-      canvas.drawCircle(eye + const Offset(-4, -4), 3.2, Paint()..color = const Color(0xE6FFFFFF));
-      canvas.drawCircle(eye + const Offset(2.5, -1.5), 1.5, Paint()..color = const Color(0x73FFFFFF));
+
+      canvas.drawCircle(
+        eye + const Offset(-4, -4),
+        3.2,
+        Paint()..color = const Color(0xE6FFFFFF),
+      );
+
+      canvas.drawCircle(
+        eye + const Offset(2.5, -1.5),
+        1.5,
+        Paint()..color = const Color(0x73FFFFFF),
+      );
     }
+
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant PupilPainter oldDelegate) => oldDelegate.offset != offset;
+  bool shouldRepaint(covariant PupilPainter oldDelegate) {
+    return oldDelegate.offset != offset;
+  }
 }
+
+// ============================================================
+// ESTRELLAS
+// ============================================================
 
 class SkyPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xAACCDAFF);
-    final random = math.Random(17);
+    final Paint paint = Paint()..color = const Color(0xAACCDAFF);
+
+    final math.Random random = math.Random(17);
+
     for (var i = 0; i < 80; i++) {
-      paint.color = const Color(0xFFCCD9FF).withValues(alpha: 0.15 + random.nextDouble() * 0.5);
-      canvas.drawCircle(Offset(random.nextDouble() * size.width, random.nextDouble() * size.height * 0.9),
-          0.5 + random.nextDouble(), paint);
+      paint.color = const Color(
+        0xFFCCD9FF,
+      ).withValues(alpha: 0.15 + random.nextDouble() * 0.5);
+
+      canvas.drawCircle(
+        Offset(
+          random.nextDouble() * size.width,
+          random.nextDouble() * size.height * 0.9,
+        ),
+        0.5 + random.nextDouble(),
+        paint,
+      );
     }
   }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
+  }
 }
+
+// ============================================================
+// MONTAÑAS
+// ============================================================
 
 class MountainPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    void triangle(double left, double apex, double right, double top, Color color) {
-      final p = Path()..moveTo(size.width * left, size.height)..lineTo(size.width * apex, size.height * top)
-          ..lineTo(size.width * right, size.height)..close();
-      canvas.drawPath(p, Paint()..color = color);
-      final snow = Path()..moveTo(size.width * apex, size.height * top)
-          ..lineTo(size.width * (apex - 0.035), size.height * (top + 0.2))
-          ..lineTo(size.width * (apex + 0.035), size.height * (top + 0.2))..close();
+    void triangle(
+      double left,
+      double apex,
+      double right,
+      double top,
+      Color color,
+    ) {
+      final Path path = Path()
+        ..moveTo(size.width * left, size.height)
+        ..lineTo(size.width * apex, size.height * top)
+        ..lineTo(size.width * right, size.height)
+        ..close();
+
+      canvas.drawPath(path, Paint()..color = color);
+
+      final Path snow = Path()
+        ..moveTo(size.width * apex, size.height * top)
+        ..lineTo(size.width * (apex - 0.035), size.height * (top + 0.2))
+        ..lineTo(size.width * (apex + 0.035), size.height * (top + 0.2))
+        ..close();
+
       canvas.drawPath(snow, Paint()..color = const Color(0xFFCCDDFA));
     }
-    triangle(-.1, .2, .5, .2, const Color(0xFF102C61));
-    triangle(.1, .38, .7, .1, const Color(0xFF15366D));
-    triangle(.4, .7, 1.05, .15, const Color(0xFF102D63));
-    triangle(.68, .86, 1.1, .38, const Color(0xFF173A76));
-    canvas.drawRect(Rect.fromLTWH(0, size.height * .88, size.width, size.height * .12),
-        Paint()..color = const Color(0x441D7092));
+
+    triangle(-0.1, 0.2, 0.5, 0.2, const Color(0xFF102C61));
+
+    triangle(0.1, 0.38, 0.7, 0.1, const Color(0xFF15366D));
+
+    triangle(0.4, 0.7, 1.05, 0.15, const Color(0xFF102D63));
+
+    triangle(0.68, 0.86, 1.1, 0.38, const Color(0xFF173A76));
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height * 0.88, size.width, size.height * 0.12),
+      Paint()..color = const Color(0x441D7092),
+    );
   }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
+  }
 }
