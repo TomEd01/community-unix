@@ -7,12 +7,9 @@ import 'alumno/alumno_eventos_page.dart';
 import 'alumno/alumno_inicio_page.dart';
 import 'alumno/alumno_perfil_page.dart';
 
-class AlumnoPage extends StatefulWidget {
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../main.dart'; // Para poder navegar a AccessScreen
 
-class AlumnoPage extends StatelessWidget {
+class AlumnoPage extends StatefulWidget {
   const AlumnoPage({super.key});
 
   @override
