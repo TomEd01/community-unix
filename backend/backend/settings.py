@@ -57,6 +57,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+REST_FRAMEWORK = {
+    # 1. Le decimos a DRF que SIEMPRE intente leer los tokens JWT primero
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    # 2. Opcional pero recomendado: Denegar el acceso global a menos que se use AllowAny
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
 ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
@@ -133,4 +144,20 @@ AUTH_USER_MODEL = 'accounts.Usuario'
 
 GOOGLE_CLIENT_ID= os.getenv('GOOGLE_CLIENT_ID')
 
-CORS_ALLOW_ALL_ORIGINS = True
+# NO USAR True en producción. Solo permitimos los puertos de desarrollo local
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:50243",
+    "http://127.0.0.1:50243",
+]
+# Permitimos que Flutter envíe el Header de Authorization con el JWT
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
