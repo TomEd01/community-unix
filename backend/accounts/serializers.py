@@ -42,3 +42,19 @@ class CompletarPerfilSerializer(serializers.Serializer):
     # Campos exclusivos de Externo
     tipo_experiencia = serializers.CharField(max_length=50, required=False, allow_blank=True)
     organizacion = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+class PerfilUpdateSerializer(serializers.Serializer):
+    # Solo exponemos los campos permitidos para edición
+    nombre_completo = serializers.CharField(max_length=255, required=False)
+    
+    # Campos de Alumno e Instructor
+    procedencia = serializers.CharField(max_length=100, required=False)
+    
+    # Campos exclusivos de Instructor
+    departamento = serializers.CharField(max_length=100, required=False)
+    especialidad = serializers.CharField(max_length=100, required=False)
+    grado_academico = serializers.CharField(max_length=50, required=False)
+    
+    # Campos exclusivos de Externo
+    tipo_experiencia = serializers.CharField(max_length=50, required=False)
+    organizacion = serializers.CharField(max_length=100, required=False)
