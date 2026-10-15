@@ -179,7 +179,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
       // Serializo el payload como JSON y lo envío al endpoint de onboarding.
       final response = await http.post(
         Uri.parse('http://127.0.0.1:8000/api/auth/completar_perfil/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          // Entegamos la llave: Anexamos el token JWT a la petición
+          'Authorization': 'Bearer ${widget.onboardingToken}',
+          },
         body: jsonEncode(body),
       );
 

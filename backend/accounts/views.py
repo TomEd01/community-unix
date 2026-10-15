@@ -3,14 +3,17 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 #Librerias de Google
 from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
-from .serializers import GoogleAuthSerializer
+from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer
 from .models import Usuario, Alumno, Instructor, Externo
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 class GoogleLoginView(generics.CreateAPIView):
     serializer_class = GoogleAuthSerializer
@@ -61,21 +64,28 @@ class GoogleLoginView(generics.CreateAPIView):
         except ValueError:
             # Si el token es inválido o expiró
             return Response({"error": "Token de Google inválido"}, status=status.HTTP_400_BAD_REQUEST)
+@method_decorator(csrf_exempt, name='dispatch')
 class CompletarPerfilView(APIView):
+    # Se exige el token JWT: Si la petición no trae un token válido, 
+    # Django la rechaza automáticamente con un error 401 Unauthorized.
+    permission_classes = [IsAuthenticated]
     def post(self, request):
-        # Extraemos los datos que nos envían desde Flutter
-        data = request.data
-        email = data.get('email')
-        rol = data.get('rol','').capitalize()
+        # Si envían un array, código malicioso o campos ocultos, DRF aborta aquí mismo (raise_exception=True)
+        serializer = CompletarPerfilSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Se extrae los datos ya limpios y seguros
+        safe_data = serializer.validated_data
+        
+        rol = safe_data.get('rol').capitalize()
+        """
+            BOLA/IDOR SOLUCIONADO: Ya no buscamos al usuario por el email del JSON.
+            request.user es la identidad criptográfica verificada por el Token JWT.
+            Es imposible que un usuario modifique a otro.
+        """
+        user = request.user
 
-        try:
-            # Verificamos si el usuario que Google creó en el paso anterior
-            user = Usuario.objects.get(email=email)
-        except Usuario.DoesNotExist:
-            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
-
-        #Resolvemos la logica del nombre modificado en el form, lo sobrescribimos. Si no, conservamos el de Google.
-        nuevo_nombre = data.get('nombre_completo')
+        # Resolvemos el nombre modificado
+        nuevo_nombre = safe_data.get('nombre_completo')
         if nuevo_nombre:
             user.nombre_completo = nuevo_nombre
         
@@ -84,44 +94,44 @@ class CompletarPerfilView(APIView):
         user.save()
 
         # Lógica de procedencia (aplica para alumno e instructor)
-        procedencia_seleccion = data.get('procedencia')
+        procedencia_seleccion = safe_data.get('procedencia')
         # Si el combobox dice "Otra institución", guardamos lo que escribió en el campo extra
         if procedencia_seleccion == 'Otra institución':
-            procedencia_final = data.get('nombre_institucion', 'No especificada')
+            procedencia_final = safe_data.get('nombre_institucion', 'No especificada')
         else:
             procedencia_final = procedencia_seleccion
 
-        # Guardamos los datos en la tabla específica según lo que eligió el usuario
+        # Guardado en base de datos (protegido contra asignación masiva)
         if rol == 'Alumno':
             Alumno.objects.update_or_create(
                 usuario=user,
-                numero_control=data.get('numero_control'),
+                numero_control=safe_data.get('numero_control'),
                 procedencia=procedencia_final
             )
         
         elif rol == 'Instructor':
             # Lógica dinámica para el grado académico
-            grado_seleccion = data.get('grado_academico')
+            grado_seleccion = safe_data.get('grado_academico')
             if grado_seleccion == 'Otro':
-                grado_final = data.get('especifica_grado', 'No especificado')
+                grado_final = safe_data.get('especifica_grado', 'No especificado')
             else:
                 grado_final = grado_seleccion
             Instructor.objects.update_or_create(
                 usuario=user,
-                numero_control=data.get('numero_control'),
+                numero_control=safe_data.get('numero_control'),
                 procedencia=procedencia_final,
-                departamento=data.get('departamento'),
-                especialidad=data.get('especialidad'),
+                departamento=safe_data.get('departamento'),
+                especialidad=safe_data.get('especialidad'),
                 grado_academico=grado_final
             )
             
         elif rol == 'Externo':
-            tipo_exp = data.get('tipo_experiencia')
+            tipo_exp = safe_data.get('tipo_experiencia')
             # Si es experiencia propia, ignoramos el campo de texto
             if tipo_exp == 'Experiencia propia':
                 org_final = 'Independiente / Autodidacta'
             else:
-                org_final = data.get('organizacion')
+                org_final = safe_data.get('organizacion')
             Externo.objects.update_or_create(
                 usuario=user,
                 tipo_experiencia=tipo_exp,

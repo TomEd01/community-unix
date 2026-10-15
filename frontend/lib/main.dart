@@ -162,14 +162,16 @@ class _AccessScreenState extends State<AccessScreen> {
       final String rol = data['Rol']?.toString() ?? 'Alumno';
 
       if (onboardingToken == null || onboardingToken.isEmpty || email == null) {
-        setState(() => authError = 'El servidor no devolvió los datos necesarios.');
+        setState(
+          () => authError = 'El servidor no devolvió los datos necesarios.',
+        );
         return;
       }
 
       if (!mounted) return;
 
       // Sustituyo la pantalla actual para que el usuario continúe el registro.
-      if (esNuevo){
+      if (esNuevo) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => OnboardingPage(
@@ -193,9 +195,9 @@ class _AccessScreenState extends State<AccessScreen> {
           destination = const AlumnoPage(); // Alumnos y Externos
         }
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => destination),
-        );
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
       }
     } catch (error) {
       // Presento el error de conexión sin actualizar una pantalla desmontada.
