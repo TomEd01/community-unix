@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../main.dart';
 
 class AlumnoPerfilPage extends StatefulWidget {
   const AlumnoPerfilPage({super.key});
@@ -17,23 +21,45 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   static const Color _red = Color(0xFFFF4D5A);
   static const Color _muted = Color(0xFF91A9BE);
 
-  bool _editing = false;
+  final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _nameController =
       TextEditingController(text: 'Alumno');
 
-  final TextEditingController _controlController =
-      TextEditingController(text: '202600123');
-
-  final TextEditingController _careerController =
-      TextEditingController(text: 'Ingeniería en Sistemas');
+  String _displayName = 'Alumno';
+  bool _logoutInProgress = false;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _controlController.dispose();
-    _careerController.dispose();
     super.dispose();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+  }
+
+  void _updateProfile() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _displayName = _nameController.text.trim();
+      _nameController.text = _displayName;
+    });
+
+    // Pendiente: guardar el nombre mediante la API del backend.
+    _showMessage(
+      'Nombre actualizado en esta pantalla. '
+      'El guardado en el servidor está pendiente.',
+    );
   }
 
   @override
@@ -44,7 +70,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final mobile = width < 700;
-          final tablet = width >= 700 && width < 1050;
+          final tablet = width >= 700 && width < 1100;
 
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
@@ -77,10 +103,6 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     );
   }
 
-  // ============================================================
-  // HEADER
-  // ============================================================
-
   Widget _buildHeader(bool mobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,17 +118,14 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         const SizedBox(height: 5),
         const Text(
           'Administra tu perfil y tu información personal.',
-          style: TextStyle(
-            color: _muted,
-            fontSize: 13,
-          ),
+          style: TextStyle(color: _muted, fontSize: 13),
         ),
       ],
     );
   }
 
   // ============================================================
-  // LAYOUT DESKTOP
+  // DISTRIBUCIÓN PARA PC
   // ============================================================
 
   Widget _buildDesktopLayout() {
@@ -114,21 +133,19 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 280,
+          width: 260,
           child: _buildProfileCard(),
         ),
         const SizedBox(width: 18),
-        Expanded(
-          child: _buildPersonalInfo(),
-        ),
+        Expanded(child: _buildPersonalInfo()),
         const SizedBox(width: 18),
         SizedBox(
-          width: 320,
+          width: 280,
           child: Column(
             children: [
-              
               _buildSession(),
-              
+              const SizedBox(height: 18),
+              _buildDeleteAccount(),
             ],
           ),
         ),
@@ -137,7 +154,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   }
 
   // ============================================================
-  // LAYOUT TABLET
+  // DISTRIBUCIÓN PARA TABLET
   // ============================================================
 
   Widget _buildTabletLayout() {
@@ -147,16 +164,13 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 280,
+              width: 240,
               child: _buildProfileCard(),
             ),
             const SizedBox(width: 18),
-            Expanded(
-              child: _buildPersonalInfo(),
-            ),
+            Expanded(child: _buildPersonalInfo()),
           ],
         ),
-        
         const SizedBox(height: 18),
         _buildSession(),
         const SizedBox(height: 18),
@@ -166,7 +180,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   }
 
   // ============================================================
-  // LAYOUT MOBILE
+  // DISTRIBUCIÓN PARA TELÉFONO
   // ============================================================
 
   Widget _buildMobileLayout() {
@@ -175,7 +189,6 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         _buildProfileCard(),
         const SizedBox(height: 16),
         _buildPersonalInfo(),
-        
         const SizedBox(height: 16),
         _buildSession(),
         const SizedBox(height: 16),
@@ -185,7 +198,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   }
 
   // ============================================================
-  // PERFIL
+  // TARJETA DE PERFIL
   // ============================================================
 
   Widget _buildProfileCard() {
@@ -213,10 +226,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _field,
-                  border: Border.all(
-                    color: _border,
-                    width: 3,
-                  ),
+                  border: Border.all(color: _border, width: 3),
                 ),
                 child: const Icon(
                   Icons.person_rounded,
@@ -225,27 +235,28 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
                 ),
               ),
               Positioned(
-                right: -3,
-                bottom: 2,
+                right: -5,
+                bottom: 0,
                 child: Container(
-                  width: 34,
-                  height: 34,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: _blue,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _card,
-                      width: 3,
-                    ),
+                    border: Border.all(color: _card, width: 3),
                   ),
                   child: IconButton(
                     tooltip: 'Cambiar foto',
                     padding: EdgeInsets.zero,
-                    onPressed: () {},
+                    onPressed: () {
+                      _showMessage(
+                        'El cambio de foto está pendiente de implementar.',
+                      );
+                    },
                     icon: const Icon(
                       Icons.camera_alt_rounded,
                       color: Colors.white,
-                      size: 17,
+                      size: 19,
                     ),
                   ),
                 ),
@@ -253,73 +264,26 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
             ],
           ),
           const SizedBox(height: 15),
-          const Text(
-            'Alumno',
+          Text(
+            _displayName,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 23,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: _blue,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-                SizedBox(width: 5),
-                Text(
-                  'Alumno',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+          _buildBadge(
+            text: 'Alumno',
+            icon: Icons.person_rounded,
+            color: _blue,
           ),
           const SizedBox(height: 9),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 11,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: _field,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.bar_chart_rounded,
-                  color: Colors.white,
-                  size: 15,
-                ),
-                SizedBox(width: 6),
-                Text(
-                  'Nivel principiante',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
+          _buildBadge(
+            text: 'Nivel principiante',
+            icon: Icons.bar_chart_rounded,
+            color: _field,
           ),
           const SizedBox(height: 24),
           const Divider(color: _border),
@@ -367,158 +331,28 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     );
   }
 
-  // ============================================================
-  // INFORMACIÓN PERSONAL
-  // ============================================================
-
-  Widget _buildPersonalInfo() {
-    return _panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildBadge({
+    required String text,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Información personal',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Editar información',
-                onPressed: () {
-                  setState(() {
-                    _editing = !_editing;
-                  });
-                },
-                icon: Icon(
-                  _editing
-                      ? Icons.close_rounded
-                      : Icons.edit_rounded,
-                  color: _blue,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _fieldLabel('Nombre completo'),
-          _profileField(
-            controller: _nameController,
-          ),
-          const SizedBox(height: 14),
-          _fieldLabel('Matrícula'),
-          _profileField(
-            controller: _controlController,
-          ),
-          const SizedBox(height: 14),
-          _fieldLabel('Carrera'),
-          _profileField(
-            controller: _careerController,
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _border,
-              ),
-            ),
-            child: const Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    'G',
-                    style: TextStyle(
-                      color: Color(0xFF4285F4),
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'alumno@ejemplo.com',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Cuenta vinculada con Google',
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.lock_outline_rounded,
-                  color: _muted,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _editing
-                  ? () {
-                      setState(() {
-                        _editing = false;
-                      });
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Cambios guardados localmente en la interfaz.',
-                          ),
-                        ),
-                      );
-                    }
-                  : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: _orange,
-                disabledBackgroundColor:
-                    _orange.withValues(alpha: 0.45),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 15,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-              iconAlignment: IconAlignment.end,
-              icon: const Icon(
-                Icons.arrow_forward_rounded,
-                size: 18,
-              ),
-              label: const Text(
-                'Guardar cambios',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+          Icon(icon, color: Colors.white, size: 15),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -526,65 +360,163 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     );
   }
 
-  Widget _fieldLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+  // ============================================================
+  // INFORMACIÓN PERSONAL
+  // ============================================================
+
+  Widget _buildPersonalInfo() {
+    return _panel(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Información personal',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Nombre completo',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 7),
+            TextFormField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _updateProfile(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Escribe tu nombre completo.';
+                }
+                return null;
+              },
+              decoration: InputDecoration(
+                hintText: 'Escribe tu nombre',
+                hintStyle: const TextStyle(color: _muted),
+                filled: true,
+                fillColor: _field,
+                enabledBorder: _inputBorder(_border),
+                focusedBorder: _inputBorder(_blue, width: 2),
+                errorBorder: _inputBorder(_red),
+                focusedErrorBorder: _inputBorder(_red, width: 2),
+                errorStyle: const TextStyle(color: _red),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _buildGoogleAccount(),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _updateProfile,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _orange,
+                  foregroundColor: _bg,
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 15,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                icon: const Icon(Icons.save_outlined, size: 20),
+                label: const Text(
+                  'Actualizar perfil',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _profileField({
-    required TextEditingController controller,
-  }) {
-    return TextField(
-      controller: controller,
-      enabled: _editing,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 12,
-      ),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: _field,
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(9),
-          borderSide: const BorderSide(
-            color: _border,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(9),
-          borderSide: const BorderSide(
-            color: _blue,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(9),
-          borderSide: const BorderSide(
-            color: _blue,
-            width: 2,
-          ),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 13,
-        ),
-      ),
+  OutlineInputBorder _inputBorder(Color color, {double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(9),
+      borderSide: BorderSide(color: color, width: width),
     );
   }
 
-  
-
+  Widget _buildGoogleAccount() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white,
+            child: Text(
+              'G',
+              style: TextStyle(
+                color: Color(0xFF4285F4),
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'alumno@ejemplo.com',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Cuenta vinculada con Google',
+                  style: TextStyle(color: _muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          Icon(
+            Icons.lock_outline_rounded,
+            color: _muted,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
 
   // ============================================================
-  // SESIÓN
+  // TARJETA DE SESIÓN
   // ============================================================
 
   Widget _buildSession() {
@@ -601,51 +533,63 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
             ),
           ),
           const SizedBox(height: 12),
-          InkWell(
-            onTap: _showLogoutDialog,
+          Material(
+            color: _field,
             borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _field,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.logout_rounded,
-                    color: _red,
-                    size: 27,
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cerrar sesión',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
+            child: InkWell(
+              onTap: _logoutInProgress ? null : _showLogoutDialog,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    if (_logoutInProgress)
+                      const SizedBox(
+                        width: 27,
+                        height: 27,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _orange,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Se cerrará tu sesión en este dispositivo.',
-                          style: TextStyle(
-                            color: _muted,
-                            fontSize: 9,
+                      )
+                    else
+                      const Icon(
+                        Icons.logout_rounded,
+                        color: _muted,
+                        size: 27,
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _logoutInProgress
+                                ? 'Cerrando sesión...'
+                                : 'Cerrar sesión',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Salir de tu cuenta en este dispositivo.',
+                            style: TextStyle(
+                              color: _muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.white,
-                  ),
-                ],
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -655,7 +599,103 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   }
 
   // ============================================================
-  // BORRAR CUENTA
+  // CIERRE DE SESIÓN
+  // ============================================================
+
+  Future<void> _showLogoutDialog() async {
+    if (_logoutInProgress) return;
+
+    // Bloquea aperturas repetidas mientras el diálogo está visible.
+    setState(() => _logoutInProgress = true);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: _card,
+          title: const Text(
+            '¿Cerrar sesión?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            '¿Deseas salir de tu cuenta en este dispositivo?',
+            style: TextStyle(color: _muted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: _orange,
+                foregroundColor: _bg,
+              ),
+              child: const Text('Cerrar sesión'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (confirmed != true) {
+      setState(() => _logoutInProgress = false);
+      return;
+    }
+
+    try {
+      // Borra únicamente los datos de sesión de la aplicación.
+      final prefs = await SharedPreferences.getInstance();
+
+      final tokenRemoved = await prefs.remove('jwt_token');
+      final roleRemoved = await prefs.remove('user_rol');
+
+      if (!tokenRemoved || !roleRemoved) {
+        throw StateError('No se pudo limpiar la sesión guardada.');
+      }
+    } catch (error) {
+      debugPrint('Error al limpiar la sesión: $error');
+
+      if (!mounted) return;
+
+      setState(() => _logoutInProgress = false);
+
+      _showMessage(
+        'No se pudo cerrar la sesión. Inténtalo nuevamente.',
+      );
+      return;
+    }
+
+    try {
+      await GoogleSignIn.instance.signOut();
+    } catch (error) {
+      // Aunque Google falle, la sesión local ya fue eliminada.
+      debugPrint('No se pudo cerrar la sesión de Google: $error');
+    }
+
+    if (!mounted) return;
+
+    // Abre el acceso y elimina las pantallas anteriores.
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const AccessScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  // ============================================================
+  // ELIMINAR CUENTA
   // ============================================================
 
   Widget _buildDeleteAccount() {
@@ -673,7 +713,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Borrar cuenta',
+            'Eliminar cuenta',
             style: TextStyle(
               color: Colors.white,
               fontSize: 17,
@@ -692,10 +732,11 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Elimina tu perfil y tu progreso de forma permanente.',
+                  'Solicita la eliminación permanente de tu perfil '
+                  'y tu progreso.',
                   style: TextStyle(
                     color: _muted,
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.4,
                   ),
                 ),
@@ -705,25 +746,28 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
           const SizedBox(height: 17),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _showDeleteDialog,
+            child: OutlinedButton.icon(
+              onPressed: _logoutInProgress ? null : _showDeleteDialog,
               style: OutlinedButton.styleFrom(
                 foregroundColor: _red,
-                side: const BorderSide(
-                  color: _red,
-                ),
+                side: const BorderSide(color: _red),
+                minimumSize: const Size(0, 48),
                 padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
                   vertical: 13,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'Borrar cuenta',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 20,
+              ),
+              label: const Text(
+                'Eliminar cuenta',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -732,88 +776,24 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     );
   }
 
-  // ============================================================
-  // DIÁLOGOS
-  // ============================================================
-
-  Future<void> _showLogoutDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: _card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(
-              color: _border,
-            ),
-          ),
-          title: const Text(
-            '¿Cerrar sesión?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: const Text(
-            'Esta acción cerrará tu sesión en este dispositivo.',
-            style: TextStyle(
-              color: _muted,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text(
-                'Cancelar',
-              ),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: _orange,
-              ),
-              child: const Text(
-                'Cerrar sesión',
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _showDeleteDialog() async {
-    await showDialog<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: _card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: BorderSide(
-              color: _red.withValues(alpha: 0.7),
-            ),
+            side: const BorderSide(color: _red),
           ),
-          icon: Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: _red.withValues(alpha: 0.13),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.delete_outline_rounded,
-              color: _red,
-              size: 30,
-            ),
+          icon: const Icon(
+            Icons.delete_forever_rounded,
+            color: _red,
+            size: 38,
           ),
           title: const Text(
-            '¿Borrar tu cuenta?',
+            '¿Eliminar tu cuenta?',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -821,8 +801,9 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
             ),
           ),
           content: const Text(
-            'Esta acción eliminaría tu perfil y tu progreso. '
-            'No se puede deshacer.',
+            'La eliminación de la cuenta y su progreso sería permanente.\n\n'
+            'Esta opción todavía no está conectada al servidor; '
+            'confirmar no eliminará datos.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _muted,
@@ -833,69 +814,59 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
           actions: [
             OutlinedButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
+                Navigator.pop(dialogContext, false);
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(
-                  color: _border,
-                ),
+                side: const BorderSide(color: _border),
               ),
-              child: const Text(
-                'Cancelar',
-              ),
+              child: const Text('Cancelar'),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Función de eliminación pendiente de conectar al backend.',
-                    ),
-                  ),
-                );
+                Navigator.pop(dialogContext, true);
               },
               style: FilledButton.styleFrom(
                 backgroundColor: _red,
-                foregroundColor: Colors.white,
+                foregroundColor: _bg,
               ),
-              child: const Text(
-                'Sí, borrar cuenta',
-              ),
+              child: const Text('Confirmar'),
             ),
           ],
         );
       },
     );
+
+    if (!mounted || confirmed != true) return;
+
+    // Pendiente: solicitar la eliminación al backend.
+    _showMessage(
+      'No se eliminó ninguna cuenta. '
+      'Falta conectar esta función al backend.',
+    );
   }
 
   // ============================================================
-  // PANEL
+  // CONTENEDOR DE TARJETAS
   // ============================================================
 
-  Widget _panel({
-    required Widget child,
-  }) {
+  Widget _panel({required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: _border,
-        ),
+        border: Border.all(color: _border),
       ),
       child: child,
     );
   }
 }
 
-// =================================================================
-// ESTADÍSTICA
-// =================================================================
+// ================================================================
+// ESTADÍSTICAS DE EJEMPLO
+// ================================================================
 
 class _ProfileStat extends StatelessWidget {
   final IconData icon;
@@ -917,7 +888,7 @@ class _ProfileStat extends StatelessWidget {
         const SizedBox(height: 3),
         Icon(
           icon,
-          color: Color(0xFF2796FF),
+          color: const Color(0xFF2796FF),
           size: 25,
         ),
         const SizedBox(height: 7),
@@ -936,7 +907,7 @@ class _ProfileStat extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Color(0xFF91A9BE),
-            fontSize: 9,
+            fontSize: 10,
             height: 1.3,
           ),
         ),
