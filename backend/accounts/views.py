@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
-from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer
+from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer
 from .models import Usuario, Alumno, Instructor, Externo
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -144,5 +144,85 @@ class CompletarPerfilView(APIView):
         return Response({
             "mensaje": "Perfil completado exitosamente",
             "rol_confirmado": user.rol,
+            "nombre_actualizado": user.nombre_completo
+        }, status=status.HTTP_200_OK)
+class MiPerfilView(APIView):
+    # EXIGIMOS EL TOKEN JWT. Sin él, nadie entra.
+    permission_classes = [IsAuthenticated]
+    def get(self,request):
+        # Devolvemos los datos actuales del usuario para que Flutter rellene los TextFields.
+        user = request.user
+        # Datos base que todos tienen
+        data = {
+            "email": user.email,
+            "nombre_completo": user.nombre_completo,
+            "rol": user.rol,
+        }
+        try:
+            if user.rol == 'Alumno':
+                alumno = Alumno.objects.get(usuario=user)
+                data['numero_control'] = alumno.numero_control
+                data['procedencia'] = alumno.procedencia
+                
+            elif user.rol == 'Instructor':
+                instructor = Instructor.objects.get(usuario=user)
+                data['numero_control'] = instructor.numero_control
+                data['procedencia'] = instructor.procedencia
+                data['departamento'] = instructor.departamento
+                data['especialidad'] = instructor.especialidad
+                data['grado_academico'] = instructor.grado_academico
+                
+            elif user.rol == 'Externo':
+                externo = Externo.objects.get(usuario=user)
+                data['numero_control'] = externo.numero_control # Es el U+UUID
+                data['tipo_experiencia'] = externo.tipo_experiencia
+                data['organizacion'] = externo.organizacion
+        except (Alumno.DoesNotExist, Instructor.DoesNotExist, Externo.DoesNotExist):
+            return Response({"error": "Perfil detallado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(data, status=status.HTTP_200_OK)
+    def patch(self, request):
+        # Recibe solo los datos que el usuario modifico y los guarda con la capa de seguridad
+        user = request.user
+        serializer = PerfilUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+        # Actualizamos el nombre base si lo enviaron
+        if 'nombre_completo' in safe_data:
+            user.nombre_completo = safe_data['nombre_completo']
+            user.save()
+        # Resolvemos procedencia dinámica (Igual que en el registro)
+        procedencia_seleccion = safe_data.get('procedencia')
+        if procedencia_seleccion == 'Otra institución':
+            procedencia_final = safe_data.get('nombre_institucion', 'No especificada')
+        else:
+            procedencia_final = procedencia_seleccion
+        try:
+            if user.rol == 'Alumno':
+                alumno = Alumno.objects.get(usuario=user)
+                if procedencia_seleccion:
+                    alumno.procedencia = procedencia_final
+                alumno.save()
+            elif user.rol == 'Instructor':
+                instructor = Instructor.objects.get(usuario=user)
+                if procedencia_seleccion:
+                    instructor.procedencia = procedencia_final
+                if 'departamento' in safe_data: instructor.departamento = safe_data['departamento']
+                if 'especialidad' in safe_data: instructor.especialidad = safe_data['especialidad']
+                
+                grado_seleccion = safe_data.get('grado_academico')
+                if grado_seleccion:
+                    instructor.grado_academico = safe_data.get('especifica_grado', 'No especificado') if grado_seleccion == 'Otro' else grado_seleccion
+                instructor.save()
+            elif user.rol == 'Externo':
+                externo = Externo.objects.get(usuario=user)
+                tipo_exp = safe_data.get('tipo_experiencia')
+                if tipo_exp:
+                    externo.tipo_experiencia = tipo_exp
+                    externo.organizacion = 'Independiente / Autodidacta' if tipo_exp == 'Experiencia propia' else safe_data.get('organizacion', externo.organizacion)
+                externo.save()
+        except (Alumno.DoesNotExist, Instructor.DoesNotExist, Externo.DoesNotExist):
+            return Response({"error": "No se pudo actualizar el perfil detallado"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "mensaje": "Perfil actualizado correctamente",
             "nombre_actualizado": user.nombre_completo
         }, status=status.HTTP_200_OK)
