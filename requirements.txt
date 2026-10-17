@@ -24,3 +24,4 @@ requests-oauthlib==2.0.0
 sqlparse==0.6.0
 tzdata==2026.3
 urllib3==2.8.0
+psycopg[binary]==3.3.6
