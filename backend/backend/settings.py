@@ -58,14 +58,24 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    # 1. Le decimos a DRF que SIEMPRE intente leer los tokens JWT primero
+    # Indico a DRF que siempre valide primero los tokens JWT en cada petición
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    # 2. Opcional pero recomendado: Denegar el acceso global a menos que se use AllowAny
+    # Protejo todos los endpoints por defecto a menos que especifique AllowAny
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Activo la protección contra ataques de fuerza bruta y DDoS (Rate Limiting)
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    # Limito las peticiones: 15 por minuto para usuarios no logueados y 60 para autenticados
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '15/minute',
+        'user': '60/minute'
+    }
 }
 
 ROOT_URLCONF = 'backend.urls'
@@ -169,3 +179,9 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# --- CABECERAS DE SEGURIDAD (Prevención de Clickjacking y MIME Sniffing) ---
+# Prohíbo terminantemente que la aplicación sea incrustada en iframes externos
+X_FRAME_OPTIONS = 'DENY'
+# Evito que el navegador intente adivinar el tipo de archivo en las respuestas
+SECURE_CONTENT_TYPE_NOSNIFF = True
