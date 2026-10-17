@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import IntegrityError
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -44,9 +45,18 @@ class GoogleLoginView(generics.CreateAPIView):
             )
 
             if created:
-                # Este usuario NO tiene contraseña local?
+                # Asigno una contraseña inutilizable ya que la autenticación depende de Google
                 user.set_unusable_password()
                 user.save()
+
+            # Verifico si el usuario realmente completó su registro en alguna de las tablas de rol
+            tiene_perfil = (
+                Alumno.objects.filter(usuario=user).exists() or
+                Instructor.objects.filter(usuario=user).exists() or
+                Externo.objects.filter(usuario=user).exists()
+            )
+            # Si es nuevo o dejó el formulario a medias anteriormente, lo envío al onboarding
+            necesita_onboarding = created or not tiene_perfil
 
             # Generamos los tokens de sesión de nuestro backend (JWT)
             refresh = RefreshToken.for_user(user)
@@ -57,7 +67,7 @@ class GoogleLoginView(generics.CreateAPIView):
                 "Email": user.email,
                 "Nombre": user.nombre_completo,
                 "Rol": user.rol,
-                "Nuevo": created,
+                "Nuevo": necesita_onboarding,
                 "token": token_acceso,
                 }, status=status.HTTP_200_OK)
 
@@ -101,46 +111,59 @@ class CompletarPerfilView(APIView):
         else:
             procedencia_final = procedencia_seleccion
 
-        # Guardado en base de datos (protegido contra asignación masiva)
-        if rol == 'Alumno':
-            Alumno.objects.update_or_create(
-                usuario=user,
-                numero_control=safe_data.get('numero_control'),
-                procedencia=procedencia_final
-            )
-        
-        elif rol == 'Instructor':
-            # Lógica dinámica para el grado académico
-            grado_seleccion = safe_data.get('grado_academico')
-            if grado_seleccion == 'Otro':
-                grado_final = safe_data.get('especifica_grado', 'No especificado')
-            else:
-                grado_final = grado_seleccion
-            Instructor.objects.update_or_create(
-                usuario=user,
-                numero_control=safe_data.get('numero_control'),
-                procedencia=procedencia_final,
-                departamento=safe_data.get('departamento'),
-                especialidad=safe_data.get('especialidad'),
-                grado_academico=grado_final
-            )
+        # Guardo en base de datos usando defaults para evitar asignación masiva y capturo matrículas duplicadas
+        try:
+            if rol == 'Alumno':
+                Alumno.objects.update_or_create(
+                    usuario=user,
+                    defaults={
+                        'numero_control': safe_data.get('numero_control'),
+                        'procedencia': procedencia_final
+                    }
+                )
             
-        elif rol == 'Externo':
-            tipo_exp = safe_data.get('tipo_experiencia')
-            # Si es experiencia propia, ignoramos el campo de texto
-            if tipo_exp == 'Experiencia propia':
-                org_final = 'Independiente / Autodidacta'
+            elif rol == 'Instructor':
+                # Resuelvo la lógica dinámica para el grado académico
+                grado_seleccion = safe_data.get('grado_academico')
+                if grado_seleccion == 'Otro':
+                    grado_final = safe_data.get('especifica_grado', 'No especificado')
+                else:
+                    grado_final = grado_seleccion
+                Instructor.objects.update_or_create(
+                    usuario=user,
+                    defaults={
+                        'numero_control': safe_data.get('numero_control'),
+                        'procedencia': procedencia_final,
+                        'departamento': safe_data.get('departamento'),
+                        'especialidad': safe_data.get('especialidad'),
+                        'grado_academico': grado_final
+                    }
+                )
+                
+            elif rol == 'Externo':
+                tipo_exp = safe_data.get('tipo_experiencia')
+                # Si es experiencia propia, asigno el valor por defecto
+                if tipo_exp == 'Experiencia propia':
+                    org_final = 'Independiente / Autodidacta'
+                else:
+                    org_final = safe_data.get('organizacion')
+                Externo.objects.update_or_create(
+                    usuario=user,
+                    defaults={
+                        'tipo_experiencia': tipo_exp,
+                        'organizacion': org_final
+                    }
+                )
             else:
-                org_final = safe_data.get('organizacion')
-            Externo.objects.update_or_create(
-                usuario=user,
-                tipo_experiencia=tipo_exp,
-                organizacion=org_final
+                return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            # Capturo el error si intentan registrar un número de control que ya pertenece a otra cuenta
+            return Response(
+                {"error": "El ID o número de control ingresado ya está registrado por otro usuario."},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        else:
-            return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Verificamos que todo este en orden y perfectamente guardado
+        # Confirmo que el perfil quedó guardado correctamente
         return Response({
             "mensaje": "Perfil completado exitosamente",
             "rol_confirmado": user.rol,
@@ -225,4 +248,14 @@ class MiPerfilView(APIView):
         return Response({
             "mensaje": "Perfil actualizado correctamente",
             "nombre_actualizado": user.nombre_completo
+        }, status=status.HTTP_200_OK)
+    def delete(self, request):
+        # Identifico al usuario exclusivamente por su token JWT para evitar borrados no autorizados (BOLA/IDOR)
+        user = request.user
+        email_eliminado = user.email
+        # Elimino el registro raíz; gracias a CASCADE se destruye su perfil de rol sin dejar rastro
+        user.delete()
+        return Response({
+            "mensaje": "Cuenta eliminada permanentemente sin dejar rastro.",
+            "email_eliminado": email_eliminado
         }, status=status.HTTP_200_OK)
