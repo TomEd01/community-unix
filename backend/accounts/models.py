@@ -56,7 +56,6 @@ class Alumno(models.Model):
 class Instructor(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
     numero_control = models.CharField(max_length=20, unique=True)
-    procedencia = models.CharField(max_length=100, default='', blank=True)
     departamento = models.CharField(max_length=100)
     especialidad = models.CharField(max_length=100)
     grado_academico = models.CharField(max_length=50)
