@@ -175,6 +175,7 @@ class MiPerfilView(APIView):
     def get(self,request):
         # Devolvemos los datos actuales del usuario para que Flutter rellene los TextFields.
         user = request.user
+        rol = user.rol.capitalize() if isinstance(user.rol, str) else ''
         # Datos base que todos tienen
         data = {
             "email": user.email,
@@ -182,12 +183,12 @@ class MiPerfilView(APIView):
             "rol": user.rol,
         }
         try:
-            if user.rol == 'Alumno':
+            if rol == 'Alumno':
                 alumno = Alumno.objects.get(usuario=user)
                 data['numero_control'] = alumno.numero_control
                 data['procedencia'] = alumno.procedencia
                 
-            elif user.rol == 'Instructor':
+            elif rol == 'Instructor':
                 instructor = Instructor.objects.get(usuario=user)
                 data['numero_control'] = instructor.numero_control
                 data['procedencia'] = instructor.procedencia
@@ -195,11 +196,13 @@ class MiPerfilView(APIView):
                 data['especialidad'] = instructor.especialidad
                 data['grado_academico'] = instructor.grado_academico
                 
-            elif user.rol == 'Externo':
+            elif rol == 'Externo':
                 externo = Externo.objects.get(usuario=user)
                 data['numero_control'] = externo.numero_control # Es el U+UUID
                 data['tipo_experiencia'] = externo.tipo_experiencia
                 data['organizacion'] = externo.organizacion
+            else:
+                return Response({"error": "Rol de usuario no válido"}, status=status.HTTP_400_BAD_REQUEST)
         except (Alumno.DoesNotExist, Instructor.DoesNotExist, Externo.DoesNotExist):
             return Response({"error": "Perfil detallado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         return Response(data, status=status.HTTP_200_OK)
