@@ -68,6 +68,7 @@ class GoogleLoginView(generics.CreateAPIView):
                 "Nombre": user.nombre_completo,
                 "Rol": user.rol,
                 "Nuevo": necesita_onboarding,
+                "es_superadmin": user.is_superuser,
                 "token": token_acceso,
                 }, status=status.HTTP_200_OK)
 
@@ -167,7 +168,8 @@ class CompletarPerfilView(APIView):
         return Response({
             "mensaje": "Perfil completado exitosamente",
             "rol_confirmado": user.rol,
-            "nombre_actualizado": user.nombre_completo
+            "nombre_actualizado": user.nombre_completo,
+            "es_superadmin": user.is_superuser
         }, status=status.HTTP_200_OK)
 class MiPerfilView(APIView):
     # EXIGIMOS EL TOKEN JWT. Sin él, nadie entra.
@@ -181,6 +183,7 @@ class MiPerfilView(APIView):
             "email": user.email,
             "nombre_completo": user.nombre_completo,
             "rol": user.rol,
+            "es_superadmin": user.is_superuser,
         }
         try:
             if rol == 'Alumno':
