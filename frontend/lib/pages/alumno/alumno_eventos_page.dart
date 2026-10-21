@@ -366,7 +366,7 @@ class _AlumnoEventosPageState extends State<AlumnoEventosPage> {
           flex: 2,
           child: _yearView
               ? _buildYearCalendar()
-              : _buildMonthCalendar(10),
+              : _buildMonthCalendar(_selectedMonth),
         ),
         const SizedBox(width: 20),
         SizedBox(
@@ -390,8 +390,11 @@ class _AlumnoEventosPageState extends State<AlumnoEventosPage> {
   Widget _buildMobileContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildMonthCalendar(_selectedMonth),
+      children: [    
+        if (_yearView)
+          _buildYearCalendar()
+        else
+          _buildMonthCalendar(_selectedMonth),
         const SizedBox(height: 28),
         _buildUpcomingEvents(),
         const SizedBox(height: 18),
@@ -421,136 +424,156 @@ class _AlumnoEventosPageState extends State<AlumnoEventosPage> {
     );
   }
 
-  Widget _buildMiniMonth(int month) {
-    const months = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
+ Widget _buildMiniMonth(int month) {
+  const months = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
 
-    final int days = _daysInMonth(month);
-    final int firstWeekday = DateTime(2026, month, 1).weekday;
+  final int days = _daysInMonth(month);
+  final int firstWeekday = DateTime(2026, month, 1).weekday;
 
-    final List<Widget> cells = [];
+  void abrirMes([int? dia]) {
+    setState(() {
+      // Si se pulsa la tarjeta, conserva el día cuando sea válido.
+      // Si se pulsa un día, selecciona exactamente ese día.
+      final int diaSeleccionado = dia ??
+          (_selectedDay > days ? days : _selectedDay);
 
-    for (int i = 1; i < firstWeekday; i++) {
-      cells.add(const SizedBox());
-    }
+      _selectedMonth = month;
+      _selectedDay = diaSeleccionado;
+      _yearView = false;
 
-    for (int day = 1; day <= days; day++) {
-      final event = _eventForDate(month, day);
-      final bool selected =
-          month == _selectedMonth && day == _selectedDay;
+      final event = _eventForDate(month, diaSeleccionado);
 
-      cells.add(
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedMonth = month;
-              _selectedDay = day;
+      if (event != null) {
+        _selectedEvent = _events.indexOf(event);
+      }
+    });
+  }
 
-              if (event != null) {
-                _selectedEvent = _events.indexOf(event);
-              }
-            });
-          },
-          child: Container(
+  final List<Widget> cells = [];
+
+  for (int i = 1; i < firstWeekday; i++) {
+    cells.add(const SizedBox());
+  }
+
+  for (int day = 1; day <= days; day++) {
+    final event = _eventForDate(month, day);
+
+    final bool selected =
+        month == _selectedMonth && day == _selectedDay;
+
+    cells.add(
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => abrirMes(day),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: selected
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _orange,
+                    width: 2,
+                  ),
+                )
+              : null,
+          child: Stack(
             alignment: Alignment.center,
-            decoration: selected
-                ? BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _orange,
-                      width: 2,
+            children: [
+              Text(
+                '$day',
+                style: TextStyle(
+                  color: selected ? Colors.white : _muted,
+                  fontSize: 9,
+                  fontWeight: selected
+                      ? FontWeight.w800
+                      : FontWeight.w500,
+                ),
+              ),
+              if (event != null)
+                Positioned(
+                  bottom: 1,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: event.color,
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : null,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Text(
-                  '$day',
-                  style: TextStyle(
-                    color: selected ? Colors.white : _muted,
-                    fontSize: 9,
-                    fontWeight: selected
-                        ? FontWeight.w800
-                        : FontWeight.w500,
                   ),
                 ),
-                if (event != null)
-                  Positioned(
-                    bottom: 1,
-                    child: Container(
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: event.color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            months[month - 1],
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _WeekLabel('L'),
-              _WeekLabel('M'),
-              _WeekLabel('M'),
-              _WeekLabel('J'),
-              _WeekLabel('V'),
-              _WeekLabel('S'),
-              _WeekLabel('D'),
             ],
           ),
-          const SizedBox(height: 5),
-          Expanded(
-            child: GridView.count(
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 7,
-              childAspectRatio: 1,
-              children: cells,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
+  return MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => abrirMes(),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              months[month - 1],
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _WeekLabel('L'),
+                _WeekLabel('M'),
+                _WeekLabel('M'),
+                _WeekLabel('J'),
+                _WeekLabel('V'),
+                _WeekLabel('S'),
+                _WeekLabel('D'),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Expanded(
+              child: GridView.count(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 7,
+                // Ajusta las seis posibles semanas a la tarjeta.
+                childAspectRatio: 1,
+                children: cells,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
   // ============================================================
   // CALENDARIO MENSUAL
   // ============================================================
