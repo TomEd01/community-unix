@@ -10,7 +10,7 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
 from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer
-from .models import Usuario, Alumno, Instructor, Externo, HorarioClaseSerializer, VincularHorarioSerializer
+from .models import Usuario, Alumno, Instructor, Externo, HorarioClase, VinculoAlumno
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.decorators import method_decorator
@@ -284,7 +284,7 @@ class InstructorHorariosView(APIView):
             return Response({"error": "Perfil de instructor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
         # Obtengo todos sus bloques de horario y precargo los alumnos vinculados para optimizar la consulta
-        horarios = HorarioClaseSerializer.objects.filter(instructor=instructor).prefetch_related(
+        horarios = HorarioClase.objects.filter(instructor=instructor).prefetch_related(
             'alumnos_vinculados__alumno__usuario'
         ).order_by('id')
 
@@ -329,7 +329,7 @@ class InstructorHorariosView(APIView):
 
         try:
             instructor = Instructor.objects.get(usuario=request.user)
-            nuevo_bloque = HorarioClaseSerializer.objects.create(
+            nuevo_bloque = HorarioClase.objects.create(
                 instructor=instructor,
                 materia=safe_data['materia'],
                 horario=safe_data['horario']
@@ -359,8 +359,8 @@ class InstructorHorarioDetailView(APIView):
 
         try:
             instructor = Instructor.objects.get(usuario=request.user)
-            bloque = HorarioClaseSerializer.objects.get(id=horario_id, instructor=instructor)
-        except (Instructor.DoesNotExist, HorarioClaseSerializer.DoesNotExist):
+            bloque = HorarioClase.objects.get(id=horario_id, instructor=instructor)
+        except (Instructor.DoesNotExist, HorarioClase.DoesNotExist):
             return Response(
                 {"error": "El horario no existe o no pertenece a tu cuenta."}, 
                 status=status.HTTP_404_NOT_FOUND
@@ -372,3 +372,129 @@ class InstructorHorarioDetailView(APIView):
         return Response({
             "mensaje": "Horario eliminado. Los alumnos vinculados recibirán el aviso para elegir un nuevo horario."
         }, status=status.HTTP_200_OK)
+
+class CatalogoProfesoresView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Permito buscar profesores por nombre mediante ?q=Nombre (ej. /api/alumno/profesores/?q=Israel)
+        busqueda = request.query_params.get('q', '').strip()
+
+        instructores_qs = Instructor.objects.select_related('usuario').prefetch_related('horarios').all()
+        if busqueda:
+            instructores_qs = instructores_qs.filter(usuario__nombre_completo__icontains=busqueda)
+
+        catalogo = []
+        for inst in instructores_qs:
+            bloques = [
+                {
+                    "horario_id": h.id,
+                    "materia": h.materia,
+                    "horario": h.horario,
+                    "etiqueta_completa": f"{h.horario} - {h.materia}"
+                }
+                for h in inst.horarios.all()
+            ]
+            # Solo muestro en la lista a los profesores que ya dieron de alta al menos un horario
+            if bloques:
+                catalogo.append({
+                    "instructor_id": inst.id,
+                    "nombre_profesor": inst.usuario.nombre_completo,
+                    "departamento": inst.departamento,
+                    "horarios_disponibles": bloques
+                })
+
+        return Response(catalogo, status=status.HTTP_200_OK)
+
+
+class MiVinculoAlumnoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Consulto el estado actual de vinculación del alumno autenticado
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Esta sección es exclusiva para alumnos."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            vinculo = VinculoAlumno.objects.select_related(
+                'horario_clase__instructor__usuario'
+            ).get(alumno=alumno)
+        except Alumno.DoesNotExist:
+            return Response({"error": "Perfil de alumno no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except VinculoAlumno.DoesNotExist:
+            # Caso 1: El alumno nunca se ha vinculado o ya se desvinculó manualmente
+            return Response({
+                "vinculado": False,
+                "horario_eliminado": False,
+                "mensaje": "Aún no estás vinculado con ningún profesor."
+            }, status=status.HTTP_200_OK)
+
+        # Caso 2: El alumno estaba vinculado, pero el profesor borró ese horario al terminar el semestre
+        if vinculo.horario_clase is None:
+            return Response({
+                "vinculado": False,
+                "horario_eliminado": True,
+                "ultimo_registro": vinculo.respaldo_horario,
+                "alerta": "Ups, al parecer ya no da clases durante este horario, ¿Deseas vincularte con otro profesor?"
+            }, status=status.HTTP_200_OK)
+
+        # Caso 3: El vínculo está activo y en orden
+        bloque = vinculo.horario_clase
+        profesor = bloque.instructor.usuario.nombre_completo
+        return Response({
+            "vinculado": True,
+            "horario_eliminado": False,
+            "horario_id": bloque.id,
+            "nombre_profesor": profesor,
+            "materia": bloque.materia,
+            "horario": bloque.horario
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Vinculo al alumno o actualizo automáticamente su horario si se equivocó de hora ("dedos rápidos")
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Solo los alumnos pueden vincularse a un horario."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = VincularHorarioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        horario_id = serializer.validated_data['horario_id']
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            bloque = HorarioClase.objects.select_related('instructor__usuario').get(id=horario_id)
+        except Alumno.DoesNotExist:
+            return Response({"error": "Perfil de alumno no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except HorarioClase.DoesNotExist:
+            return Response({"error": "El horario seleccionado no existe o ya fue eliminado."}, status=status.HTTP_404_NOT_FOUND)
+
+        texto_respaldo = f"{bloque.instructor.usuario.nombre_completo} | {bloque.horario} ({bloque.materia})"
+
+        # update_or_create mueve al alumno de horario/profesor limpiamente sin duplicarlo jamás
+        VinculoAlumno.objects.update_or_create(
+            alumno=alumno,
+            defaults={
+                'horario_clase': bloque,
+                'respaldo_horario': texto_respaldo
+            }
+        )
+
+        return Response({
+            "mensaje": "Te has vinculado correctamente al horario de clase.",
+            "profesor": bloque.instructor.usuario.nombre_completo,
+            "materia": bloque.materia,
+            "horario": bloque.horario
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        # Permito que el alumno se desvincule manualmente al finalizar el semestre
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Acción permitida solo para alumnos."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            vinculo = VinculoAlumno.objects.get(alumno=alumno)
+            vinculo.delete()
+            return Response({"mensaje": "Te has desvinculado del profesor correctamente."}, status=status.HTTP_200_OK)
+        except (Alumno.DoesNotExist, VinculoAlumno.DoesNotExist):
+            return Response({"error": "No tienes ningún vínculo activo para eliminar."}, status=status.HTTP_404_NOT_FOUND)
