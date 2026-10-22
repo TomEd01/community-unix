@@ -9,8 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
-from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer
-from .models import Usuario, Alumno, Instructor, Externo
+from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer
+from .models import Usuario, Alumno, Instructor, Externo, HorarioClaseSerializer, VincularHorarioSerializer
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.decorators import method_decorator
@@ -171,6 +171,7 @@ class CompletarPerfilView(APIView):
             "nombre_actualizado": user.nombre_completo,
             "es_superadmin": user.is_superuser
         }, status=status.HTTP_200_OK)
+
 class MiPerfilView(APIView):
     # EXIGIMOS EL TOKEN JWT. Sin él, nadie entra.
     permission_classes = [IsAuthenticated]
@@ -264,4 +265,110 @@ class MiPerfilView(APIView):
         return Response({
             "mensaje": "Cuenta eliminada permanentemente sin dejar rastro.",
             "email_eliminado": email_eliminado
+        }, status=status.HTTP_200_OK)
+
+class InstructorHorariosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Verifico que quien consulta sea realmente un Instructor registrado
+        if request.user.rol != 'Instructor':
+            return Response(
+                {"error": "Solo los instructores pueden consultar sus paneles de horarios."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+        except Instructor.DoesNotExist:
+            return Response({"error": "Perfil de instructor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtengo todos sus bloques de horario y precargo los alumnos vinculados para optimizar la consulta
+        horarios = HorarioClaseSerializer.objects.filter(instructor=instructor).prefetch_related(
+            'alumnos_vinculados__alumno__usuario'
+        ).order_by('id')
+
+        resultado = []
+        for bloque in horarios:
+            lista_alumnos = []
+            for vinculo in bloque.alumnos_vinculados.all():
+                alumno_obj = vinculo.alumno
+                lista_alumnos.append({
+                    "alumno_id": alumno_obj.id,
+                    "nombre_completo": alumno_obj.usuario.nombre_completo,
+                    "email": alumno_obj.usuario.email,
+                    "numero_control": alumno_obj.numero_control,
+                    "procedencia": alumno_obj.procedencia,
+                    "fecha_vinculacion": vinculo.actualizado_en,
+                })
+
+            resultado.append({
+                "horario_id": bloque.id,
+                "materia": bloque.materia,
+                "horario": bloque.horario,
+                "total_alumnos": len(lista_alumnos),
+                "alumnos": lista_alumnos
+            })
+
+        return Response({
+            "instructor": request.user.nombre_completo,
+            "bloques_horarios": resultado
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Permito únicamente a los Instructores dar de alta bloques de horario
+        if request.user.rol != 'Instructor':
+            return Response(
+                {"error": "Solo los instructores pueden crear horarios de clase."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = HorarioClaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+            nuevo_bloque = HorarioClaseSerializer.objects.create(
+                instructor=instructor,
+                materia=safe_data['materia'],
+                horario=safe_data['horario']
+            )
+        except Instructor.DoesNotExist:
+            return Response({"error": "Perfil de instructor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except IntegrityError:
+            return Response(
+                {"error": "Ya tienes registrado este mismo horario para esa materia."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            "mensaje": "Horario de clase creado correctamente.",
+            "horario_id": nuevo_bloque.id,
+            "materia": nuevo_bloque.materia,
+            "horario": nuevo_bloque.horario
+        }, status=status.HTTP_201_CREATED)
+
+class InstructorHorarioDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, horario_id):
+        # Valido que el Instructor solo pueda borrar sus propios horarios (Prevención de BOLA/IDOR)
+        if request.user.rol != 'Instructor':
+            return Response({"error": "No tienes permiso para realizar esta acción."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+            bloque = HorarioClaseSerializer.objects.get(id=horario_id, instructor=instructor)
+        except (Instructor.DoesNotExist, HorarioClaseSerializer.DoesNotExist):
+            return Response(
+                {"error": "El horario no existe o no pertenece a tu cuenta."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Al borrar el bloque, los alumnos vinculados pasan a horario_clase=None automáticamente (SET_NULL)
+        bloque.delete()
+
+        return Response({
+            "mensaje": "Horario eliminado. Los alumnos vinculados recibirán el aviso para elegir un nuevo horario."
         }, status=status.HTTP_200_OK)
