@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'alumno_page.dart';
 import 'instructor_page.dart';
+import 'externo_page.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -219,7 +220,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           destination = const InstructorPage();
           break;
         case UserRole.externo:
-          destination = const AlumnoPage();
+          destination = const ExternoPage();
           break;
       }
 

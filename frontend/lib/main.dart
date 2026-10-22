@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'pages/onboarding_page.dart';
 import 'pages/alumno_page.dart';
 import 'pages/instructor_page.dart';
+import 'pages/externo_page.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,11 +46,22 @@ class ComunidadApp extends StatelessWidget {
   Widget build(BuildContext context) {// Lógica de enrutamiento inicial
     Widget pantallaInicial = const AccessScreen();
     
-    if (tokenInicial != null && tokenInicial!.isNotEmpty) {
-      if (rolInicial == 'Instructor') {
-        pantallaInicial = const InstructorPage();
-      } else {
-        pantallaInicial = const AlumnoPage();
+    if (tokenInicial != null && tokenInicial!.trim().isNotEmpty) {
+      switch (rolInicial?.trim().toLowerCase()) {
+        case 'alumno':
+          pantallaInicial = const AlumnoPage();
+          break;
+
+        case 'instructor':
+          pantallaInicial = const InstructorPage();
+          break;
+
+        case 'externo':
+          pantallaInicial = const ExternoPage();
+          break;
+
+        default:
+          pantallaInicial = const AccessScreen();
       }
     }
     return MaterialApp(
@@ -188,12 +200,30 @@ class _AccessScreenState extends State<AccessScreen> {
         await prefs.setString('user_rol', rol);
         
         // Si ya existe, entonces se salta directo a su panel según el rol
-        Widget destination;
-        if (rol == 'Instructor') {
-          destination = const InstructorPage();
-        } else {
-          destination = const AlumnoPage(); // Alumnos y Externos
+       Widget destination;
+       switch (rol.trim().toLowerCase()) {
+          case 'alumno':
+            destination = const AlumnoPage();
+            break;
+
+          case 'instructor':
+            destination = const InstructorPage();
+            break;
+
+          case 'externo':
+            destination = const ExternoPage();
+            break;
+
+          default:
+            if (mounted) {
+              setState(() {
+                authError = 'El servidor devolvió un rol no reconocido: $rol';
+              });
+            }
+            return;
         }
+
+if (!mounted) return;
 
         Navigator.of(
           context,

@@ -60,3 +60,25 @@ class PerfilUpdateSerializer(serializers.Serializer):
     # Campos editables exclusivos de Externo
     tipo_experiencia = serializers.CharField(max_length=50, required=False, allow_blank=True)
     organizacion = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+class HorarioClaseSerializer(serializers.Serializer):
+    # Valido estrictamente que el Instructor envíe materia y horario sin dejar campos en blanco
+    materia = serializers.CharField(max_length=120, required=True, allow_blank=False)
+    horario = serializers.CharField(max_length=80, required=True, allow_blank=False)
+
+    def validate_materia(self, value):
+        limpio = value.strip()
+        if not limpio:
+            raise serializers.ValidationError("El nombre de la materia no puede estar vacío.")
+        return limpio
+
+    def validate_horario(self, value):
+        limpio = value.strip()
+        if not limpio:
+            raise serializers.ValidationError("El horario no puede estar vacío.")
+        return limpio
+
+
+class VincularHorarioSerializer(serializers.Serializer):
+    # Recibo únicamente el ID numérico del bloque de horario que el alumno seleccionó
+    horario_id = serializers.IntegerField(required=True)
