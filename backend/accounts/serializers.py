@@ -82,3 +82,7 @@ class HorarioClaseSerializer(serializers.Serializer):
 class VincularHorarioSerializer(serializers.Serializer):
     # Recibo únicamente el ID numérico del bloque de horario que el alumno seleccionó
     horario_id = serializers.IntegerField(required=True)
+
+class SuperAdminPrivilegioSerializer(serializers.Serializer):
+    # Lista blanca estricta: solo permito modificar la bandera booleana de superadmin
+    es_superadmin = serializers.BooleanField(required=True)
