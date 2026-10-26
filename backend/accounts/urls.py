@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import GoogleLoginView, CompletarPerfilView, MiPerfilView, InstructorHorariosView, InstructorHorarioDetailView, CatalogoProfesoresView, MiVinculoAlumnoView
+from .views import GoogleLoginView, CompletarPerfilView, MiPerfilView, InstructorHorariosView, InstructorHorarioDetailView, CatalogoProfesoresView, MiVinculoAlumnoView, SuperAdminDashboardView, SuperAdminUsuarioDetailView
 
 urlpatterns = [
     # Django exige que las vistas basadas en clases usen el método .as_view() al final.
@@ -14,4 +14,8 @@ urlpatterns = [
     # Rutas para la Vista del Alumno
     path('api/alumno/profesores/', CatalogoProfesoresView.as_view(), name='catalogo-profesores'),
     path('api/alumno/mi-vinculo/', MiVinculoAlumnoView.as_view(), name='alumno-mi-vinculo'),
+
+    # Rutas para la Vista de Super Admin
+    path('api/superadmin/dashboard/', SuperAdminDashboardView.as_view(), name='superadmin-dashboard'),
+    path('api/superadmin/usuarios/<int:usuario_id>/', SuperAdminUsuarioDetailView.as_view(), name='superadmin-gestionar-usuario'),
 ]

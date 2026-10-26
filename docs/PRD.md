@@ -25,9 +25,11 @@ Los alumnos exponen y asisten, y el sistema automatiza la asistencia (Geocerca) 
     *   **Proceso de validación:** El alumno presentará este folio digital (mediante captura o en pantalla) al Jefe de Departamento de Sistemas. El Jefe actúa como el filtro oficial de veracidad (aprobando o rechazando según la participación real observada) y otorga la firma física necesaria para que el alumno tramite su crédito (ej. de 5 puntos) ante el área administrativa para su servicio social o residencia.
 *   **Sistema de Verificación Anti-Fraude (El Validador en Tiempo Real):**
     *   Para evitar la falsificación de capturas de pantalla y resolver el caso donde más de un profesor solicita evidencia de participación, cada alumno recibirá un folio único desde el momento en que se inscribe a cualquier actividad o evento (Ej. `UNIX-21530369-X9Y2A` o `UNIX-{num_control}-{id_evento}`).
-    *   El panel de los Instructores y Jefes de Departamento contará con un **"Verificador de Folios"**. Al ingresar el código, el sistema lanzará un modal confirmando los datos del alumno (Nombre y Número de Control), el nombre de la actividad y su **estado en tiempo real**:
-        *   *Si es Curso:* Mostrará **`Cursando`** o **`Terminado`**.
-        *   *Si es Macro Evento, Exposición o Taller:* Mostrará **`Por asistir`** (inscrito) o **`Asistido`** (asistencia validada).
+    *   El panel de los Instructores y Jefes de Departamento contará con un **"Verificador de Folios"**. Al ingresar el código, el sistema lanzará un modal con el **detalle extendido de auditoría**:
+        *   **Datos del Alumno:** Nombre completo y Número de Control.
+        *   **Detalles de la Actividad:** Tipo y nombre (`[Evento]`, `[Curso]`, `[Exposición]` o `[Taller]`), **nombre del Instructor titular** y **nombre del Alumno Expositor** que la impartió.
+        *   **Estado en tiempo real:** Mostrará **`Cursando`** o **`Terminado`** (para Cursos), y **`Por asistir`** o **`Asistido`** (para Macro Eventos, Exposiciones y Talleres).
+        *   *Si el código ingresado no existe:* Mostrará un aviso claro indicando que el folio no es válido o no tiene registros asociados.
     *   Esta misma lógica aplicará para verificar el folio especial de las 5 exposiciones impartidas para liberación de créditos.
 *   **Validación de Asistencia Híbrida (Por tipo de actividad):** 
     *   *Cursos (Asíncronos):* No requieren GPS ni horario; la asistencia y los puntos XP se acreditan automáticamente cuando el alumno concluye el contenido en la plataforma.
@@ -53,7 +55,9 @@ Los alumnos exponen y asisten, y el sistema automatiza la asistencia (Geocerca) 
 
 ## 5. Roles y Permisos Estrictos
 *   **Visitante/Alumno:** Solo puede ver eventos publicados, inscribirse y ver su perfil/XP.
-*   **Instructor:** Puede proponer solicitudes de eventos por correo (`mailto`). Dentro de la plataforma, su función principal es crear sus bloques de **Horario + Materia** y acceder a su panel exclusivo, donde visualizará sus listas de alumnos organizadas automáticamente por hora de clase. Al lado del nombre y número de control de cada alumno, verá un resumen de su historial (Puntos XP acumulados y Macro Eventos, Cursos, Exposiciones o Talleres ya acreditados) para autorizar físicamente puntos extra. Además, si el Instructor es el responsable de una Exposición o Taller, podrá intervenir pasando lista manual (override) en caso de que a un asistente le falle el GPS.
+*   **Instructor:** Puede proponer solicitudes de eventos por correo (`mailto`). Dentro de la plataforma cuenta con dos secciones independientes para mantener el orden:
+    1. *Mis Horarios de Clase (Profesor de Materia):* Crea sus bloques (`Horario + Materia`) y visualiza una tabla limpia con sus alumnos vinculados (Nombre, Número de Control y XP Total), acompañada de un botón **"Ver Historial"**. Al pulsarlo, se abre un resumen rápido de ese alumno con el formato: `(Evento) Nombre: Por asistir / Asistido`, `(Curso) Nombre: Cursando / Terminado`, `(Taller/Exposición) Nombre: Por asistir / Asistido`. Si el alumno no tiene registros, mostrará el texto: **"No hay ninguna actividad activa"**.
+    2. *Mis Actividades a Cargo (Dueño de Actividad):* Si el Instructor es el responsable titular de un Curso, Taller o Exposición, verá aquí la lista general de todos los alumnos inscritos a esa actividad (sin importar de qué grupo u horario provengan) para supervisar la asistencia o aplicar el pase de lista manual (*override*) si falla el GPS.
 *   **Externos** Es una manera de registrar a los candidatos que vienen de visita, pero manteniendo un interes en querer aprender sobre la comunidad y basicamente tendrían los mismos privilegios que los alumnos, simplemente colocando una etiqueta.
 *   **Expositor (Etiqueta Temporal):** Un Alumno asignado a un evento. SOLO en ese evento, puede ver la lista de inscritos y pasar lista (override manual).
 *   **Super Admin:** Puede aprobar solicitudes, editar la información de los eventos, asignar expositores y modificar cupos. No existe un CMS (Creador de cursos) para el público.
