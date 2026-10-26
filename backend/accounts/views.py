@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
-from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer
+from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer, SuperAdminPrivilegioSerializer
 from .models import Usuario, Alumno, Instructor, Externo, HorarioClase, VinculoAlumno
 from .permissions import EsSuperAdmin
 #Libreria para crear un JSON Web Token (JWT)
@@ -407,7 +407,6 @@ class CatalogoProfesoresView(APIView):
 
         return Response(catalogo, status=status.HTTP_200_OK)
 
-
 class MiVinculoAlumnoView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -499,3 +498,158 @@ class MiVinculoAlumnoView(APIView):
             return Response({"mensaje": "Te has desvinculado del profesor correctamente."}, status=status.HTTP_200_OK)
         except (Alumno.DoesNotExist, VinculoAlumno.DoesNotExist):
             return Response({"error": "No tienes ningún vínculo activo para eliminar."}, status=status.HTTP_404_NOT_FOUND)
+
+    class SuperAdminDashboardView(APIView):
+        # Exijo autenticación JWT y que el usuario tenga is_superuser = True en Supabase
+        permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+        def get(self, request):
+            # 1. Calculo las métricas generales de la plataforma para las tarjetas superiores del panel
+            metricas = {
+                "total_usuarios": Usuario.objects.count(),
+                "total_alumnos": Alumno.objects.count(),
+                "total_instructores": Instructor.objects.count(),
+                "total_externos": Externo.objects.count(),
+                "total_superadmins": Usuario.objects.filter(is_superuser=True).count(),
+                "total_horarios_activos": HorarioClase.objects.count(),
+            }
+
+            # 2. Permito filtrar el directorio por búsqueda (?q=...) o por rol (?rol=Alumno)
+            busqueda = request.query_params.get('q', '').strip()
+            filtro_rol = request.query_params.get('rol', '').strip()
+
+            usuarios_qs = Usuario.objects.select_related(
+                'alumno', 'instructor', 'externo'
+            ).all().order_by('-id')
+
+            if busqueda:
+                usuarios_qs = usuarios_qs.filter(nombre_completo__icontains=busqueda) | usuarios_qs.filter(email__icontains=busqueda)
+            
+            if filtro_rol:
+                usuarios_qs = usuarios_qs.filter(rol__iexact=filtro_rol)
+
+            # 3. Construyo la lista de usuarios registrados con sus datos de rol
+            directorio = []
+            for u in usuarios_qs:
+                numero_control = None
+                detalle_extra = None
+
+                if hasattr(u, 'alumno'):
+                    numero_control = u.alumno.numero_control
+                    detalle_extra = u.alumno.procedencia
+                elif hasattr(u, 'instructor'):
+                    numero_control = u.instructor.numero_control
+                    detalle_extra = u.instructor.departamento
+                elif hasattr(u, 'externo'):
+                    numero_control = u.externo.numero_control
+                    detalle_extra = u.externo.organizacion
+
+                directorio.append({
+                    "usuario_id": u.id,
+                    "nombre_completo": u.nombre_completo,
+                    "email": u.email,
+                    "rol": u.rol,
+                    "numero_control": numero_control,
+                    "detalle_institucion_o_depto": detalle_extra,
+                    "es_superadmin": u.is_superuser,
+                    "perfil_completado": numero_control is not None
+                })
+
+            return Response({
+                "admin_actual": request.user.nombre_completo,
+                "metricas": metricas,
+                "usuarios": directorio
+            }, status=status.HTTP_200_OK)
+
+class SuperAdminDashboardView(APIView):
+    # Exijo autenticación JWT y que el usuario tenga is_superuser = True en Supabase
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def get(self, request):
+        # 1. Calculo las métricas generales de la plataforma para las tarjetas superiores del panel
+        metricas = {
+            "total_usuarios": Usuario.objects.count(),
+            "total_alumnos": Alumno.objects.count(),
+            "total_instructores": Instructor.objects.count(),
+            "total_externos": Externo.objects.count(),
+            "total_superadmins": Usuario.objects.filter(is_superuser=True).count(),
+            "total_horarios_activos": HorarioClase.objects.count(),
+        }
+
+        # 2. Permito filtrar el directorio por búsqueda (?q=...) o por rol (?rol=Alumno)
+        busqueda = request.query_params.get('q', '').strip()
+        filtro_rol = request.query_params.get('rol', '').strip()
+
+        usuarios_qs = Usuario.objects.select_related(
+            'alumno', 'instructor', 'externo'
+        ).all().order_by('-id')
+
+        if busqueda:
+            usuarios_qs = usuarios_qs.filter(nombre_completo__icontains=busqueda) | usuarios_qs.filter(email__icontains=busqueda)
+        
+        if filtro_rol:
+            usuarios_qs = usuarios_qs.filter(rol__iexact=filtro_rol)
+
+        # 3. Construyo la lista de usuarios registrados con sus datos de rol
+        directorio = []
+        for u in usuarios_qs:
+            numero_control = None
+            detalle_extra = None
+
+            if hasattr(u, 'alumno'):
+                numero_control = u.alumno.numero_control
+                detalle_extra = u.alumno.procedencia
+            elif hasattr(u, 'instructor'):
+                numero_control = u.instructor.numero_control
+                detalle_extra = u.instructor.departamento
+            elif hasattr(u, 'externo'):
+                numero_control = u.externo.numero_control
+                detalle_extra = u.externo.organizacion
+
+            directorio.append({
+                "usuario_id": u.id,
+                "nombre_completo": u.nombre_completo,
+                "email": u.email,
+                "rol": u.rol,
+                "numero_control": numero_control,
+                "detalle_institucion_o_depto": detalle_extra,
+                "es_superadmin": u.is_superuser,
+                "perfil_completado": numero_control is not None
+            })
+
+        return Response({
+            "admin_actual": request.user.nombre_completo,
+            "metricas": metricas,
+            "usuarios": directorio
+        }, status=status.HTTP_200_OK)
+
+class SuperAdminUsuarioDetailView(APIView):
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def patch(self, request, usuario_id):
+        # Valido el payload para otorgar o revocar permisos de Super Admin a otro miembro
+        serializer = SuperAdminPrivilegioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nuevo_estado = serializer.validated_data['es_superadmin']
+
+        # Candado de seguridad: evito que un Super Admin se quite el permiso a sí mismo por error
+        if request.user.id == usuario_id and not nuevo_estado:
+            return Response(
+                {"error": "Por seguridad, no puedes revocar tu propio permiso de Super Admin."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            usuario_objetivo = Usuario.objects.get(id=usuario_id)
+        except Usuario.DoesNotExist:
+            return Response({"error": "El usuario especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        usuario_objetivo.is_superuser = nuevo_estado
+        usuario_objetivo.save()
+
+        accion = "otorgado" if nuevo_estado else "revocado"
+        return Response({
+            "mensaje": f"Se ha {accion} el permiso de Super Admin a {usuario_objetivo.nombre_completo}.",
+            "usuario_id": usuario_objetivo.id,
+            "es_superadmin": usuario_objetivo.is_superuser
+        }, status=status.HTTP_200_OK)
