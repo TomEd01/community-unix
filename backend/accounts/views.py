@@ -11,6 +11,7 @@ from google.oauth2 import id_token
 #Modelos locales
 from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer
 from .models import Usuario, Alumno, Instructor, Externo, HorarioClase, VinculoAlumno
+from .permissions import EsSuperAdmin
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.decorators import method_decorator
