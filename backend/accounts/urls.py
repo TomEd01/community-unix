@@ -8,14 +8,14 @@ urlpatterns = [
     path('perfil/me/', MiPerfilView.as_view(), name='mi_perfil'),
 
     # Rutas para la Vista del Instructor
-    path('api/instructor/horarios/', InstructorHorariosView.as_view(), name='instructor-horarios'),
-    path('api/instructor/horarios/<int:horario_id>/', InstructorHorarioDetailView.as_view(), name='instructor-horario-eliminar'),
+    path('instructor/horarios/', InstructorHorariosView.as_view(), name='instructor-horarios'),
+    path('instructor/horarios/<int:horario_id>/', InstructorHorarioDetailView.as_view(), name='instructor-horario-eliminar'),
     
     # Rutas para la Vista del Alumno
-    path('api/alumno/profesores/', CatalogoProfesoresView.as_view(), name='catalogo-profesores'),
-    path('api/alumno/mi-vinculo/', MiVinculoAlumnoView.as_view(), name='alumno-mi-vinculo'),
+    path('alumno/profesores/', CatalogoProfesoresView.as_view(), name='catalogo-profesores'),
+    path('alumno/mi-vinculo/', MiVinculoAlumnoView.as_view(), name='alumno-mi-vinculo'),
 
     # Rutas para la Vista de Super Admin
-    path('api/superadmin/dashboard/', SuperAdminDashboardView.as_view(), name='superadmin-dashboard'),
-    path('api/superadmin/usuarios/<int:usuario_id>/', SuperAdminUsuarioDetailView.as_view(), name='superadmin-gestionar-usuario'),
+    path('superadmin/dashboard/', SuperAdminDashboardView.as_view(), name='superadmin-dashboard'),
+    path('superadmin/usuarios/<int:usuario_id>/', SuperAdminUsuarioDetailView.as_view(), name='superadmin-gestionar-usuario'),
 ]
