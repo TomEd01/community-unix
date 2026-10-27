@@ -24,7 +24,7 @@ class AdminUsuariosPage extends StatefulWidget {
 class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
   // Dirección del backend.
   static const String _baseUrl =
-      'http://127.0.0.1:8000/api/superadmin';
+      'http://127.0.0.1:8000/api/auth/superadmin';
 
   final TextEditingController _busquedaController =
       TextEditingController();
@@ -712,7 +712,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     final identificador = _identificadorVisible(usuario);
     final rol = _rolVisible(usuario);
 
-    final activo = usuario['is_active'];
+    final activo = usuario['activo'];
 
     final inicial = nombre.isNotEmpty
         ? nombre.substring(0, 1).toUpperCase()
