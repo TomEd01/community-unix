@@ -667,12 +667,11 @@ class SuperAdminUsuarioDetailView(APIView):
     permission_classes = [IsAuthenticated, EsSuperAdmin]
 
     def patch(self, request, usuario_id):
-        # Valido el payload para otorgar o revocar permisos de Super Admin a otro miembro
+        # Otorga o revoca permisos de Super Admin desde el menú de tres puntos (...)
         serializer = SuperAdminPrivilegioSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         nuevo_estado = serializer.validated_data['es_superadmin']
 
-        # Candado de seguridad: evito que un Super Admin se quite el permiso a sí mismo por error
         if request.user.id == usuario_id and not nuevo_estado:
             return Response(
                 {"error": "Por seguridad, no puedes revocar tu propio permiso de Super Admin."},
@@ -692,4 +691,25 @@ class SuperAdminUsuarioDetailView(APIView):
             "mensaje": f"Se ha {accion} el permiso de Super Admin a {usuario_objetivo.nombre_completo}.",
             "usuario_id": usuario_objetivo.id,
             "es_superadmin": usuario_objetivo.is_superuser
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, usuario_id):
+        # Elimina permanentemente una cuenta por mal comportamiento sin dejar rastro (CASCADE)
+        if request.user.id == usuario_id:
+            return Response(
+                {"error": "No puedes eliminar tu propia cuenta de Super Admin desde este panel."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            usuario_objetivo = Usuario.objects.get(id=usuario_id)
+        except Usuario.DoesNotExist:
+            return Response({"error": "El usuario que intentas eliminar no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        nombre_borrado = usuario_objetivo.nombre_completo
+        email_borrado = usuario_objetivo.email
+        usuario_objetivo.delete()
+
+        return Response({
+            "mensaje": f"La cuenta de {nombre_borrado} ({email_borrado}) fue eliminada permanentemente."
         }, status=status.HTTP_200_OK)
