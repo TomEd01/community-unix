@@ -567,7 +567,7 @@ class SuperAdminDashboardView(APIView):
     permission_classes = [IsAuthenticated, EsSuperAdmin]
 
     def get(self, request):
-        # 1. Calculo las métricas generales de la plataforma para las tarjetas superiores del panel
+        # Calculo las métricas generales para la pestaña de Inicio
         metricas = {
             "total_usuarios": Usuario.objects.count(),
             "total_alumnos": Alumno.objects.count(),
@@ -577,45 +577,84 @@ class SuperAdminDashboardView(APIView):
             "total_horarios_activos": HorarioClase.objects.count(),
         }
 
-        # 2. Permito filtrar el directorio por búsqueda (?q=...) o por rol (?rol=Alumno)
+        # Capturo los filtros de la barra de búsqueda y los botones (Todos, Alumno, Maestro, Externo)
         busqueda = request.query_params.get('q', '').strip()
         filtro_rol = request.query_params.get('rol', '').strip()
 
         usuarios_qs = Usuario.objects.select_related(
-            'alumno', 'instructor', 'externo'
+            'alumno__vinculo__horario_clase__instructor__usuario',
+            'instructor',
+            'externo'
         ).all().order_by('-id')
 
+        # Buscador triple: busca por Nombre, Correo o ID / Número de control en cualquiera de los 3 roles
         if busqueda:
-            usuarios_qs = usuarios_qs.filter(nombre_completo__icontains=busqueda) | usuarios_qs.filter(email__icontains=busqueda)
+            usuarios_qs = usuarios_qs.filter(
+                Q(nombre_completo__icontains=busqueda) |
+                Q(email__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda) |
+                Q(instructor__numero_control__icontains=busqueda) |
+                Q(externo__numero_control__icontains=busqueda)
+            )
         
-        if filtro_rol:
+        # Normalizo el filtro por si el frontend envía "Maestro" o "Todos" desde los botones
+        if filtro_rol and filtro_rol.lower() != 'todos':
+            if filtro_rol.lower() == 'maestro':
+                filtro_rol = 'Instructor'
             usuarios_qs = usuarios_qs.filter(rol__iexact=filtro_rol)
 
-        # 3. Construyo la lista de usuarios registrados con sus datos de rol
+        # Construyo el directorio con la información de la tarjeta y la ficha para el menú de 3 puntos (...)
         directorio = []
         for u in usuarios_qs:
             numero_control = None
-            detalle_extra = None
+            info_personal = {}
 
             if hasattr(u, 'alumno'):
                 numero_control = u.alumno.numero_control
-                detalle_extra = u.alumno.procedencia
+                vinculo = getattr(u.alumno, 'vinculo', None)
+                profe_vinculado = (
+                    f"{vinculo.horario_clase.instructor.usuario.nombre_completo} ({vinculo.horario_clase.horario} - {vinculo.horario_clase.materia})"
+                    if vinculo and vinculo.horario_clase else "Sin profesor vinculado"
+                )
+                info_personal = {
+                    "procedencia": u.alumno.procedencia,
+                    "profesor_actual": profe_vinculado,
+                }
             elif hasattr(u, 'instructor'):
                 numero_control = u.instructor.numero_control
-                detalle_extra = u.instructor.departamento
+                info_personal = {
+                    "procedencia": u.instructor.procedencia,
+                    "departamento": u.instructor.departamento,
+                    "especialidad": u.instructor.especialidad,
+                    "grado_academico": u.instructor.grado_academico,
+                }
             elif hasattr(u, 'externo'):
                 numero_control = u.externo.numero_control
-                detalle_extra = u.externo.organizacion
+                info_personal = {
+                    "tipo_experiencia": u.externo.tipo_experiencia,
+                    "organizacion": u.externo.organizacion,
+                }
 
             directorio.append({
                 "usuario_id": u.id,
+                "inicial": u.nombre_completo[0].upper() if u.nombre_completo else "?",
                 "nombre_completo": u.nombre_completo,
                 "email": u.email,
                 "rol": u.rol,
-                "numero_control": numero_control,
-                "detalle_institucion_o_depto": detalle_extra,
+                "numero_control": numero_control or "Sin ID",
+                "activo": u.is_active,
                 "es_superadmin": u.is_superuser,
-                "perfil_completado": numero_control is not None
+                "perfil_completado": numero_control is not None,
+                # Ficha detallada para el menú de los tres puntos (...)
+                "detalles_perfil": info_personal,
+                "resumen_actividades": {
+                    "xp_total": 0,
+                    "nivel": "Principiante",
+                    "total_macro_eventos": 0,
+                    "total_cursos": 0,
+                    "total_talleres": 0,
+                    "total_exposiciones": 0
+                }
             })
 
         return Response({
