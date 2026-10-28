@@ -38,6 +38,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
   bool _cargando = true;
   bool _eliminando = false;
+  bool _otorgandoPermisos = false;
 
   // Evita que una respuesta vieja de búsqueda reemplace una más reciente.
   int _numeroPeticion = 0;
@@ -317,7 +318,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
   }
 
   Future<void> _mostrarDetalles(
-    Map<String, dynamic> usuario,
+  Map<String, dynamic> usuario,
   ) async {
     final nombre = _nombreUsuario(usuario);
     final correo = _primerValor(usuario, ['email', 'correo']);
@@ -325,9 +326,13 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     final rol = _rolVisible(usuario);
 
     final detalles = _comoMapa(usuario['detalles_perfil']);
-    final resumen = _comoMapa(usuario['resumen_actividades']);
+    final resumen = _comoMapa(usuario['resumen_actividades'])
+      ..removeWhere((clave, valor) =>
+          clave.toLowerCase() == 'nivel' ||
+          clave.toLowerCase().contains('xp'));
 
-    await showDialog<void>(
+    // Espera la opción seleccionada en la ventana de detalles.
+    final accion = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -370,7 +375,9 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                   if (detalles.isEmpty)
                     const Text(
                       'No hay detalles de perfil disponibles.',
-                      style: TextStyle(color: AdminStyle.muted),
+                      style: TextStyle(
+                        color: AdminStyle.muted,
+                      ),
                     )
                   else
                     for (final entry in detalles.entries)
@@ -395,27 +402,189 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                   if (resumen.isEmpty)
                     const Text(
                       'No hay actividades disponibles.',
-                      style: TextStyle(color: AdminStyle.muted),
+                      style: TextStyle(
+                        color: AdminStyle.muted,
+                      ),
                     )
                   else
                     for (final entry in resumen.entries)
-                      _filaDetalle(
-                        _tituloCampo(entry.key),
-                        _valorVisible(entry.value),
-                      ),
+                      if (entry.key.toLowerCase() != 'nivel')
+                        _filaDetalle(
+                          _tituloCampo(entry.key),
+                          _valorVisible(entry.value),
+                        ),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cerrar'),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop('hacer_admin');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: usuario['es_superadmin'] == true
+                          ? AdminStyle.red : AdminStyle.orange,
+                      side: BorderSide(
+                        color: usuario['es_superadmin'] == true
+                            ? AdminStyle.red : AdminStyle.orange,
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: Icon(usuario['es_superadmin'] == true
+                        ? Icons.remove_moderator_outlined
+                        : Icons.admin_panel_settings_outlined),
+                    label: Text(usuario['es_superadmin'] == true
+                        ? 'Quitar Super Admin' : 'Hacer Super Admin'),
+                  ),
+
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop('cerrar');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminStyle.orange,
+                      side: const BorderSide(
+                        color: AdminStyle.orange,
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Cerrar'),
+                  ),
+
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop('eliminar');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminStyle.red,
+                      side: const BorderSide(
+                        color: AdminStyle.red,
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Eliminar cuenta'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
       },
     );
+
+  // Si seleccionó eliminar, abre la confirmación existente.
+  if (!mounted) return;
+
+  if (accion == 'eliminar') {
+      await _confirmarEliminar(usuario);
+    } else if (accion == 'hacer_admin') {
+      await _confirmarSuperAdmin(usuario);
+    }
+  }
+
+  Future<void> _confirmarSuperAdmin(
+    Map<String, dynamic> usuario,
+  ) async {
+    if (_otorgandoPermisos || _eliminando) return;
+    final id = _idUsuario(usuario);
+    final nombre = _nombreUsuario(usuario);
+    final nombreVisible = nombre.isEmpty ? 'este usuario' : nombre;
+    final esAdminActual = usuario['es_superadmin'] == true;
+    final nuevoEstado = !esAdminActual;
+    if (id.isEmpty) {
+      _mostrarMensaje('No se encontró el ID del usuario.');
+      return;
+    }
+    setState(() => _otorgandoPermisos = true);
+    try {
+      final confirmado = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AdminStyle.card,
+          title: Text(esAdminActual
+              ? 'Quitar permisos de Super Admin'
+              : 'Otorgar permisos de Super Admin'),
+          content: Text(esAdminActual
+              ? '¿Estás seguro de que quieres quitar los permisos de Super Admin a $nombreVisible?'
+              : '¿Estás seguro de que quieres hacer Super Admin a $nombreVisible?'),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: esAdminActual ? AdminStyle.red : AdminStyle.orange,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(esAdminActual ? 'Quitar permisos' : 'Confirmar'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmado != true) return;
+      final headers = await _obtenerHeaders();
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/usuarios/${Uri.encodeComponent(id)}/'),
+        headers: {...headers, 'Content-Type': 'application/json'},
+        body: jsonEncode({'es_superadmin': nuevoEstado}),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 401) {
+        throw Exception('Tu sesión venció. Vuelve a iniciar sesión.');
+      }
+      if (response.statusCode == 403) {
+        throw Exception('No tienes permiso para realizar esta acción.');
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        String detalle = '';
+        try {
+          final body = jsonDecode(utf8.decode(response.bodyBytes));
+          if (body is Map) detalle = _texto(body['error'] ?? body['detail']);
+        } catch (_) {}
+        throw Exception(detalle.isNotEmpty ? detalle
+            : 'No se pudo actualizar el permiso. Código: ${response.statusCode}.');
+      }
+      if (!mounted) return;
+      _mostrarMensaje(nuevoEstado
+          ? '$nombreVisible ahora tiene permisos de Super Admin.'
+          : 'Se quitaron los permisos de Super Admin a $nombreVisible.');
+      await _cargarUsuarios();
+    } catch (error) {
+      if (!mounted) return;
+      _mostrarMensaje(_mensajeError(error));
+    } finally {
+      if (mounted) setState(() => _otorgandoPermisos = false);
+    }
   }
 
   Widget _filaDetalle(String titulo, String valor) {
@@ -451,7 +620,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
       'especialidad': 'Especialidad',
       'grado_academico': 'Grado académico',
       'profesor_vinculado': 'Profesor vinculado',
-      'xp_total': 'XP total',
+      'profesor_actual': 'Profesor actual',
       'total_macro_eventos': 'Macro eventos',
       'total_cursos': 'Cursos',
       'total_talleres': 'Talleres',

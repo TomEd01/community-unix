@@ -5,7 +5,6 @@ import 'admin_inicio_page.dart';
 import 'admin_macroeventos_page.dart';
 import 'admin_usuarios_page.dart';
 import 'admin_folios_page.dart';
-import 'admin_historial_xp_page.dart';
 import 'admin_perfil_page.dart';
 
 class AdminPage extends StatelessWidget {
@@ -30,7 +29,7 @@ class _AdminPageState extends State<_AdminShell> {
   int selected = 0;
   bool loggingOut = false;
   static const labels = ['Inicio', 'Macro eventos', 'Usuarios',
-    'Verificar folios', 'Historial XP', 'Mi perfil'];
+    'Verificar folios', 'Mi perfil'];
   static const icons = [Icons.home_outlined, Icons.event_outlined,
     Icons.people_outline, Icons.verified_user_outlined,
     Icons.bar_chart_rounded, Icons.person_outline];
@@ -91,7 +90,6 @@ class _AdminPageState extends State<_AdminShell> {
                         AdminMacroeventosPage(store: store),
                         AdminUsuariosPage(store: store),
                         AdminFoliosPage(store: store),
-                        AdminHistorialXpPage(store: store),
                         AdminPerfilPage(store: store, onLogout: widget.onLogout == null
                           ? null : logout, loggingOut: loggingOut),
                         ].asMap().entries) Visibility(
