@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'alumno_vinculo_profesor.dart';
 
 class AlumnoInicioPage extends StatelessWidget {
   const AlumnoInicioPage({super.key});
@@ -33,6 +34,8 @@ class AlumnoInicioPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildWelcome(mobile),
+                    const SizedBox(height: 24),
+                    const AlumnoVinculoProfesor(),
                     const SizedBox(height: 28),
                     _buildMainSection(mobile),
                     const SizedBox(height: 34),

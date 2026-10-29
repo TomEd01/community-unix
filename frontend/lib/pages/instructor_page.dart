@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'alumno/alumno_eventos_page.dart';
 import 'instructor/instructor_perfil_page.dart';
+import 'instructor/instructor_horarios_page.dart';
+import 'instructor/instructor_actividades_page.dart';
 import '../main.dart';
 
 class InstructorPage extends StatefulWidget {
@@ -44,16 +46,18 @@ class _InstructorPageState extends State<InstructorPage> {
     'Inicio',
     'Mis cursos',
     'Eventos',
-    'Alumnos',
+    'Mis Horarios de Clase',
     'Mi perfil',
+    'Mis Actividades a Cargo',
   ];
 
   static const _icons = [
     Icons.home_rounded,
     Icons.menu_book_rounded,
     Icons.event_rounded,
-    Icons.groups_rounded,
+    Icons.schedule_rounded,
     Icons.person_rounded,
+    Icons.assignment_ind_outlined,
   ];
 
   final List<_Course> _courses = const [
@@ -237,7 +241,7 @@ class _InstructorPageState extends State<InstructorPage> {
                                   if (_selected != 2) ...[
                                     _buildHeading(mobile),
                                     const SizedBox(height: 12),
-                                    if (_selected != 4) ...[
+                                    if (_selected != 4 && _selected != 3 && _selected != 5) ...[
                                       const Text(
                                         'Vista de demostración · '
                                         'Datos de ejemplo',
@@ -535,7 +539,7 @@ class _InstructorPageState extends State<InstructorPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final index in [3, 4])
+            for (final index in [3, 5, 4])
               ListTile(
                 leading: Icon(_icons[index], color: blue),
                 title: Text(
@@ -618,7 +622,10 @@ class _InstructorPageState extends State<InstructorPage> {
         );
 
       case 3:
-        return _buildStudents();
+        return const InstructorHorariosPage();
+
+      case 5:
+        return const InstructorActividadesPage();
 
       case 4:
         return InstructorPerfilPage(
@@ -996,58 +1003,6 @@ class _InstructorPageState extends State<InstructorPage> {
     );
   }
 
-  Widget _buildStudents() {
-    final List<Widget> entries = [];
-
-    for (final course in _courses) {
-      for (final student in course.students) {
-        if (!'$student ${course.title}'
-            .toLowerCase()
-            .contains(_query)) {
-          continue;
-        }
-
-        entries.add(
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundColor: sidebar,
-              child: Text(
-                student[0],
-                style: const TextStyle(color: blue),
-              ),
-            ),
-            title: Text(
-              student,
-              style: const TextStyle(color: Colors.white),
-            ),
-            subtitle: Text(
-              course.title,
-              style: const TextStyle(color: muted),
-            ),
-            onTap: () => _showDetails(
-              student,
-              'Alumno de ejemplo\n\n'
-                  'Curso: ${course.title}\n\n'
-                  'El progreso individual estará disponible '
-                  'cuando se conecten los datos del backend.',
-            ),
-          ),
-        );
-      }
-    }
-
-    return _panel(
-      title: 'Alumnos inscritos',
-      child: entries.isEmpty
-          ? _empty('No se encontraron alumnos.')
-          : Column(children: entries),
-    );
-  }
-
-  // ============================================================
-  // SOLICITUDES LOCALES
-  // ============================================================
 
   Widget _buildRequestsPanel() {
     return _panel(
