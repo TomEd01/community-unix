@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import IntegrityError
+from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -9,8 +10,9 @@ from rest_framework.permissions import IsAuthenticated
 from google.auth.transport import requests
 from google.oauth2 import id_token
 #Modelos locales
-from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer
-from .models import Usuario, Alumno, Instructor, Externo
+from .serializers import GoogleAuthSerializer, CompletarPerfilSerializer, PerfilUpdateSerializer,HorarioClaseSerializer, VincularHorarioSerializer, SuperAdminPrivilegioSerializer
+from .models import Usuario, Alumno, Instructor, Externo, HorarioClase, VinculoAlumno
+from .permissions import EsSuperAdmin
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.decorators import method_decorator
@@ -68,6 +70,7 @@ class GoogleLoginView(generics.CreateAPIView):
                 "Nombre": user.nombre_completo,
                 "Rol": user.rol,
                 "Nuevo": necesita_onboarding,
+                "es_superadmin": user.is_superuser,
                 "token": token_acceso,
                 }, status=status.HTTP_200_OK)
 
@@ -167,27 +170,31 @@ class CompletarPerfilView(APIView):
         return Response({
             "mensaje": "Perfil completado exitosamente",
             "rol_confirmado": user.rol,
-            "nombre_actualizado": user.nombre_completo
+            "nombre_actualizado": user.nombre_completo,
+            "es_superadmin": user.is_superuser
         }, status=status.HTTP_200_OK)
+
 class MiPerfilView(APIView):
     # EXIGIMOS EL TOKEN JWT. Sin él, nadie entra.
     permission_classes = [IsAuthenticated]
     def get(self,request):
         # Devolvemos los datos actuales del usuario para que Flutter rellene los TextFields.
         user = request.user
+        rol = user.rol.capitalize() if isinstance(user.rol, str) else ''
         # Datos base que todos tienen
         data = {
             "email": user.email,
             "nombre_completo": user.nombre_completo,
             "rol": user.rol,
+            "es_superadmin": user.is_superuser,
         }
         try:
-            if user.rol == 'Alumno':
+            if rol == 'Alumno':
                 alumno = Alumno.objects.get(usuario=user)
                 data['numero_control'] = alumno.numero_control
                 data['procedencia'] = alumno.procedencia
                 
-            elif user.rol == 'Instructor':
+            elif rol == 'Instructor':
                 instructor = Instructor.objects.get(usuario=user)
                 data['numero_control'] = instructor.numero_control
                 data['procedencia'] = instructor.procedencia
@@ -195,11 +202,13 @@ class MiPerfilView(APIView):
                 data['especialidad'] = instructor.especialidad
                 data['grado_academico'] = instructor.grado_academico
                 
-            elif user.rol == 'Externo':
+            elif rol == 'Externo':
                 externo = Externo.objects.get(usuario=user)
                 data['numero_control'] = externo.numero_control # Es el U+UUID
                 data['tipo_experiencia'] = externo.tipo_experiencia
                 data['organizacion'] = externo.organizacion
+            else:
+                return Response({"error": "Rol de usuario no válido"}, status=status.HTTP_400_BAD_REQUEST)
         except (Alumno.DoesNotExist, Instructor.DoesNotExist, Externo.DoesNotExist):
             return Response({"error": "Perfil detallado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         return Response(data, status=status.HTTP_200_OK)
@@ -258,4 +267,387 @@ class MiPerfilView(APIView):
         return Response({
             "mensaje": "Cuenta eliminada permanentemente sin dejar rastro.",
             "email_eliminado": email_eliminado
+        }, status=status.HTTP_200_OK)
+
+class InstructorHorariosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Verifico que quien consulta sea realmente un Instructor registrado
+        if request.user.rol != 'Instructor':
+            return Response(
+                {"error": "Solo los instructores pueden consultar sus paneles de horarios."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+        except Instructor.DoesNotExist:
+            return Response({"error": "Perfil de instructor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtengo todos sus bloques de horario y precargo los alumnos vinculados para optimizar la consulta
+        horarios = HorarioClase.objects.filter(instructor=instructor).prefetch_related(
+            'alumnos_vinculados__alumno__usuario'
+        ).order_by('id')
+
+        resultado = []
+        for bloque in horarios:
+            lista_alumnos = []
+            for vinculo in bloque.alumnos_vinculados.all():
+                alumno_obj = vinculo.alumno
+                lista_alumnos.append({
+                    "alumno_id": alumno_obj.id,
+                    "nombre_completo": alumno_obj.usuario.nombre_completo,
+                    "email": alumno_obj.usuario.email,
+                    "numero_control": alumno_obj.numero_control,
+                    "procedencia": alumno_obj.procedencia,
+                    "fecha_vinculacion": vinculo.actualizado_en,
+                })
+
+            resultado.append({
+                "horario_id": bloque.id,
+                "materia": bloque.materia,
+                "horario": bloque.horario,
+                "total_alumnos": len(lista_alumnos),
+                "alumnos": lista_alumnos
+            })
+
+        return Response({
+            "instructor": request.user.nombre_completo,
+            "bloques_horarios": resultado
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Permito únicamente a los Instructores dar de alta bloques de horario
+        if request.user.rol != 'Instructor':
+            return Response(
+                {"error": "Solo los instructores pueden crear horarios de clase."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = HorarioClaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+            nuevo_bloque = HorarioClase.objects.create(
+                instructor=instructor,
+                materia=safe_data['materia'],
+                horario=safe_data['horario']
+            )
+        except Instructor.DoesNotExist:
+            return Response({"error": "Perfil de instructor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except IntegrityError:
+            return Response(
+                {"error": "Ya tienes registrado este mismo horario para esa materia."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            "mensaje": "Horario de clase creado correctamente.",
+            "horario_id": nuevo_bloque.id,
+            "materia": nuevo_bloque.materia,
+            "horario": nuevo_bloque.horario
+        }, status=status.HTTP_201_CREATED)
+
+class InstructorHorarioDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, horario_id):
+        # Valido que el Instructor solo pueda borrar sus propios horarios (Prevención de BOLA/IDOR)
+        if request.user.rol != 'Instructor':
+            return Response({"error": "No tienes permiso para realizar esta acción."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            instructor = Instructor.objects.get(usuario=request.user)
+            bloque = HorarioClase.objects.get(id=horario_id, instructor=instructor)
+        except (Instructor.DoesNotExist, HorarioClase.DoesNotExist):
+            return Response(
+                {"error": "El horario no existe o no pertenece a tu cuenta."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Al borrar el bloque, los alumnos vinculados pasan a horario_clase=None automáticamente (SET_NULL)
+        bloque.delete()
+
+        return Response({
+            "mensaje": "Horario eliminado. Los alumnos vinculados recibirán el aviso para elegir un nuevo horario."
+        }, status=status.HTTP_200_OK)
+
+class CatalogoProfesoresView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Permito buscar profesores por nombre mediante ?q=Nombre (ej. /api/alumno/profesores/?q=Israel)
+        busqueda = request.query_params.get('q', '').strip()
+
+        instructores_qs = Instructor.objects.select_related('usuario').prefetch_related('horarios').all()
+        if busqueda:
+            instructores_qs = instructores_qs.filter(usuario__nombre_completo__icontains=busqueda)
+
+        catalogo = []
+        for inst in instructores_qs:
+            bloques = [
+                {
+                    "horario_id": h.id,
+                    "materia": h.materia,
+                    "horario": h.horario,
+                    "etiqueta_completa": f"{h.horario} - {h.materia}"
+                }
+                for h in inst.horarios.all()
+            ]
+            # Solo muestro en la lista a los profesores que ya dieron de alta al menos un horario
+            if bloques:
+                catalogo.append({
+                    "instructor_id": inst.id,
+                    "nombre_profesor": inst.usuario.nombre_completo,
+                    "departamento": inst.departamento,
+                    "horarios_disponibles": bloques
+                })
+
+        return Response(catalogo, status=status.HTTP_200_OK)
+
+class MiVinculoAlumnoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Consulto el estado actual de vinculación del alumno autenticado
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Esta sección es exclusiva para alumnos."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            vinculo = VinculoAlumno.objects.select_related(
+                'horario_clase__instructor__usuario'
+            ).get(alumno=alumno)
+        except Alumno.DoesNotExist:
+            return Response({"error": "Perfil de alumno no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except VinculoAlumno.DoesNotExist:
+            # Caso 1: El alumno nunca se ha vinculado o ya se desvinculó manualmente
+            return Response({
+                "vinculado": False,
+                "horario_eliminado": False,
+                "mensaje": "Aún no estás vinculado con ningún profesor."
+            }, status=status.HTTP_200_OK)
+
+        # Caso 2: El alumno estaba vinculado, pero el profesor borró ese horario al terminar el semestre
+        if vinculo.horario_clase is None:
+            return Response({
+                "vinculado": False,
+                "horario_eliminado": True,
+                "ultimo_registro": vinculo.respaldo_horario,
+                "alerta": "Ups, al parecer ya no da clases durante este horario, ¿Deseas vincularte con otro profesor?"
+            }, status=status.HTTP_200_OK)
+
+        # Caso 3: El vínculo está activo y en orden
+        bloque = vinculo.horario_clase
+        profesor = bloque.instructor.usuario.nombre_completo
+        return Response({
+            "vinculado": True,
+            "horario_eliminado": False,
+            "horario_id": bloque.id,
+            "nombre_profesor": profesor,
+            "materia": bloque.materia,
+            "horario": bloque.horario
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Vinculo al alumno o actualizo automáticamente su horario si se equivocó de hora ("dedos rápidos")
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Solo los alumnos pueden vincularse a un horario."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = VincularHorarioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        horario_id = serializer.validated_data['horario_id']
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            bloque = HorarioClase.objects.select_related('instructor__usuario').get(id=horario_id)
+        except Alumno.DoesNotExist:
+            return Response({"error": "Perfil de alumno no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except HorarioClase.DoesNotExist:
+            return Response({"error": "El horario seleccionado no existe o ya fue eliminado."}, status=status.HTTP_404_NOT_FOUND)
+
+        texto_respaldo = f"{bloque.instructor.usuario.nombre_completo} | {bloque.horario} ({bloque.materia})"
+
+        # update_or_create mueve al alumno de horario/profesor limpiamente sin duplicarlo jamás
+        VinculoAlumno.objects.update_or_create(
+            alumno=alumno,
+            defaults={
+                'horario_clase': bloque,
+                'respaldo_horario': texto_respaldo
+            }
+        )
+
+        return Response({
+            "mensaje": "Te has vinculado correctamente al horario de clase.",
+            "profesor": bloque.instructor.usuario.nombre_completo,
+            "materia": bloque.materia,
+            "horario": bloque.horario
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        # Permito que el alumno se desvincule manualmente al finalizar el semestre
+        if request.user.rol != 'Alumno':
+            return Response({"error": "Acción permitida solo para alumnos."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            alumno = Alumno.objects.get(usuario=request.user)
+            vinculo = VinculoAlumno.objects.get(alumno=alumno)
+            vinculo.delete()
+            return Response({"mensaje": "Te has desvinculado del profesor correctamente."}, status=status.HTTP_200_OK)
+        except (Alumno.DoesNotExist, VinculoAlumno.DoesNotExist):
+            return Response({"error": "No tienes ningún vínculo activo para eliminar."}, status=status.HTTP_404_NOT_FOUND)
+
+class SuperAdminDashboardView(APIView):
+    # Exijo autenticación JWT y que el usuario tenga is_superuser = True en Supabase
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def get(self, request):
+        # Calculo las métricas generales para la pestaña de Inicio
+        metricas = {
+            "total_usuarios": Usuario.objects.count(),
+            "total_alumnos": Alumno.objects.count(),
+            "total_instructores": Instructor.objects.count(),
+            "total_externos": Externo.objects.count(),
+            "total_superadmins": Usuario.objects.filter(is_superuser=True).count(),
+            "total_horarios_activos": HorarioClase.objects.count(),
+        }
+
+        # Capturo los filtros de la barra de búsqueda y los botones (Todos, Alumno, Maestro, Externo)
+        busqueda = request.query_params.get('q', '').strip()
+        filtro_rol = request.query_params.get('rol', '').strip()
+
+        usuarios_qs = Usuario.objects.select_related(
+            'alumno__vinculo__horario_clase__instructor__usuario',
+            'instructor',
+            'externo'
+        ).all().order_by('-id')
+
+        # Buscador triple: busca por Nombre, Correo o ID / Número de control en cualquiera de los 3 roles
+        if busqueda:
+            usuarios_qs = usuarios_qs.filter(
+                Q(nombre_completo__icontains=busqueda) |
+                Q(email__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda) |
+                Q(instructor__numero_control__icontains=busqueda) |
+                Q(externo__numero_control__icontains=busqueda)
+            )
+        
+        # Normalizo el filtro por si el frontend envía "Maestro" o "Todos" desde los botones
+        if filtro_rol and filtro_rol.lower() != 'todos':
+            if filtro_rol.lower() == 'maestro':
+                filtro_rol = 'Instructor'
+            usuarios_qs = usuarios_qs.filter(rol__iexact=filtro_rol)
+
+        # Construyo el directorio con la información de la tarjeta y la ficha para el menú de 3 puntos (...)
+        directorio = []
+        for u in usuarios_qs:
+            numero_control = None
+            info_personal = {}
+
+            if hasattr(u, 'alumno'):
+                numero_control = u.alumno.numero_control
+                vinculo = getattr(u.alumno, 'vinculo', None)
+                profe_vinculado = (
+                    f"{vinculo.horario_clase.instructor.usuario.nombre_completo} ({vinculo.horario_clase.horario} - {vinculo.horario_clase.materia})"
+                    if vinculo and vinculo.horario_clase else "Sin profesor vinculado"
+                )
+                info_personal = {
+                    "procedencia": u.alumno.procedencia,
+                    "profesor_actual": profe_vinculado,
+                }
+            elif hasattr(u, 'instructor'):
+                numero_control = u.instructor.numero_control
+                info_personal = {
+                    "procedencia": u.instructor.procedencia,
+                    "departamento": u.instructor.departamento,
+                    "especialidad": u.instructor.especialidad,
+                    "grado_academico": u.instructor.grado_academico,
+                }
+            elif hasattr(u, 'externo'):
+                numero_control = u.externo.numero_control
+                info_personal = {
+                    "tipo_experiencia": u.externo.tipo_experiencia,
+                    "organizacion": u.externo.organizacion,
+                }
+
+            directorio.append({
+                "usuario_id": u.id,
+                "inicial": u.nombre_completo[0].upper() if u.nombre_completo else "?",
+                "nombre_completo": u.nombre_completo,
+                "email": u.email,
+                "rol": u.rol,
+                "numero_control": numero_control or "Sin ID",
+                "activo": u.is_active,
+                "es_superadmin": u.is_superuser,
+                "perfil_completado": numero_control is not None,
+                # Ficha detallada para el menú de los tres puntos (...)
+                "detalles_perfil": info_personal,
+                "resumen_actividades": {
+                    "xp_total": 0,
+                    "nivel": "Principiante",
+                    "total_macro_eventos": 0,
+                    "total_cursos": 0,
+                    "total_talleres": 0,
+                    "total_exposiciones": 0
+                }
+            })
+
+        return Response({
+            "admin_actual": request.user.nombre_completo,
+            "metricas": metricas,
+            "usuarios": directorio
+        }, status=status.HTTP_200_OK)
+
+class SuperAdminUsuarioDetailView(APIView):
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def patch(self, request, usuario_id):
+        # Otorga o revoca permisos de Super Admin desde el menú de tres puntos (...)
+        serializer = SuperAdminPrivilegioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nuevo_estado = serializer.validated_data['es_superadmin']
+
+        if request.user.id == usuario_id and not nuevo_estado:
+            return Response(
+                {"error": "Por seguridad, no puedes revocar tu propio permiso de Super Admin."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            usuario_objetivo = Usuario.objects.get(id=usuario_id)
+        except Usuario.DoesNotExist:
+            return Response({"error": "El usuario especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        usuario_objetivo.is_superuser = nuevo_estado
+        usuario_objetivo.save()
+
+        accion = "otorgado" if nuevo_estado else "revocado"
+        return Response({
+            "mensaje": f"Se ha {accion} el permiso de Super Admin a {usuario_objetivo.nombre_completo}.",
+            "usuario_id": usuario_objetivo.id,
+            "es_superadmin": usuario_objetivo.is_superuser
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, usuario_id):
+        # Elimina permanentemente una cuenta por mal comportamiento sin dejar rastro (CASCADE)
+        if request.user.id == usuario_id:
+            return Response(
+                {"error": "No puedes eliminar tu propia cuenta de Super Admin desde este panel."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            usuario_objetivo = Usuario.objects.get(id=usuario_id)
+        except Usuario.DoesNotExist:
+            return Response({"error": "El usuario que intentas eliminar no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        nombre_borrado = usuario_objetivo.nombre_completo
+        email_borrado = usuario_objetivo.email
+        usuario_objetivo.delete()
+
+        return Response({
+            "mensaje": f"La cuenta de {nombre_borrado} ({email_borrado}) fue eliminada permanentemente."
         }, status=status.HTTP_200_OK)

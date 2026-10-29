@@ -20,17 +20,23 @@
 
 * \[x\] (Backend) Configurar endpoint de recepción de Token de Google (JWT).
 
-* \[ \] (Frontend - Fish) Pantalla de completado de perfil (Nombre editable, Selección de Rol: Alumno, Maestro, Externo).
+* \[x\] (Frontend - Fish) Pantalla de completado de perfil (Nombre editable, Selección de Rol: Alumno, Maestro, Externo).
 
-* \[ \] (Frontend - Fish) Mostrar/ocultar campos obligatorios según el rol (ej. Procedencia).
+* \[x\] (Frontend - Fish) Mostrar/ocultar campos obligatorios según el rol (ej. Procedencia).
 
-* \[ \] (Base de Datos - Fiscal) Asegurar que la tabla Usuarios soporte roles y campos nulos dinámicos.
+* [ ] (DB/Backend) Crear modelo de bloques de clase del Instructor (`horario` y `materia` obligatorios) y tabla de vinculación única con el Alumno (soportando actualización automática de horario, desvinculación manual y manejo de horario eliminado por el profesor sin romper la cuenta del alumno).
+
+* \[ \] (Frontend - Fish) Añadir en el Panel del Instructor la sección "Mis Horarios de Clase" (creación/eliminación de bloques `Hora + Materia` y tabla de alumnos con su XP y botón modal **"Ver Historial"** que liste `(Tipo) Actividad: Estado` o el mensaje *"No hay ninguna actividad activa"*) y dejar preparada la pestaña "Mis Actividades a Cargo".
+
+* [ ] (Frontend - Fish) Añadir en el Panel del Alumno la sección "¿Con qué profesor tomas clase?" (buscador de Instructor, selector de `Horario + Materia`, botón de desvincular y alerta dinámica: *"Ups, al parecer ya no da clases durante este horario, ¿Deseas vincularte con otro profesor?"* cuando el docente borre el grupo).
+
+* \[x\] (Base de Datos - Fiscal) Asegurar que la tabla Usuarios soporte roles y campos nulos dinámicos.
 
 ## Fase 3: Núcleo de Base de Datos y Gamificación
 
 **Responsable: Fiscal (Arquitectura Lógica) / Backend**
 
-* \[ \] (DB - Fiscal) Diseñar la jerarquía de eventos: crear tabla `macro_eventos` (Contenedor Padre) y tabla `actividades` (Cursos, Exposiciones, Talleres) con el campo `estado` (Reclutando, Borrador, Publicado).
+* \[ \] (DB - Fiscal) Diseñar la jerarquía de eventos: crear tabla `macro_eventos` (Contenedor Padre) y tabla `actividades` (Cursos, Exposiciones, Talleres) con el campo `estado` (Reclutando, Borrador, Publicado), incluyendo `instructor_id` (profesor titular) y `expositor_id` (alumno que imparte) para mostrarlos en el Verificador de Folios y habilitar su lista de asistencia
 
 * \[ \] (DB - Fiscal) Diseñar el historial de XP (Ledger: usuario_id, evento_id, cantidad_xp, motivo, fecha).
 
@@ -53,8 +59,6 @@
 * \[ \] (Frontend - Fish) Diseñar Vista de Evento (Mostrar límite de cupo y botón dinámico "Agotado" o "Asistir").
 
 * \[ \] (Frontend - Fish) Botón "Quiero ser Expositor" (Solo visible en estado *Reclutando*).
-
-* \[ \] (Frontend - Fish) Añadir el campo Dropdown obligatorio "Seleccionar Profesor (o Ninguno)" en la pantalla de inscripción a Macro Eventos.
 
 * \[ \] (Backend) Endpoint de inscripción (Validar límite de cupo máximo antes de guardar).
 
@@ -80,8 +84,12 @@
 
 * \[ \] (Frontend - Fish) Diseñar la pantalla de "Verificador de Folios" para Maestros y Jefes de Departamento (Un simple input de texto).
 
-* \[ \] (Frontend - Fish) Diseñar el Modal de éxito/error al verificar el folio (Mostrar: Nombre del alumno, Número de control, Actividad completada, Fecha).
+* \[ \] (Frontend - Fish) Diseñar el Modal de resultado al verificar el folio mostrando: Nombre del alumno, Número de control, Actividad y el **Estado actual** (`Cursando` / `Terminado` para cursos, o `Por asistir` / `Asistido` para eventos, exposiciones y talleres).
 
-* \[ \] (Backend) Crear generador de folios criptográficos para finalización de cursos/exposiciones (Formato sugerido: UNIX-{num_control}-{5_letras_random}) y guardarlo en la tabla de asistencias.
+* \[ \] (Backend) Crear generador de folios únicos al momento de la inscripción a cualquier evento/actividad (Ej. `UNIX-{num_control}-{id_evento}`) y actualizar su estado automáticamente al validar la asistencia o conclusión.
 
-* \[ \] (Backend) Crear un endpoint público (GET `/api/verificar-folio/{folio}`) que devuelva el nombre del alumno y el evento completado.
+* \[ \] (Backend) Crear endpoint de consulta (`GET /api/verificar-folio/{folio}`) que devuelva los datos del alumno, el tipo de actividad y su estado en tiempo real (`Por asistir`, `Asistido`, `Cursando` o `Terminado`).
+
+* [ ] (Frontend - Fish) Diseñar el Modal de resultado al verificar el folio mostrando el detalle completo: Nombre del alumno, Número de control, Tipo y nombre de la actividad, **Instructor titular**, **Alumno Expositor** que impartió y el **Estado actual** (`Cursando` / `Terminado` o `Por asistir` / `Asistido`), o alerta si el folio no existe.
+
+* [ ] (Backend) Crear endpoint de consulta (`GET /api/verificar-folio/{folio}`) que devuelva los datos del alumno, el tipo y título de la actividad, el nombre del Instructor a cargo, el nombre del Expositor y su estado en tiempo real (`Por asistir`, `Asistido`, `Cursando` o `Terminado`).

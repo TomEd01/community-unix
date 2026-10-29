@@ -8,25 +8,85 @@ import 'package:google_sign_in_web/web_only.dart' as web;
 import 'package:http/http.dart' as http;
 
 import 'pages/onboarding_page.dart';
+import 'pages/bienvenida_page.dart';
 import 'pages/alumno_page.dart';
 import 'pages/instructor_page.dart';
+import 'pages/externo_page.dart';
+import 'pages/admin/admin_page.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Inicio la aplicación desde la pantalla de acceso.
-void main() async{
-  // Asegura que Flutter esté listo antes de leer la memoria
+// Se consulta el perfil del servidor para no reutilizar un rol antiguo.
+const String authBaseUrl = 'http://127.0.0.1:8000/api/auth';
+
+String resolverRol(Map<String, dynamic> data) {
+  final rol =
+      (data['rol'] ?? data['Rol'])?.toString().trim().toLowerCase() ?? '';
+  if (data['es_superadmin'] == true || rol == 'superadmin' || rol == 'admin') {
+    return 'superadmin';
+  }
+  return rol;
+}
+
+Widget? pantallaParaRol(String? rol) {
+  switch (rol?.trim().toLowerCase()) {
+    case 'alumno':
+      return const AlumnoPage();
+    case 'instructor':
+      return const InstructorPage();
+    case 'externo':
+      return const ExternoPage();
+    case 'superadmin':
+    case 'admin':
+      return const AdminPage();
+    default:
+      return null;
+  }
+}
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Leemos la memoria del dispositivo
   final prefs = await SharedPreferences.getInstance();
-  final String? tokenGuardado = prefs.getString('jwt_token');
-  final String? rolGuardado = prefs.getString('user_rol');
+  String? token = prefs.getString('jwt_token');
+  String? rol;
 
-  runApp(ComunidadApp(
-    tokenInicial: tokenGuardado,
-    rolInicial: rolGuardado,
-  ));
+  if (token != null && token.trim().isNotEmpty) {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$authBaseUrl/perfil/me/'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic>) {
+          final actual = resolverRol(decoded);
+          debugPrint(
+            'Perfil inicial: rol=${decoded['rol']}, '
+            'es_superadmin=${decoded['es_superadmin']}, destino=$actual',
+          );
+          if (pantallaParaRol(actual) != null) {
+            rol = actual;
+            await prefs.setString('user_rol', actual);
+          }
+        }
+      } else if (response.statusCode == 401) {
+        await prefs.remove('jwt_token');
+        await prefs.remove('user_rol');
+        token = null;
+      } else {
+        debugPrint('No se pudo verificar el perfil: ${response.statusCode}');
+      }
+    } catch (_) {
+      debugPrint('No se pudo verificar el perfil. Se mostrará el acceso.');
+    }
+  }
+  runApp(ComunidadApp(tokenInicial: token, rolInicial: rol));
 }
 
 // Centralizo los colores que comparto entre las distintas secciones.
@@ -42,15 +102,24 @@ class ComunidadApp extends StatelessWidget {
 
   // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
-  Widget build(BuildContext context) {// Lógica de enrutamiento inicial
-    Widget pantallaInicial = const AccessScreen();
-    
-    if (tokenInicial != null && tokenInicial!.isNotEmpty) {
-      if (rolInicial == 'Instructor') {
-        pantallaInicial = const InstructorPage();
-      } else {
-        pantallaInicial = const AlumnoPage();
-      }
+  Widget build(BuildContext context) {
+    // Lógica de enrutamiento inicial
+    Widget pantallaInicial;
+
+    if (tokenInicial != null && tokenInicial!.trim().isNotEmpty) {
+      pantallaInicial = pantallaParaRol(rolInicial) ?? const AccessScreen();
+    } else {
+      pantallaInicial = Builder(
+        builder: (context) {
+          return BienvenidaPage(
+            onRegister: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AccessScreen()),
+              );
+            },
+          );
+        },
+      );
     }
     return MaterialApp(
       title: 'Comunidad Unix ITC',
@@ -125,7 +194,7 @@ class _AccessScreenState extends State<AccessScreen> {
     try {
       // Envío el token al backend para validar la cuenta.
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/auth/google/'),
+        Uri.parse('$authBaseUrl/google/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id_token': idToken}),
       );
@@ -141,7 +210,7 @@ class _AccessScreenState extends State<AccessScreen> {
         return;
       }
 
-      final dynamic decoded = jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
       // Compruebo que la respuesta tenga la estructura que espera la aplicación.
       if (decoded is! Map<String, dynamic>) {
@@ -152,14 +221,18 @@ class _AccessScreenState extends State<AccessScreen> {
       }
 
       final Map<String, dynamic> data = decoded;
-      debugPrint('Respuesta del backend: $data');
+
+      debugPrint('Rol recibido: ${data['Rol']}');
+      debugPrint('Es superadmin: ${data['es_superadmin']}');
+      debugPrint('Usuario nuevo: ${data['Nuevo']}');
 
       // Extraigo los datos que necesito para abrir el formulario de perfil.
+
       final String? onboardingToken = data['token']?.toString();
       final String? email = data['Email']?.toString();
       final String? nombre = data['Nombre']?.toString();
       final bool esNuevo = data['Nuevo'] == true;
-      final String rol = data['Rol']?.toString() ?? 'Alumno';
+      final String rol = resolverRol(data);
 
       if (onboardingToken == null || onboardingToken.isEmpty || email == null) {
         setState(
@@ -171,7 +244,7 @@ class _AccessScreenState extends State<AccessScreen> {
       if (!mounted) return;
 
       // Sustituyo la pantalla actual para que el usuario continúe el registro.
-      if (esNuevo) {
+      if (esNuevo && rol != 'superadmin') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => OnboardingPage(
@@ -182,22 +255,23 @@ class _AccessScreenState extends State<AccessScreen> {
           ),
         );
       } else {
-        // Guardamos los datos en la memoria persistente
+        final destination = pantallaParaRol(rol);
+        if (destination == null) {
+          setState(
+            () => authError =
+                'Rol no reconocido: $rol. '
+                'Revisa Rol y es_superadmin en la respuesta del backend.',
+          );
+          return;
+        }
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', onboardingToken);
         await prefs.setString('user_rol', rol);
-        
-        // Si ya existe, entonces se salta directo a su panel según el rol
-        Widget destination;
-        if (rol == 'Instructor') {
-          destination = const InstructorPage();
-        } else {
-          destination = const AlumnoPage(); // Alumnos y Externos
-        }
-
+        if (!mounted) return;
+        debugPrint('Navegación después de Google: $rol');
         Navigator.of(
           context,
-        ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
+        ).pushReplacement(MaterialPageRoute(builder: (_) => destination));
       }
     } catch (error) {
       // Presento el error de conexión sin actualizar una pantalla desmontada.
@@ -217,6 +291,7 @@ class _AccessScreenState extends State<AccessScreen> {
     super.initState();
     // Función auxiliar para no repetir código
     void activarEscuchaGoogle() {
+      if (!mounted) return;
       googleSubscription = GoogleSignIn.instance.authenticationEvents.listen(
         (event) {
           if (event is GoogleSignInAuthenticationEventSignIn) {
@@ -228,21 +303,26 @@ class _AccessScreenState extends State<AccessScreen> {
         },
       );
     }
+
     // Escucho los inicios de sesión y envío cada cuenta autenticada al backend, manteniendo
     // una mejora de logica inteligente de inicialización.
     if (!_googleIniciado) {
-      GoogleSignIn.instance.initialize().then((_) {
-        _googleIniciado = true;
-        activarEscuchaGoogle();
-      }).catchError((Object error) {
-        // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
-        if (error.toString().contains('already been called')) {
-          _googleIniciado = true;
-          activarEscuchaGoogle();
-        } else {
-          if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
-        }
-      });
+      GoogleSignIn.instance
+          .initialize()
+          .then((_) {
+            _googleIniciado = true;
+            activarEscuchaGoogle();
+          })
+          .catchError((Object error) {
+            // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
+            if (error.toString().contains('already been called')) {
+              _googleIniciado = true;
+              activarEscuchaGoogle();
+            } else {
+              if (mounted)
+                setState(() => authError = 'No se pudo iniciar Google: $error');
+            }
+          });
     } else {
       activarEscuchaGoogle();
     }
