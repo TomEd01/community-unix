@@ -8,6 +8,7 @@ import 'package:google_sign_in_web/web_only.dart' as web;
 import 'package:http/http.dart' as http;
 
 import 'pages/onboarding_page.dart';
+import 'pages/bienvenida_page.dart';
 import 'pages/alumno_page.dart';
 import 'pages/instructor_page.dart';
 import 'pages/externo_page.dart';
@@ -19,7 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String authBaseUrl = 'http://127.0.0.1:8000/api/auth';
 
 String resolverRol(Map<String, dynamic> data) {
-  final rol = (data['rol'] ?? data['Rol'])?.toString().trim().toLowerCase() ?? '';
+  final rol =
+      (data['rol'] ?? data['Rol'])?.toString().trim().toLowerCase() ?? '';
   if (data['es_superadmin'] == true || rol == 'superadmin' || rol == 'admin') {
     return 'superadmin';
   }
@@ -28,12 +30,17 @@ String resolverRol(Map<String, dynamic> data) {
 
 Widget? pantallaParaRol(String? rol) {
   switch (rol?.trim().toLowerCase()) {
-    case 'alumno': return const AlumnoPage();
-    case 'instructor': return const InstructorPage();
-    case 'externo': return const ExternoPage();
+    case 'alumno':
+      return const AlumnoPage();
+    case 'instructor':
+      return const InstructorPage();
+    case 'externo':
+      return const ExternoPage();
     case 'superadmin':
-    case 'admin': return const AdminPage();
-    default: return null;
+    case 'admin':
+      return const AdminPage();
+    default:
+      return null;
   }
 }
 
@@ -45,17 +52,24 @@ Future<void> main() async {
 
   if (token != null && token.trim().isNotEmpty) {
     try {
-      final response = await http.get(
-        Uri.parse('$authBaseUrl/perfil/me/'),
-        headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(
+            Uri.parse('$authBaseUrl/perfil/me/'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map<String, dynamic>) {
           final actual = resolverRol(decoded);
-          debugPrint('Perfil inicial: rol=${decoded['rol']}, '
-              'es_superadmin=${decoded['es_superadmin']}, destino=$actual');
+          debugPrint(
+            'Perfil inicial: rol=${decoded['rol']}, '
+            'es_superadmin=${decoded['es_superadmin']}, destino=$actual',
+          );
           if (pantallaParaRol(actual) != null) {
             rol = actual;
             await prefs.setString('user_rol', actual);
@@ -88,11 +102,24 @@ class ComunidadApp extends StatelessWidget {
 
   // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
-  Widget build(BuildContext context) {// Lógica de enrutamiento inicial
-    Widget pantallaInicial = const AccessScreen();
-    
+  Widget build(BuildContext context) {
+    // Lógica de enrutamiento inicial
+    Widget pantallaInicial;
+
     if (tokenInicial != null && tokenInicial!.trim().isNotEmpty) {
       pantallaInicial = pantallaParaRol(rolInicial) ?? const AccessScreen();
+    } else {
+      pantallaInicial = Builder(
+        builder: (context) {
+          return BienvenidaPage(
+            onRegister: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AccessScreen()),
+              );
+            },
+          );
+        },
+      );
     }
     return MaterialApp(
       title: 'Comunidad Unix ITC',
@@ -200,7 +227,7 @@ class _AccessScreenState extends State<AccessScreen> {
       debugPrint('Usuario nuevo: ${data['Nuevo']}');
 
       // Extraigo los datos que necesito para abrir el formulario de perfil.
-      
+
       final String? onboardingToken = data['token']?.toString();
       final String? email = data['Email']?.toString();
       final String? nombre = data['Nombre']?.toString();
@@ -230,8 +257,11 @@ class _AccessScreenState extends State<AccessScreen> {
       } else {
         final destination = pantallaParaRol(rol);
         if (destination == null) {
-          setState(() => authError = 'Rol no reconocido: $rol. '
-            'Revisa Rol y es_superadmin en la respuesta del backend.');
+          setState(
+            () => authError =
+                'Rol no reconocido: $rol. '
+                'Revisa Rol y es_superadmin en la respuesta del backend.',
+          );
           return;
         }
         final prefs = await SharedPreferences.getInstance();
@@ -239,11 +269,10 @@ class _AccessScreenState extends State<AccessScreen> {
         await prefs.setString('user_rol', rol);
         if (!mounted) return;
         debugPrint('Navegación después de Google: $rol');
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => destination),
-        );
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => destination));
       }
-
     } catch (error) {
       // Presento el error de conexión sin actualizar una pantalla desmontada.
       if (mounted)
@@ -274,21 +303,26 @@ class _AccessScreenState extends State<AccessScreen> {
         },
       );
     }
+
     // Escucho los inicios de sesión y envío cada cuenta autenticada al backend, manteniendo
     // una mejora de logica inteligente de inicialización.
     if (!_googleIniciado) {
-      GoogleSignIn.instance.initialize().then((_) {
-        _googleIniciado = true;
-        activarEscuchaGoogle();
-      }).catchError((Object error) {
-        // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
-        if (error.toString().contains('already been called')) {
-          _googleIniciado = true;
-          activarEscuchaGoogle();
-        } else {
-          if (mounted) setState(() => authError = 'No se pudo iniciar Google: $error');
-        }
-      });
+      GoogleSignIn.instance
+          .initialize()
+          .then((_) {
+            _googleIniciado = true;
+            activarEscuchaGoogle();
+          })
+          .catchError((Object error) {
+            // Si el navegador ya lo había iniciado (ej. por recargas en desarrollo), nos recuperamos silenciosamente
+            if (error.toString().contains('already been called')) {
+              _googleIniciado = true;
+              activarEscuchaGoogle();
+            } else {
+              if (mounted)
+                setState(() => authError = 'No se pudo iniciar Google: $error');
+            }
+          });
     } else {
       activarEscuchaGoogle();
     }
