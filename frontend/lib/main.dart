@@ -1,3 +1,5 @@
+import 'theme/unix_lexus_portrait.dart';
+import 'theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -31,14 +33,14 @@ String resolverRol(Map<String, dynamic> data) {
 Widget? pantallaParaRol(String? rol) {
   switch (rol?.trim().toLowerCase()) {
     case 'alumno':
-      return const AlumnoPage();
+      return AlumnoPage();
     case 'instructor':
-      return const InstructorPage();
+      return InstructorPage();
     case 'externo':
-      return const ExternoPage();
+      return ExternoPage();
     case 'superadmin':
     case 'admin':
-      return const AdminPage();
+      return AdminPage();
     default:
       return null;
   }
@@ -46,6 +48,7 @@ Widget? pantallaParaRol(String? rol) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await UnixTheme.instance.load();
   final prefs = await SharedPreferences.getInstance();
   String? token = prefs.getString('jwt_token');
   String? rol;
@@ -60,7 +63,7 @@ Future<void> main() async {
               'Accept': 'application/json',
             },
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -86,14 +89,18 @@ Future<void> main() async {
       debugPrint('No se pudo verificar el perfil. Se mostrará el acceso.');
     }
   }
-  runApp(ComunidadApp(tokenInicial: token, rolInicial: rol));
+  runApp(
+    UnixThemeScope(
+      child: ComunidadApp(tokenInicial: token, rolInicial: rol),
+    ),
+  );
 }
 
 // Centralizo los colores que comparto entre las distintas secciones.
-const Color ink = Color(0xFF080C18);
+Color get ink => UnixColors.adapt(Color(0xFF080C18));
 const Color orange = Color(0xFFF97316);
-const Color muted = Color(0xFF9899A8);
-const Color white = Colors.white;
+Color get muted => UnixColors.adapt(Color(0xFF9899A8));
+Color get white => UnixColors.text;
 
 class ComunidadApp extends StatelessWidget {
   final String? tokenInicial;
@@ -103,19 +110,21 @@ class ComunidadApp extends StatelessWidget {
   // Configuro el tema general y establezco el acceso como pantalla inicial.
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     // Lógica de enrutamiento inicial
     Widget pantallaInicial;
 
     if (tokenInicial != null && tokenInicial!.trim().isNotEmpty) {
-      pantallaInicial = pantallaParaRol(rolInicial) ?? const AccessScreen();
+      pantallaInicial = pantallaParaRol(rolInicial) ?? AccessScreen();
     } else {
       pantallaInicial = Builder(
         builder: (context) {
+          UnixTheme.watch(context);
           return BienvenidaPage(
             onRegister: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const AccessScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => AccessScreen()));
             },
           );
         },
@@ -124,18 +133,10 @@ class ComunidadApp extends StatelessWidget {
     return MaterialApp(
       title: 'Comunidad Unix ITC',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: ink,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: orange,
-          brightness: Brightness.dark,
-        ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontSize: 14, color: white),
-        ),
-        splashFactory: NoSplash.splashFactory,
-      ),
+      theme: UnixThemes.light,
+      darkTheme: UnixThemes.dark,
+      themeMode: UnixTheme.instance.mode,
+      themeAnimationDuration: Duration.zero,
       home: pantallaInicial,
     );
   }
@@ -247,11 +248,14 @@ class _AccessScreenState extends State<AccessScreen> {
       if (esNuevo && rol != 'superadmin') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => OnboardingPage(
-              onboardingToken: onboardingToken,
-              email: email,
-              nombre: nombre ?? '',
-            ),
+            builder: (context) {
+              UnixTheme.watch(context);
+              return OnboardingPage(
+                onboardingToken: onboardingToken,
+                email: email,
+                nombre: nombre ?? '',
+              );
+            },
           ),
         );
       } else {
@@ -328,17 +332,17 @@ class _AccessScreenState extends State<AccessScreen> {
     }
 
     // Animo gradualmente las pupilas hacia la posición indicada por el puntero.
-    eyeTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+    eyeTimer = Timer.periodic(Duration(milliseconds: 16), (_) {
       if (!mounted || (pupil - targetPupil).distance < 0.03) return;
       setState(() => pupil = Offset.lerp(pupil, targetPupil, 0.14)!);
     });
 
     // Reproduzco un parpadeo periódico y restauro enseguida la imagen abierta.
-    blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    blinkTimer = Timer.periodic(Duration(seconds: 4), (_) {
       if (!mounted) return;
       setState(() => blink = true);
       unblinkTimer?.cancel();
-      unblinkTimer = Timer(const Duration(milliseconds: 150), () {
+      unblinkTimer = Timer(Duration(milliseconds: 150), () {
         if (mounted) setState(() => blink = false);
       });
     });
@@ -356,12 +360,12 @@ class _AccessScreenState extends State<AccessScreen> {
 
   TextStyle style(
     double size, {
-    Color color = white,
+    Color? color,
     FontWeight weight = FontWeight.w400,
   }) {
     return TextStyle(
       fontSize: size,
-      color: color,
+      color: color ?? white,
       fontWeight: weight,
       height: 1.25,
     );
@@ -370,169 +374,241 @@ class _AccessScreenState extends State<AccessScreen> {
   // Mantengo una función breve para espaciar los elementos de la interfaz.
   Widget gap(double height) => SizedBox(height: height);
 
-  // Construyo el panel de acceso y adapto sus elementos al ancho disponible.
-  Widget leftPanel(double availableWidth, double height) {
-    final bool showToucan = availableWidth > 750;
-    return Container(
-      constraints: BoxConstraints(minHeight: height),
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(-0.65, -0.75),
-          radius: 1.3,
-          colors: [Color(0xFF231039), Color(0xFF111321), ink],
-          stops: [0, 0.55, 1],
+  void _volverAlInicio() {
+    final navigator = Navigator.of(context);
+
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => BienvenidaPage(
+          onRegister: () {
+            navigator.push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AccessScreen(),
+              ),
+            );
+          },
         ),
       ),
-      child: Stack(
-        children: [
-          if (showToucan)
-            // Muestro el tucán solo cuando hay espacio suficiente.
-            Positioned(
-              top: 95,
-              right: 20,
-              child: IgnorePointer(
-                child: Image.asset(
-                  'assets/toucan.png',
-                  width: math.min(215, availableWidth * 0.22),
-                ),
+      (route) => false,
+    );
+  }
+
+  // Construyo el panel de acceso y adapto sus elementos al ancho disponible.
+ Widget leftPanel(double availableWidth, double height) {
+  final bool showToucan = availableWidth > 750;
+
+  return Container(
+    constraints: BoxConstraints(minHeight: height),
+    decoration: BoxDecoration(
+      gradient: RadialGradient(
+        center: const Alignment(-0.65, -0.75),
+        radius: 1.3,
+        colors: [
+          UnixColors.adapt(const Color(0xFF231039)),
+          UnixColors.adapt(const Color(0xFF111321)),
+          ink,
+        ],
+        stops: const [0, 0.55, 1],
+      ),
+    ),
+    child: Stack(
+      children: [
+        if (showToucan)
+          Positioned(
+            top: 95,
+            right: 20,
+            child: IgnorePointer(
+              child: Image.asset(
+                'assets/toucan.png',
+                width: math.min(215, availableWidth * 0.22),
               ),
             ),
-          Align(
-            alignment: Alignment.topCenter,
+          ),
+
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: availableWidth < 600 ? 24 : 48,
+            vertical: 32,
+          ),
+          child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 46,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Innovación Tucán',
-                      style: style(20, weight: FontWeight.w700),
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: sendingToken || googleRequestInFlight
+                          ? null
+                          : _volverAlInicio,
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 19,
+                      ),
+                      label: const Text('Volver al inicio'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: UnixColors.text,
+                      ),
                     ),
-                    gap(55),
-                    Text(
-                      'Bienvenido a Comunidad Unix ITC',
-                      style: style(36, weight: FontWeight.w700),
-                    ),
-                    gap(10),
-                    Text(
-                      'Inicia sesión con tu cuenta de Google para continuar.',
-                      style: style(14, color: muted),
-                    ),
-                    gap(42),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Divider(color: Color(0xFF343246)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text(
-                            'ACCESO',
-                            style: style(
-                              11,
-                              color: muted,
-                              weight: FontWeight.w600,
-                            ),
+                  ),
+                  gap(16),
+
+                  Text(
+                    'Innovación Tucán',
+                    style: style(20, weight: FontWeight.w700),
+                  ),
+                  gap(48),
+
+                  Text(
+                    'Bienvenido a Comunidad Unix ITC',
+                    style: style(36, weight: FontWeight.w700),
+                  ),
+                  gap(10),
+
+                  Text(
+                    'Inicia sesión con tu cuenta de Google para continuar.',
+                    style: style(14, color: muted),
+                  ),
+                  gap(42),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: UnixColors.adapt(
+                            const Color(0xFF343246),
                           ),
                         ),
-                        const Expanded(
-                          child: Divider(color: Color(0xFF343246)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Text(
+                          'ACCESO',
+                          style: style(
+                            11,
+                            color: muted,
+                            weight: FontWeight.w600,
+                          ),
                         ),
-                      ],
-                    ),
-                    gap(28),
-                    Text(
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: UnixColors.adapt(
+                            const Color(0xFF343246),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  gap(28),
+
+                  Center(
+                    child: Text(
                       'Continúa con Google',
                       textAlign: TextAlign.center,
                       style: style(17, weight: FontWeight.w600),
                     ),
-                    gap(7),
-                    Text(
+                  ),
+                  gap(7),
+
+                  Center(
+                    child: Text(
                       'Usa tu cuenta de Google para registrarte y completar tu perfil.',
                       textAlign: TextAlign.center,
                       style: style(13, color: muted),
                     ),
+                  ),
+                  gap(20),
+
+                  Center(child: googleButton),
+
+                  if (sendingToken) ...[
+                    gap(24),
+                    Center(
+                      child: CircularProgressIndicator(color: orange),
+                    ),
+                    gap(10),
+                    Center(
+                      child: Text(
+                        'Verificando tu cuenta...',
+                        style: style(13, color: muted),
+                      ),
+                    ),
+                  ],
+
+                  if (authError != null) ...[
                     gap(20),
-                    Center(child: googleButton),
-                    // Explico visualmente que la autenticación sigue en curso.
-                    if (sendingToken) ...[
-                      gap(24),
-                      const Center(
-                        child: CircularProgressIndicator(color: orange),
-                      ),
-                      gap(10),
-                      Center(
-                        child: Text(
-                          'Verificando tu cuenta...',
-                          style: style(13, color: muted),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: UnixColors.adapt(
+                          const Color(0xFF321C26),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: UnixColors.adapt(
+                            const Color(0xFF713446),
+                          ),
                         ),
                       ),
-                    ],
-                    // Mantengo visible el detalle del error junto al acceso.
-                    if (authError != null) ...[
-                      gap(20),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF321C26),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF713446)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.redAccent,
-                              size: 20,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: UnixColors.adapt(
+                              const Color(0xFFFF6577),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                authError!,
-                                style: const TextStyle(
-                                  color: Colors.redAccent,
-                                  fontSize: 13,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              authError!,
+                              style: TextStyle(
+                                color: UnixColors.adapt(
+                                  const Color(0xFFFF6577),
                                 ),
+                                fontSize: 13,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    gap(34),
-                    Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.shield_outlined,
-                            color: Color(0xFF52D7A7),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Acceso seguro con Google',
-                            style: style(12, color: muted),
                           ),
                         ],
                       ),
                     ),
                   ],
-                ),
+
+                  gap(34),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          color: UnixColors.adapt(
+                            const Color(0xFF52D7A7),
+                          ),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Acceso seguro con Google',
+                          style: style(12, color: muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   // Compongo el panel ilustrado con sus capas y la mascota animada.
   Widget rightPanel(double width, double height) {
     final double imageWidth = math.min(
@@ -544,16 +620,16 @@ class _AccessScreenState extends State<AccessScreen> {
       width: width,
       child: Stack(
         children: [
-          const Positioned.fill(
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFF10143C),
-                    Color(0xFF202C70),
-                    Color(0xFF142052),
+                    UnixColors.adapt(Color(0xFF10143C)),
+                    UnixColors.adapt(Color(0xFF202C70)),
+                    UnixColors.adapt(Color(0xFF142052)),
                   ],
                 ),
               ),
@@ -574,23 +650,12 @@ class _AccessScreenState extends State<AccessScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
+                UnixLexusPortrait(
                   width: imageWidth,
-                  height: imageWidth * 440 / 300,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        blink
-                            ? 'assets/lexus_blink.png'
-                            : 'assets/lexus_base.png',
-                        fit: BoxFit.fill,
-                      ),
-                      if (!blink) CustomPaint(painter: PupilPainter(pupil)),
-                    ],
-                  ),
+                  pupilOffset: pupil,
+                  blink: blink,
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Text(
                   '¡Hola! Soy Lexus 🐧',
                   textAlign: TextAlign.center,
@@ -600,7 +665,7 @@ class _AccessScreenState extends State<AccessScreen> {
                 Text(
                   'Tu compañero de confianza en Linux.',
                   textAlign: TextAlign.center,
-                  style: style(13, color: const Color(0xFFABB4D5)),
+                  style: style(13, color: UnixColors.adapt(Color(0xFFABB4D5))),
                 ),
               ],
             ),
@@ -620,13 +685,13 @@ class _AccessScreenState extends State<AccessScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 for (var i = 0; i < 2; i++) ...[
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 3,
-                    backgroundColor: Color(0xFF6B789B),
+                    backgroundColor: UnixColors.adapt(Color(0xFF6B789B)),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                 ],
               ],
             ),
@@ -664,36 +729,48 @@ class _AccessScreenState extends State<AccessScreen> {
   // Distribuyo los paneles en escritorio y conservo una columna en pantallas estrechas.
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return LayoutBuilder(
       builder: (context, box) {
+        UnixTheme.watch(context);
         final bool desktop = box.maxWidth >= 950;
         final double panel = box.maxWidth * 0.36;
         return Scaffold(
-          body: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerHover: (event) =>
-                followPointer(event, box.maxWidth, box.maxHeight),
-            onPointerMove: (event) =>
-                followPointer(event, box.maxWidth, box.maxHeight),
-            child: SafeArea(
-              child: desktop
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: leftPanel(
-                              box.maxWidth - panel,
-                              box.maxHeight,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerHover: (event) =>
+                    followPointer(event, box.maxWidth, box.maxHeight),
+                onPointerMove: (event) =>
+                    followPointer(event, box.maxWidth, box.maxHeight),
+                child: SafeArea(
+                  child: desktop
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: leftPanel(
+                                  box.maxWidth - panel,
+                                  box.maxHeight,
+                                ),
+                              ),
                             ),
-                          ),
+                            rightPanel(panel, box.maxHeight),
+                          ],
+                        )
+                      : SingleChildScrollView(
+                          child: leftPanel(box.maxWidth, box.maxHeight),
                         ),
-                        rightPanel(panel, box.maxHeight),
-                      ],
-                    )
-                  : SingleChildScrollView(
-                      child: leftPanel(box.maxWidth, box.maxHeight),
-                    ),
-            ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(child: UnixThemeToggle(compact: !desktop)),
+              ),
+            ],
           ),
         );
       },
@@ -705,66 +782,22 @@ class _AccessScreenState extends State<AccessScreen> {
 // OJOS DE LEXUS
 // ============================================================
 
-class PupilPainter extends CustomPainter {
-  const PupilPainter(this.offset);
-
-  final Offset offset;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-
-    canvas.scale(size.width / 300, size.height / 440);
-
-    for (final Offset center in [
-      const Offset(120, 152),
-      const Offset(180, 152),
-    ]) {
-      final Offset eye = center + offset;
-
-      canvas.drawCircle(eye, 13, Paint()..color = const Color(0xFF08111F));
-
-      canvas.drawCircle(eye, 10, Paint()..color = const Color(0xFF0D1A30));
-
-      canvas.drawCircle(eye, 6.5, Paint()..color = const Color(0xFF030A15));
-
-      canvas.drawCircle(
-        eye + const Offset(-4, -4),
-        3.2,
-        Paint()..color = const Color(0xE6FFFFFF),
-      );
-
-      canvas.drawCircle(
-        eye + const Offset(2.5, -1.5),
-        1.5,
-        Paint()..color = const Color(0x73FFFFFF),
-      );
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant PupilPainter oldDelegate) {
-    return oldDelegate.offset != offset;
-  }
-}
-
 // ============================================================
 // ESTRELLAS
 // ============================================================
 
 class SkyPainter extends CustomPainter {
+  SkyPainter() : super(repaint: UnixTheme.instance);
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()..color = const Color(0xAACCDAFF);
+    final Paint paint = Paint();
 
     final math.Random random = math.Random(17);
 
     for (var i = 0; i < 80; i++) {
-      paint.color = const Color(
-        0xFFCCD9FF,
-      ).withValues(alpha: 0.15 + random.nextDouble() * 0.5);
+      paint.color =
+          (UnixColors.dark ? const Color(0xFFCCD9FF) : const Color(0xFF3F7CD3))
+              .withValues(alpha: 0.15 + random.nextDouble() * 0.5);
 
       canvas.drawCircle(
         Offset(

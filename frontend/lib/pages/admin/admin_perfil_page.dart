@@ -1,3 +1,4 @@
+import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -26,8 +27,7 @@ class AdminPerfilPage extends StatefulWidget {
 
 class _AdminPerfilPageState extends State<AdminPerfilPage> {
   // Es la misma dirección que utilizas en las otras páginas.
-  static const String perfilUrl =
-      'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -87,7 +87,7 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
 
       final response = await http
           .get(Uri.parse(perfilUrl), headers: headers)
-          .timeout(const Duration(seconds: 20));
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
         throw Exception(
@@ -109,9 +109,7 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
       }
 
       if (data['es_superadmin'] != true) {
-        throw Exception(
-          'Esta cuenta no tiene permisos de Super Admin.',
-        );
+        throw Exception('Esta cuenta no tiene permisos de Super Admin.');
       }
 
       final nombre = data['nombre_completo']?.toString().trim() ?? '';
@@ -128,9 +126,7 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
       });
 
       // También actualiza el nombre que aparece en la barra superior.
-      widget.store.updateName(
-        nombre.isEmpty ? 'Administrador' : nombre,
-      );
+      widget.store.updateName(nombre.isEmpty ? 'Administrador' : nombre);
     } catch (error) {
       if (!mounted) return;
 
@@ -164,11 +160,9 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
           .patch(
             Uri.parse(perfilUrl),
             headers: headers,
-            body: jsonEncode({
-              'nombre_completo': _nameController.text.trim(),
-            }),
+            body: jsonEncode({'nombre_completo': _nameController.text.trim()}),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
         throw Exception(
@@ -214,8 +208,8 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
 
   @override
   Widget build(BuildContext context) {
-    final puedeEditar =
-        _perfilCargado && !_cargando && !_guardando;
+    UnixTheme.watch(context);
+    final puedeEditar = _perfilCargado && !_cargando && !_guardando;
 
     return AdminPanel(
       title: 'Mi perfil',
@@ -226,7 +220,7 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
           children: [
             Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 30,
                   backgroundColor: AdminStyle.border,
                   child: Icon(
@@ -235,7 +229,7 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
                     size: 32,
                   ),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,52 +238,44 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
                         _perfilCargado
                             ? widget.store.adminName
                             : 'Administrador',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const AdminBadge(
-                        'Super Admin',
-                        color: AdminStyle.green,
-                      ),
+                      SizedBox(height: 6),
+                      AdminBadge('Super Admin', color: AdminStyle.green),
                     ],
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             if (_cargando) ...[
-              const Center(
-                child: CircularProgressIndicator(
-                  color: AdminStyle.orange,
-                ),
+              Center(
+                child: CircularProgressIndicator(color: AdminStyle.orange),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
             ],
 
             if (_error != null) ...[
-              Text(
-                _error!,
-                style: const TextStyle(color: AdminStyle.red),
-              ),
-              const SizedBox(height: 8),
+              Text(_error!, style: TextStyle(color: AdminStyle.red)),
+              SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _cargarPerfil,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
+                icon: Icon(Icons.refresh),
+                label: Text('Reintentar'),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
             ],
 
             TextFormField(
               controller: _nameController,
               enabled: puedeEditar,
               maxLength: 255,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Nombre completo',
                 prefixIcon: Icon(Icons.person_outline),
               ),
@@ -301,60 +287,50 @@ class _AdminPerfilPageState extends State<AdminPerfilPage> {
               },
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             InputDecorator(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Correo electrónico',
                 prefixIcon: Icon(Icons.email_outlined),
                 suffixIcon: Icon(Icons.lock_outline),
               ),
-              child: Text(
-                _correo.isEmpty ? 'Sin datos' : _correo,
-              ),
+              child: Text(_correo.isEmpty ? 'Sin datos' : _correo),
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             InputDecorator(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Rol registrado',
                 prefixIcon: Icon(Icons.badge_outlined),
                 suffixIcon: Icon(Icons.lock_outline),
               ),
-              child: Text(
-                _rol.isEmpty ? 'Sin datos' : _rol,
-              ),
+              child: Text(_rol.isEmpty ? 'Sin datos' : _rol),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
                 FilledButton.icon(
-                  onPressed:
-                      puedeEditar ? _actualizarPerfil : null,
-                  icon: const Icon(Icons.save_outlined),
+                  onPressed: puedeEditar ? _actualizarPerfil : null,
+                  icon: Icon(Icons.save_outlined),
                   label: Text(
-                    _guardando
-                        ? 'Guardando...'
-                        : 'Actualizar perfil',
+                    _guardando ? 'Guardando...' : 'Actualizar perfil',
                   ),
                 ),
                 OutlinedButton.icon(
-                  onPressed: widget.onLogout == null ||
-                          widget.loggingOut
+                  onPressed: widget.onLogout == null || widget.loggingOut
                       ? null
                       : () {
                           widget.onLogout!();
                         },
-                  icon: const Icon(Icons.logout),
+                  icon: Icon(Icons.logout),
                   label: Text(
-                    widget.loggingOut
-                        ? 'Cerrando sesión...'
-                        : 'Cerrar sesión',
+                    widget.loggingOut ? 'Cerrando sesión...' : 'Cerrar sesión',
                   ),
                 ),
               ],

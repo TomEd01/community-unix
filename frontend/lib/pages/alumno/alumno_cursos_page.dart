@@ -1,22 +1,25 @@
+import '../../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class AlumnoCursosPage extends StatelessWidget {
   const AlumnoCursosPage({super.key});
 
-  static const Color _bg = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _cardSoft = Color(0xFF0D3153);
-  static const Color _border = Color(0xFF174064);
+  static Color get _bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _cardSoft => UnixColors.adapt(Color(0xFF0D3153));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _blue = Color(0xFF2796FF);
-  static const Color _muted = Color(0xFF91A9BE);
+  static Color get _blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       color: _bg,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final bool mobile = constraints.maxWidth < 760;
 
           return SingleChildScrollView(
@@ -28,58 +31,52 @@ class AlumnoCursosPage extends StatelessWidget {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1250),
+                constraints: BoxConstraints(maxWidth: 1250),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHero(mobile),
-                    const SizedBox(height: 34),
+                    SizedBox(height: 34),
 
-                    const Text(
+                    Text(
                       'Rutas por nivel',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: UnixColors.text,
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    const SizedBox(height: 7),
+                    SizedBox(height: 7),
 
-                    const Text(
+                    Text(
                       'Elige una ruta y avanza a tu propio ritmo.',
-                      style: TextStyle(
-                        color: _muted,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: _muted, fontSize: 14),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     _buildLevelSection(mobile),
 
-                    const SizedBox(height: 40),
+                    SizedBox(height: 40),
 
-                    const Text(
+                    Text(
                       'Continúa aprendiendo',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: UnixColors.text,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    const SizedBox(height: 7),
+                    SizedBox(height: 7),
 
-                    const Text(
+                    Text(
                       'Cursos recomendados para ti',
-                      style: TextStyle(
-                        color: _muted,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: _muted, fontSize: 14),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     _buildCoursesSection(mobile),
                   ],
@@ -101,15 +98,12 @@ class AlumnoCursosPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 7,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: _orange.withValues(alpha: 0.13),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: const Text(
+          child: Text(
             'TU RUTA DE APRENDIZAJE',
             style: TextStyle(
               color: _orange,
@@ -120,14 +114,14 @@ class AlumnoCursosPage extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
 
         Text(
           mobile
               ? 'Tu siguiente paso\nempieza aquí'
               : 'Tu siguiente paso empieza aquí',
           style: TextStyle(
-            color: Colors.white,
+            color: UnixColors.text,
             fontSize: mobile ? 31 : 38,
             height: 1.08,
             fontWeight: FontWeight.w900,
@@ -135,42 +129,30 @@ class AlumnoCursosPage extends StatelessWidget {
         ),
 
         ConstrainedBox(
-  constraints: const BoxConstraints(maxWidth: 650),
-  child: const Text(
-    'Aprende Linux paso a paso. Elige el nivel que mejor '
-    'se adapte a ti y continúa desarrollando tus habilidades.',
-    style: TextStyle(
-      color: _muted,
-      fontSize: 14,
-      height: 1.6,
-    ),
-  ),
-),
+          constraints: BoxConstraints(maxWidth: 650),
+          child: Text(
+            'Aprende Linux paso a paso. Elige el nivel que mejor '
+            'se adapte a ti y continúa desarrollando tus habilidades.',
+            style: TextStyle(color: _muted, fontSize: 14, height: 1.6),
+          ),
+        ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
 
         FilledButton.icon(
           onPressed: () {},
           style: FilledButton.styleFrom(
             backgroundColor: _orange,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 17,
-            ),
+            foregroundColor: UnixColors.text,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 17),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          icon: const Icon(
-            Icons.play_arrow_rounded,
-            size: 21,
-          ),
-          label: const Text(
+          icon: Icon(Icons.play_arrow_rounded, size: 21),
+          label: Text(
             'Continuar aprendiendo',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -182,35 +164,25 @@ class AlumnoCursosPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: _cardSoft,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(
-          color: _border,
-        ),
+        border: Border.all(color: _border),
       ),
-      child: const Stack(
+      child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(
-            Icons.school_rounded,
-            color: _orange,
-            size: 82,
-          ),
+          Icon(Icons.school_rounded, color: _orange, size: 82),
           Positioned(
             top: 27,
             right: 30,
             child: Icon(
               Icons.auto_awesome,
-              color: Color(0xFFFFB067),
+              color: UnixColors.adapt(Color(0xFFFFB067)),
               size: 25,
             ),
           ),
           Positioned(
             bottom: 25,
             left: 30,
-            child: Icon(
-              Icons.code_rounded,
-              color: _blue,
-              size: 28,
-            ),
+            child: Icon(Icons.code_rounded, color: _blue, size: 28),
           ),
         ],
       ),
@@ -218,31 +190,21 @@ class AlumnoCursosPage extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(
-        mobile ? 23 : 36,
-      ),
+      padding: EdgeInsets.all(mobile ? 23 : 36),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: _border,
-        ),
+        border: Border.all(color: _border),
       ),
       child: mobile
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                text,
-                const SizedBox(height: 27),
-                illustration,
-              ],
+              children: [text, SizedBox(height: 27), illustration],
             )
           : Row(
               children: [
-                Expanded(
-                  child: text,
-                ),
-                const SizedBox(width: 35),
+                Expanded(child: text),
+                SizedBox(width: 35),
                 illustration,
               ],
             ),
@@ -254,7 +216,7 @@ class AlumnoCursosPage extends StatelessWidget {
   // ============================================================
 
   Widget _buildLevelSection(bool mobile) {
-    const List<Widget> cards = [
+    List<Widget> cards = [
       _LevelCard(
         icon: Icons.rocket_launch_rounded,
         level: 'Principiante',
@@ -263,7 +225,7 @@ class AlumnoCursosPage extends StatelessWidget {
             'Aprende los fundamentos de Linux, la terminal y los comandos esenciales.',
         progress: 0.65,
         courses: '8 cursos',
-        accent: Color(0xFF35D59A),
+        accent: UnixColors.adapt(Color(0xFF35D59A)),
       ),
       _LevelCard(
         icon: Icons.terminal_rounded,
@@ -273,7 +235,7 @@ class AlumnoCursosPage extends StatelessWidget {
             'Profundiza en administración, redes, scripting y herramientas del sistema.',
         progress: 0.30,
         courses: '10 cursos',
-        accent: Color(0xFF2796FF),
+        accent: UnixColors.adapt(Color(0xFF2796FF)),
       ),
       _LevelCard(
         icon: Icons.security_rounded,
@@ -291,9 +253,9 @@ class AlumnoCursosPage extends StatelessWidget {
       return Column(
         children: [
           cards[0],
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           cards[1],
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           cards[2],
         ],
       );
@@ -302,17 +264,11 @@ class AlumnoCursosPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: cards[0],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[1],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[2],
-        ),
+        Expanded(child: cards[0]),
+        SizedBox(width: 18),
+        Expanded(child: cards[1]),
+        SizedBox(width: 18),
+        Expanded(child: cards[2]),
       ],
     );
   }
@@ -322,7 +278,7 @@ class AlumnoCursosPage extends StatelessWidget {
   // ============================================================
 
   Widget _buildCoursesSection(bool mobile) {
-    const List<Widget> cards = [
+    List<Widget> cards = [
       _CourseCard(
         icon: Icons.terminal_rounded,
         title: 'Fundamentos de Linux',
@@ -356,9 +312,9 @@ class AlumnoCursosPage extends StatelessWidget {
       return Column(
         children: [
           cards[0],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           cards[1],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           cards[2],
         ],
       );
@@ -367,17 +323,11 @@ class AlumnoCursosPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: cards[0],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[1],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[2],
-        ),
+        Expanded(child: cards[0]),
+        SizedBox(width: 18),
+        Expanded(child: cards[1]),
+        SizedBox(width: 18),
+        Expanded(child: cards[2]),
       ],
     );
   }
@@ -408,14 +358,13 @@ class _LevelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: AlumnoCursosPage._card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AlumnoCursosPage._border,
-        ),
+        border: Border.all(color: AlumnoCursosPage._border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,22 +378,16 @@ class _LevelCard extends StatelessWidget {
                   color: accent.withValues(alpha: 0.13),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  icon,
-                  color: accent,
-                ),
+                child: Icon(icon, color: accent),
               ),
 
-              const Spacer(),
+              Spacer(),
 
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   level,
@@ -458,40 +401,37 @@ class _LevelCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 19,
               fontWeight: FontWeight.w800,
             ),
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: AlumnoCursosPage._muted,
               height: 1.5,
               fontSize: 13,
             ),
           ),
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
           Row(
             children: [
               Text(
                 courses,
-                style: const TextStyle(
-                  color: AlumnoCursosPage._muted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AlumnoCursosPage._muted, fontSize: 12),
               ),
-              const Spacer(),
+              Spacer(),
               Text(
                 '${(progress * 100).round()}%',
                 style: TextStyle(
@@ -503,43 +443,35 @@ class _LevelCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 9),
+          SizedBox(height: 9),
 
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               minHeight: 6,
               value: progress,
-              backgroundColor: const Color(0xFF123451),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                accent,
-              ),
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               onPressed: () {},
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(
-                  color: AlumnoCursosPage._border,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 15,
-                ),
+                foregroundColor: UnixColors.text,
+                side: BorderSide(color: AlumnoCursosPage._border),
+                padding: EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(11),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Ver ruta',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -572,14 +504,13 @@ class _CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AlumnoCursosPage._card,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: AlumnoCursosPage._border,
-        ),
+        border: Border.all(color: AlumnoCursosPage._border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,22 +519,17 @@ class _CourseCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: AlumnoCursosPage._orange.withValues(
-                alpha: 0.13,
-              ),
+              color: AlumnoCursosPage._orange.withValues(alpha: 0.13),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: AlumnoCursosPage._orange,
-            ),
+            child: Icon(icon, color: AlumnoCursosPage._orange),
           ),
 
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           Text(
             category.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               color: AlumnoCursosPage._orange,
               fontSize: 10,
               letterSpacing: 0.8,
@@ -611,43 +537,40 @@ class _CourseCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 7),
+          SizedBox(height: 7),
 
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
 
-          const SizedBox(height: 9),
+          SizedBox(height: 9),
 
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: AlumnoCursosPage._muted,
               fontSize: 12.5,
               height: 1.5,
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           Row(
             children: [
               Text(
                 modules,
-                style: const TextStyle(
-                  color: AlumnoCursosPage._muted,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: AlumnoCursosPage._muted, fontSize: 11),
               ),
-              const Spacer(),
+              Spacer(),
               Text(
                 '${(progress * 100).round()}%',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AlumnoCursosPage._orange,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -656,21 +579,21 @@ class _CourseCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 5,
-              backgroundColor: const Color(0xFF123451),
-              valueColor: const AlwaysStoppedAnimation<Color>(
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
+              valueColor: AlwaysStoppedAnimation<Color>(
                 AlumnoCursosPage._orange,
               ),
             ),
           ),
 
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           TextButton.icon(
             onPressed: () {},
@@ -679,15 +602,10 @@ class _CourseCard extends StatelessWidget {
               padding: EdgeInsets.zero,
             ),
             iconAlignment: IconAlignment.end,
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
-              size: 17,
-            ),
-            label: const Text(
+            icon: Icon(Icons.arrow_forward_rounded, size: 17),
+            label: Text(
               'Continuar curso',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
