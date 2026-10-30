@@ -1,22 +1,25 @@
+import '../../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class ExternoComunidadPage extends StatelessWidget {
   const ExternoComunidadPage({super.key});
 
-  static const Color _bg = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _border = Color(0xFF174064);
+  static Color get _bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _blue = Color(0xFF2796FF);
-  static const Color _green = Color(0xFF35D59A);
-  static const Color _muted = Color(0xFF91A9BE);
+  static Color get _blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get _green => UnixColors.adapt(Color(0xFF35D59A));
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       color: _bg,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final bool mobile = constraints.maxWidth < 760;
 
           return SingleChildScrollView(
@@ -28,26 +31,26 @@ class ExternoComunidadPage extends StatelessWidget {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1250),
+                constraints: BoxConstraints(maxWidth: 1250),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(mobile),
-                    const SizedBox(height: 28),
+                    SizedBox(height: 28),
                     _buildFeatured(mobile),
-                    const SizedBox(height: 34),
+                    SizedBox(height: 34),
                     _buildSectionTitle(
                       'Explora la comunidad',
                       'Participa, aprende y comparte con otros miembros.',
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     _buildCommunityOptions(mobile),
-                    const SizedBox(height: 34),
+                    SizedBox(height: 34),
                     _buildSectionTitle(
                       'Próximas actividades',
                       'No te pierdas lo que está por venir.',
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     _buildActivities(mobile),
                   ],
                 ),
@@ -68,15 +71,12 @@ class ExternoComunidadPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 11,
-            vertical: 6,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           decoration: BoxDecoration(
             color: _orange.withValues(alpha: 0.13),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: const Text(
+          child: Text(
             'COMUNIDAD ACTIVA',
             style: TextStyle(
               color: _orange,
@@ -86,33 +86,27 @@ class ExternoComunidadPage extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 15),
+        SizedBox(height: 15),
         Text(
           mobile
               ? 'Aprendemos mejor\nen comunidad'
               : 'Aprendemos mejor en comunidad',
           style: TextStyle(
-            color: Colors.white,
+            color: UnixColors.text,
             fontSize: mobile ? 29 : 36,
             height: 1.1,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         ConstrainedBox(
-  constraints: const BoxConstraints(
-    maxWidth: 760,
-  ),
-  child: const Text(
-    'Conecta con estudiantes e instructores, participa en actividades '
-    'y descubre nuevos recursos para seguir aprendiendo.',
-    style: TextStyle(
-      color: _muted,
-      fontSize: 14,
-      height: 1.55,
-    ),
-  ),
-),
+          constraints: BoxConstraints(maxWidth: 760),
+          child: Text(
+            'Conecta con estudiantes e instructores, participa en actividades '
+            'y descubre nuevos recursos para seguir aprendiendo.',
+            style: TextStyle(color: _muted, fontSize: 14, height: 1.55),
+          ),
+        ),
       ],
     );
   }
@@ -125,7 +119,7 @@ class ExternoComunidadPage extends StatelessWidget {
     final Widget info = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'EVENTO DESTACADO',
           style: TextStyle(
             color: _green,
@@ -134,67 +128,46 @@ class ExternoComunidadPage extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 12),
-        const Text(
+        SizedBox(height: 12),
+        Text(
           'Linux Install Fest',
           style: TextStyle(
-            color: Colors.white,
+            color: UnixColors.text,
             fontSize: 25,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 10),
-        const Text(
+        SizedBox(height: 10),
+        Text(
           'Aprende a instalar Linux junto con otros miembros de la comunidad. '
           'Habrá apoyo para principiantes y espacio para compartir experiencias.',
-          style: TextStyle(
-            color: _muted,
-            fontSize: 13,
-            height: 1.55,
-          ),
+          style: TextStyle(color: _muted, fontSize: 13, height: 1.55),
         ),
-        const SizedBox(height: 20),
-        const Wrap(
+        SizedBox(height: 20),
+        Wrap(
           spacing: 16,
           runSpacing: 10,
           children: [
-            _InfoChip(
-              icon: Icons.calendar_today_outlined,
-              text: 'Viernes',
-            ),
-            _InfoChip(
-              icon: Icons.schedule_rounded,
-              text: '4:00 PM',
-            ),
-            _InfoChip(
-              icon: Icons.location_on_outlined,
-              text: 'Lab. Sistemas',
-            ),
+            _InfoChip(icon: Icons.calendar_today_outlined, text: 'Viernes'),
+            _InfoChip(icon: Icons.schedule_rounded, text: '4:00 PM'),
+            _InfoChip(icon: Icons.location_on_outlined, text: 'Lab. Sistemas'),
           ],
         ),
-        const SizedBox(height: 22),
+        SizedBox(height: 22),
         FilledButton.icon(
           onPressed: () {},
           style: FilledButton.styleFrom(
             backgroundColor: _orange,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 15,
-            ),
+            foregroundColor: UnixColors.text,
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(11),
             ),
           ),
-          icon: const Icon(
-            Icons.event_available_rounded,
-            size: 19,
-          ),
-          label: const Text(
+          icon: Icon(Icons.event_available_rounded, size: 19),
+          label: Text(
             'Ver evento',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -205,36 +178,22 @@ class ExternoComunidadPage extends StatelessWidget {
       height: mobile ? 150 : 210,
       decoration: BoxDecoration(
         color: _bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _border,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
       ),
-      child: const Stack(
+      child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(
-            Icons.groups_rounded,
-            size: 88,
-            color: _orange,
-          ),
+          Icon(Icons.groups_rounded, size: 88, color: _orange),
           Positioned(
             top: 27,
             right: 32,
-            child: Icon(
-              Icons.terminal_rounded,
-              color: _blue,
-              size: 28,
-            ),
+            child: Icon(Icons.terminal_rounded, color: _blue, size: 28),
           ),
           Positioned(
             left: 32,
             bottom: 28,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: _green,
-              size: 25,
-            ),
+            child: Icon(Icons.auto_awesome_rounded, color: _green, size: 25),
           ),
         ],
       ),
@@ -242,31 +201,21 @@ class ExternoComunidadPage extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(
-        mobile ? 22 : 30,
-      ),
+      padding: EdgeInsets.all(mobile ? 22 : 30),
       decoration: BoxDecoration(
         color: _card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _border,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
       ),
       child: mobile
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                info,
-                const SizedBox(height: 25),
-                illustration,
-              ],
+              children: [info, SizedBox(height: 25), illustration],
             )
           : Row(
               children: [
-                Expanded(
-                  child: info,
-                ),
-                const SizedBox(width: 35),
+                Expanded(child: info),
+                SizedBox(width: 35),
                 illustration,
               ],
             ),
@@ -277,29 +226,20 @@ class ExternoComunidadPage extends StatelessWidget {
   // TÍTULOS DE SECCIÓN
   // ============================================================
 
-  Widget _buildSectionTitle(
-    String title,
-    String description,
-  ) {
+  Widget _buildSectionTitle(String title, String description) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: UnixColors.text,
             fontSize: 23,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          description,
-          style: const TextStyle(
-            color: _muted,
-            fontSize: 13,
-          ),
-        ),
+        SizedBox(height: 6),
+        Text(description, style: TextStyle(color: _muted, fontSize: 13)),
       ],
     );
   }
@@ -309,7 +249,7 @@ class ExternoComunidadPage extends StatelessWidget {
   // ============================================================
 
   Widget _buildCommunityOptions(bool mobile) {
-    const List<Widget> cards = [
+    List<Widget> cards = [
       _CommunityCard(
         icon: Icons.forum_rounded,
         title: 'Noticias',
@@ -340,9 +280,9 @@ class ExternoComunidadPage extends StatelessWidget {
       return Column(
         children: [
           cards[0],
-          const SizedBox(height: 15),
+          SizedBox(height: 15),
           cards[1],
-          const SizedBox(height: 15),
+          SizedBox(height: 15),
           cards[2],
         ],
       );
@@ -351,17 +291,11 @@ class ExternoComunidadPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: cards[0],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[1],
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: cards[2],
-        ),
+        Expanded(child: cards[0]),
+        SizedBox(width: 18),
+        Expanded(child: cards[1]),
+        SizedBox(width: 18),
+        Expanded(child: cards[2]),
       ],
     );
   }
@@ -371,7 +305,7 @@ class ExternoComunidadPage extends StatelessWidget {
   // ============================================================
 
   Widget _buildActivities(bool mobile) {
-    const Widget first = _ActivityCard(
+    final Widget first = _ActivityCard(
       day: '18',
       month: 'OCT',
       title: 'Taller de Bash',
@@ -380,7 +314,7 @@ class ExternoComunidadPage extends StatelessWidget {
       icon: Icons.code_rounded,
     );
 
-    const Widget second = _ActivityCard(
+    final Widget second = _ActivityCard(
       day: '24',
       month: 'OCT',
       title: 'Introducción a Docker',
@@ -390,24 +324,14 @@ class ExternoComunidadPage extends StatelessWidget {
     );
 
     if (mobile) {
-      return Column(
-        children: [
-          first,
-          const SizedBox(height: 14),
-          second,
-        ],
-      );
+      return Column(children: [first, SizedBox(height: 14), second]);
     }
 
     return Row(
       children: [
-        Expanded(
-          child: first,
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: second,
-        ),
+        Expanded(child: first),
+        SizedBox(width: 18),
+        Expanded(child: second),
       ],
     );
   }
@@ -421,28 +345,19 @@ class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _InfoChip({
-    required this.icon,
-    required this.text,
-  });
+  const _InfoChip({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          color: ExternoComunidadPage._muted,
-          size: 15,
-        ),
-        const SizedBox(width: 6),
+        Icon(icon, color: ExternoComunidadPage._muted, size: 15),
+        SizedBox(width: 6),
         Text(
           text,
-          style: const TextStyle(
-            color: ExternoComunidadPage._muted,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: ExternoComunidadPage._muted, fontSize: 12),
         ),
       ],
     );
@@ -470,14 +385,13 @@ class _CommunityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
-      padding: const EdgeInsets.all(21),
+      padding: EdgeInsets.all(21),
       decoration: BoxDecoration(
         color: ExternoComunidadPage._card,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: ExternoComunidadPage._border,
-        ),
+        border: Border.all(color: ExternoComunidadPage._border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,35 +400,30 @@ class _CommunityCard extends StatelessWidget {
             width: 47,
             height: 47,
             decoration: BoxDecoration(
-              color: accent.withValues(
-                alpha: 0.13,
-              ),
+              color: accent.withValues(alpha: 0.13),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(
-              icon,
-              color: accent,
-            ),
+            child: Icon(icon, color: accent),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 9),
+          SizedBox(height: 9),
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: ExternoComunidadPage._muted,
               fontSize: 12.5,
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 17),
+          SizedBox(height: 17),
           TextButton.icon(
             onPressed: () {},
             style: TextButton.styleFrom(
@@ -522,16 +431,8 @@ class _CommunityCard extends StatelessWidget {
               padding: EdgeInsets.zero,
             ),
             iconAlignment: IconAlignment.end,
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
-              size: 16,
-            ),
-            label: Text(
-              action,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            icon: Icon(Icons.arrow_forward_rounded, size: 16),
+            label: Text(action, style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -562,14 +463,13 @@ class _ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: ExternoComunidadPage._card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ExternoComunidadPage._border,
-        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ExternoComunidadPage._border),
       ),
       child: Row(
         children: [
@@ -577,9 +477,7 @@ class _ActivityCard extends StatelessWidget {
             width: 57,
             height: 62,
             decoration: BoxDecoration(
-              color: ExternoComunidadPage._orange.withValues(
-                alpha: 0.12,
-              ),
+              color: ExternoComunidadPage._orange.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Column(
@@ -587,15 +485,15 @@ class _ActivityCard extends StatelessWidget {
               children: [
                 Text(
                   day,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: UnixColors.text,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 Text(
                   month,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: ExternoComunidadPage._orange,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
@@ -604,24 +502,20 @@ class _ActivityCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      icon,
-                      color: ExternoComunidadPage._blue,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 7),
+                    Icon(icon, color: ExternoComunidadPage._blue, size: 16),
+                    SizedBox(width: 7),
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: UnixColors.text,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                         ),
@@ -629,18 +523,18 @@ class _ActivityCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: ExternoComunidadPage._muted,
                     fontSize: 11,
                   ),
                 ),
-                const SizedBox(height: 7),
+                SizedBox(height: 7),
                 Text(
                   time,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: ExternoComunidadPage._orange,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,

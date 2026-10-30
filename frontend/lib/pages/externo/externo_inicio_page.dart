@@ -1,24 +1,28 @@
+import '../../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class ExternoInicioPage extends StatelessWidget {
-  const ExternoInicioPage({super.key, this.nombre = 'Externo'});
+  const ExternoInicioPage({super.key, this.nombre = 'Externo', this.search});
 
   final String nombre;
+  final Widget? search;
 
-  static const Color _bg = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _border = Color(0xFF174064);
+  static Color get _bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _blue = Color(0xFF2796FF);
-  static const Color _green = Color(0xFF35D59A);
-  static const Color _muted = Color(0xFF91A9BE);
+  static Color get _blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get _green => UnixColors.adapt(Color(0xFF35D59A));
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       color: _bg,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final bool mobile = constraints.maxWidth < 760;
 
           return SingleChildScrollView(
@@ -30,16 +34,20 @@ class ExternoInicioPage extends StatelessWidget {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1250),
+                constraints: BoxConstraints(maxWidth: 1250),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildWelcome(mobile),
-                    const SizedBox(height: 28),
+                    if (search != null) ...[
+                      const SizedBox(height: 20),
+                      search!,
+                    ],
+                    SizedBox(height: 28),
                     _buildMainSection(mobile),
-                    const SizedBox(height: 34),
+                    SizedBox(height: 34),
                     _buildCoursesHeader(),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     _buildCourses(mobile),
                   ],
                 ),
@@ -62,19 +70,15 @@ class ExternoInicioPage extends StatelessWidget {
         Text(
           '¡Hola, ${nombre.trim().isEmpty ? 'Externo' : nombre.trim().split(RegExp(r'\s+')).first}!',
           style: TextStyle(
-            color: Colors.white,
+            color: UnixColors.text,
             fontSize: mobile ? 28 : 34,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8),
+        Text(
           'Continúa aprendiendo y descubre todo lo que la comunidad tiene para ti.',
-          style: TextStyle(
-            color: _muted,
-            fontSize: 14,
-            height: 1.5,
-          ),
+          style: TextStyle(color: _muted, fontSize: 14, height: 1.5),
         ),
       ],
     );
@@ -87,34 +91,19 @@ class ExternoInicioPage extends StatelessWidget {
   Widget _buildMainSection(bool mobile) {
     final currentCourse = _buildCurrentCourse();
     final side = Column(
-      children: [
-        _buildProgressCard(),
-        const SizedBox(height: 18),
-        _buildEventCard(),
-      ],
+      children: [_buildProgressCard(), SizedBox(height: 18), _buildEventCard()],
     );
 
     if (mobile) {
-      return Column(
-        children: [
-          currentCourse,
-          const SizedBox(height: 18),
-          side,
-        ],
-      );
+      return Column(children: [currentCourse, SizedBox(height: 18), side]);
     }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 2,
-          child: currentCourse,
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: side,
-        ),
+        Expanded(flex: 2, child: currentCourse),
+        SizedBox(width: 20),
+        Expanded(child: side),
       ],
     );
   }
@@ -126,10 +115,10 @@ class ExternoInicioPage extends StatelessWidget {
   Widget _buildCurrentCourse() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(26),
+      padding: EdgeInsets.all(26),
       decoration: BoxDecoration(
         color: _card,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
       ),
       child: Column(
@@ -138,15 +127,12 @@ class ExternoInicioPage extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 6,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
                   color: _orange.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Text(
+                child: Text(
                   'CURSO ACTUAL',
                   style: TextStyle(
                     color: _orange,
@@ -156,49 +142,35 @@ class ExternoInicioPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const Spacer(),
-              const Icon(
-                Icons.terminal_rounded,
-                color: _orange,
-                size: 30,
-              ),
+              Spacer(),
+              Icon(Icons.terminal_rounded, color: _orange, size: 30),
             ],
           ),
 
-          const SizedBox(height: 28),
+          SizedBox(height: 28),
 
-          const Text(
+          Text(
             'Fundamentos de Linux',
             style: TextStyle(
-              color: Colors.white,
+              color: UnixColors.text,
               fontSize: 25,
               fontWeight: FontWeight.w900,
             ),
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
-          const Text(
+          Text(
             'Domina los conceptos esenciales de Linux y aprende a utilizar '
             'la terminal con confianza.',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 13,
-              height: 1.55,
-            ),
+            style: TextStyle(color: _muted, fontSize: 13, height: 1.55),
           ),
 
-          const SizedBox(height: 30),
+          SizedBox(height: 30),
 
-          const Row(
+          Row(
             children: [
-              Text(
-                'Progreso',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 12,
-                ),
-              ),
+              Text('Progreso', style: TextStyle(color: _muted, fontSize: 12)),
               Spacer(),
               Text(
                 '72%',
@@ -211,52 +183,41 @@ class ExternoInicioPage extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: const LinearProgressIndicator(
+            child: LinearProgressIndicator(
               value: 0.72,
               minHeight: 7,
-              backgroundColor: Color(0xFF123451),
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
               valueColor: AlwaysStoppedAnimation<Color>(_orange),
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
-          const Text(
+          Text(
             '9 de 12 módulos completados',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: _muted, fontSize: 11),
           ),
 
-          const SizedBox(height: 25),
+          SizedBox(height: 25),
 
           FilledButton.icon(
             onPressed: () {},
             style: FilledButton.styleFrom(
               backgroundColor: _orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 15,
-              ),
+              foregroundColor: UnixColors.text,
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(11),
               ),
             ),
-            icon: const Icon(
-              Icons.play_arrow_rounded,
-              size: 20,
-            ),
-            label: const Text(
+            icon: Icon(Icons.play_arrow_rounded, size: 20),
+            label: Text(
               'Continuar curso',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -271,7 +232,7 @@ class ExternoInicioPage extends StatelessWidget {
   Widget _buildProgressCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
@@ -280,18 +241,14 @@ class ExternoInicioPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.insights_rounded,
-                color: _blue,
-                size: 23,
-              ),
+              Icon(Icons.insights_rounded, color: _blue, size: 23),
               SizedBox(width: 10),
               Text(
                 'Tu progreso',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: UnixColors.text,
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                 ),
@@ -299,46 +256,34 @@ class ExternoInicioPage extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatItem(
-                value: '3',
-                label: 'Cursos',
-              ),
-              _StatItem(
-                value: '18',
-                label: 'Módulos',
-              ),
-              _StatItem(
-                value: '12h',
-                label: 'Aprendizaje',
-              ),
+              _StatItem(value: '3', label: 'Cursos'),
+              _StatItem(value: '18', label: 'Módulos'),
+              _StatItem(value: '12h', label: 'Aprendizaje'),
             ],
           ),
 
-          const SizedBox(height: 23),
+          SizedBox(height: 23),
 
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: const LinearProgressIndicator(
+            child: LinearProgressIndicator(
               value: 0.58,
               minHeight: 6,
-              backgroundColor: Color(0xFF123451),
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
               valueColor: AlwaysStoppedAnimation<Color>(_blue),
             ),
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
-          const Text(
+          Text(
             '58% de tu ruta completada',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: _muted, fontSize: 11),
           ),
         ],
       ),
@@ -352,7 +297,7 @@ class ExternoInicioPage extends StatelessWidget {
   Widget _buildEventCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
@@ -361,18 +306,14 @@ class ExternoInicioPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.event_available_rounded,
-                color: _green,
-                size: 23,
-              ),
+              Icon(Icons.event_available_rounded, color: _green, size: 23),
               SizedBox(width: 10),
               Text(
                 'Próximo evento',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: UnixColors.text,
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                 ),
@@ -380,62 +321,48 @@ class ExternoInicioPage extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
-          const Text(
+          Text(
             'Linux Install Fest',
             style: TextStyle(
-              color: Colors.white,
+              color: UnixColors.text,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.calendar_today_outlined,
-                color: _muted,
-                size: 14,
-              ),
+              Icon(Icons.calendar_today_outlined, color: _muted, size: 14),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Viernes · 4:00 PM',
-                  style: TextStyle(
-                    color: _muted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: _muted, fontSize: 12),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 7),
+          SizedBox(height: 7),
 
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.location_on_outlined,
-                color: _muted,
-                size: 15,
-              ),
+              Icon(Icons.location_on_outlined, color: _muted, size: 15),
               SizedBox(width: 7),
               Expanded(
                 child: Text(
                   'Laboratorio de Sistemas',
-                  style: TextStyle(
-                    color: _muted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: _muted, fontSize: 12),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           TextButton(
             onPressed: () {},
@@ -443,11 +370,9 @@ class ExternoInicioPage extends StatelessWidget {
               foregroundColor: _green,
               padding: EdgeInsets.zero,
             ),
-            child: const Text(
+            child: Text(
               'Ver evento →',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -460,13 +385,13 @@ class ExternoInicioPage extends StatelessWidget {
   // ============================================================
 
   Widget _buildCoursesHeader() {
-    return const Row(
+    return Row(
       children: [
         Expanded(
           child: Text(
             'Continúa aprendiendo',
             style: TextStyle(
-              color: Colors.white,
+              color: UnixColors.text,
               fontSize: 23,
               fontWeight: FontWeight.w900,
             ),
@@ -485,7 +410,7 @@ class ExternoInicioPage extends StatelessWidget {
   }
 
   Widget _buildCourses(bool mobile) {
-    const cards = [
+    final cards = [
       _HomeCourseCard(
         icon: Icons.code_rounded,
         title: 'Bash y Shell Scripting',
@@ -516,9 +441,9 @@ class ExternoInicioPage extends StatelessWidget {
       return Column(
         children: [
           cards[0],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           cards[1],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           cards[2],
         ],
       );
@@ -528,9 +453,9 @@ class ExternoInicioPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(child: cards[0]),
-        const SizedBox(width: 18),
+        SizedBox(width: 18),
         Expanded(child: cards[1]),
-        const SizedBox(width: 18),
+        SizedBox(width: 18),
         Expanded(child: cards[2]),
       ],
     );
@@ -545,30 +470,25 @@ class _StatItem extends StatelessWidget {
   final String value;
   final String label;
 
-  const _StatItem({
-    required this.value,
-    required this.label,
-  });
+  const _StatItem({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: UnixColors.text,
             fontSize: 20,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: ExternoInicioPage._muted,
-            fontSize: 10,
-          ),
+          style: TextStyle(color: ExternoInicioPage._muted, fontSize: 10),
         ),
       ],
     );
@@ -598,14 +518,13 @@ class _HomeCourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: ExternoInicioPage._card,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: ExternoInicioPage._border,
-        ),
+        border: Border.all(color: ExternoInicioPage._border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -617,13 +536,10 @@ class _HomeCourseCard extends StatelessWidget {
               color: accent.withValues(alpha: 0.13),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: accent,
-            ),
+            child: Icon(icon, color: accent),
           ),
 
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           Text(
             level.toUpperCase(),
@@ -635,29 +551,26 @@ class _HomeCourseCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 7),
+          SizedBox(height: 7),
 
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           Row(
             children: [
               Text(
                 modules,
-                style: const TextStyle(
-                  color: ExternoInicioPage._muted,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: ExternoInicioPage._muted, fontSize: 11),
               ),
-              const Spacer(),
+              Spacer(),
               Text(
                 '${(progress * 100).round()}%',
                 style: TextStyle(
@@ -669,21 +582,19 @@ class _HomeCourseCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 5,
-              backgroundColor: const Color(0xFF123451),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                accent,
-              ),
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
 
-          const SizedBox(height: 17),
+          SizedBox(height: 17),
 
           TextButton.icon(
             onPressed: () {},
@@ -692,15 +603,10 @@ class _HomeCourseCard extends StatelessWidget {
               padding: EdgeInsets.zero,
             ),
             iconAlignment: IconAlignment.end,
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
-              size: 17,
-            ),
-            label: const Text(
+            icon: Icon(Icons.arrow_forward_rounded, size: 17),
+            label: Text(
               'Continuar',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],

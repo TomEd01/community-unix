@@ -1,3 +1,6 @@
+import '../theme/unix_registration_layout.dart';
+import '../theme/unix_registration_intro.dart';
+import '../theme/unix_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -34,15 +37,14 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   // Centralizo la paleta para reutilizar los mismos tonos en campos,
   // estados de selección, texto y elementos de énfasis.
-  static const Color background = Color(0xFF050C1D);
-  static const Color card = Color(0xFF081329);
-  static const Color fieldColor = Color(0xFF111D36);
-  static const Color borderColor = Color(0xFF34425C);
+  static Color get background => UnixColors.adapt(Color(0xFF050C1D));
+  static Color get fieldColor => UnixColors.adapt(Color(0xFF111D36));
+  static Color get borderColor => UnixColors.adapt(Color(0xFF34425C));
   static const Color primary = Color(0xFF2F7BFF);
-  static const Color textPrimary = Color(0xFFF4F6FA);
-  static const Color textSecondary = Color(0xFF929DB2);
+  static Color get textPrimary => UnixColors.adapt(Color(0xFFF4F6FA));
+  static Color get textSecondary => UnixColors.adapt(Color(0xFF929DB2));
   static const Color orange = Color(0xFFF28A3A);
-  static const Color green = Color(0xFF41D6A3);
+  static Color get green => UnixColors.adapt(Color(0xFF41D6A3));
 
   // Conservo la clave que valida el formulario y las opciones que determinan
   // qué campos muestro y qué información preparo para cada perfil.
@@ -116,7 +118,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     // compruebo explícitamente que se haya elegido una de sus dos opciones.
     if (role == UserRole.externo && externalExperience == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona tu tipo de experiencia.')),
+        SnackBar(content: Text('Selecciona tu tipo de experiencia.')),
       );
       return;
     }
@@ -184,7 +186,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           'Content-Type': 'application/json',
           // Entegamos la llave: Anexamos el token JWT a la petición
           'Authorization': 'Bearer ${widget.onboardingToken}',
-          },
+        },
         body: jsonEncode(body),
       );
 
@@ -215,7 +217,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ..showSnackBar(
             SnackBar(
               content: Text(mensaje),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: UnixColors.adapt(Color(0xFFFF6577)),
             ),
           );
 
@@ -225,9 +227,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
       // ¡El perfil se guardó en Django! Guardamos la sesión en el teléfono
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('jwt_token', widget.onboardingToken);
-      
+
       // Guardamos el rol capitalizado para mantener el estándar ('Alumno', 'Instructor', 'Externo')
-      String rolFinal = role.name.substring(0, 1).toUpperCase() + role.name.substring(1);
+      String rolFinal =
+          role.name.substring(0, 1).toUpperCase() + role.name.substring(1);
       await prefs.setString('user_rol', rolFinal);
 
       // Dirijo al usuario a su área según el perfil que acaba de registrar;
@@ -235,25 +238,32 @@ class _OnboardingPageState extends State<OnboardingPage> {
       Widget destination;
       switch (role) {
         case UserRole.alumno:
-          destination = const AlumnoPage();
+          destination = AlumnoPage();
           break;
         case UserRole.instructor:
-          destination = const InstructorPage();
+          destination = InstructorPage();
           break;
         case UserRole.externo:
-          destination = const ExternoPage();
+          destination = ExternoPage();
           break;
       }
 
       if (!mounted) return;
       // Reemplazo onboarding para que volver atrás no reenvíe el mismo registro.
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => destination));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) {
+            UnixTheme.watch(context);
+            return destination;
+          },
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error de red: $error'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: UnixColors.adapt(Color(0xFFFF6577)),
         ),
       );
     } finally {
@@ -268,25 +278,28 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return InputDecoration(
       // Defino la decoración común de los campos para que sus estados normal,
       // enfocado y con error mantengan una apariencia coherente.
-      hintStyle: const TextStyle(color: textSecondary, fontSize: 16),
+      hintStyle: TextStyle(color: textSecondary, fontSize: 16),
       filled: true,
       fillColor: fieldColor,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 19),
+      contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 19),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: borderColor, width: 1.2),
+        borderSide: BorderSide(color: borderColor, width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primary, width: 1.8),
+        borderSide: BorderSide(color: primary, width: 1.8),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: BorderSide(color: UnixColors.adapt(Color(0xFFFF6577))),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.8),
+        borderSide: BorderSide(
+          color: UnixColors.adapt(Color(0xFFFF6577)),
+          width: 1.8,
+        ),
       ),
     );
   }
@@ -295,10 +308,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   // permito omitir el asterisco cuando una sección sea opcional.
   Widget sectionLabel(String text, {bool required = true}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: 10),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(
+          style: TextStyle(
             color: textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -306,7 +319,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             TextSpan(text: text),
             if (required)
-              const TextSpan(
+              TextSpan(
                 text: ' *',
                 style: TextStyle(color: orange),
               ),
@@ -329,11 +342,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
       onTap: () => selectRole(value),
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: Duration(milliseconds: 180),
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 19),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 19),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF12264A) : fieldColor,
+          color: selected ? UnixColors.adapt(Color(0xFF12264A)) : fieldColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? primary : borderColor,
@@ -357,37 +370,39 @@ class _OnboardingPageState extends State<OnboardingPage> {
               decoration: BoxDecoration(
                 color: selected
                     ? primary.withValues(alpha: 0.14)
-                    : const Color(0xFF18243B),
+                    : UnixColors.adapt(Color(0xFF18243B)),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
-                color: selected ? const Color(0xFF68A4FF) : textSecondary,
+                color: selected
+                    ? UnixColors.adapt(Color(0xFF68A4FF))
+                    : textSecondary,
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: textSecondary, fontSize: 14),
+                    style: TextStyle(color: textSecondary, fontSize: 14),
                   ),
                 ],
               ),
             ),
             AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: Duration(milliseconds: 180),
               width: 22,
               height: 22,
               decoration: BoxDecoration(
@@ -399,7 +414,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 color: selected ? primary : Colors.transparent,
               ),
               child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  ? Icon(Icons.check, size: 14, color: Colors.white)
                   : null,
             ),
           ],
@@ -422,7 +437,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         TextFormField(
           controller: controller,
           validator: requiredValidator,
-          style: const TextStyle(color: textPrimary, fontSize: 16),
+          style: TextStyle(color: textPrimary, fontSize: 16),
           decoration: inputDecoration(hint),
         ),
       ],
@@ -439,10 +454,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
         DropdownButtonFormField<String>(
           initialValue: institution,
           dropdownColor: fieldColor,
-          style: const TextStyle(color: textPrimary, fontSize: 16),
-          icon: const Icon(Icons.keyboard_arrow_down, color: textSecondary),
+          style: TextStyle(color: textPrimary, fontSize: 16),
+          icon: Icon(Icons.keyboard_arrow_down, color: textSecondary),
           decoration: inputDecoration('Selecciona una institución'),
-          items: const [
+          items: [
             DropdownMenuItem(
               value: 'itc',
               child: Text('Instituto Tecnológico de Cancún'),
@@ -465,10 +480,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
         DropdownButtonFormField<String>(
           initialValue: academicDegree,
           dropdownColor: fieldColor,
-          style: const TextStyle(color: textPrimary, fontSize: 16),
-          icon: const Icon(Icons.keyboard_arrow_down, color: textSecondary),
+          style: TextStyle(color: textPrimary, fontSize: 16),
+          icon: Icon(Icons.keyboard_arrow_down, color: textSecondary),
           decoration: inputDecoration('Selecciona tu grado académico'),
-          items: const [
+          items: [
             DropdownMenuItem(value: 'ing', child: Text('Ing.')),
             DropdownMenuItem(value: 'lic', child: Text('Lic.')),
             DropdownMenuItem(value: 'mtro', child: Text('Mtro.')),
@@ -493,9 +508,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 17),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF12264A) : fieldColor,
+          color: selected ? UnixColors.adapt(Color(0xFF12264A)) : fieldColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? primary : borderColor,
@@ -508,11 +523,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
               selected ? Icons.radio_button_checked : Icons.radio_button_off,
               color: selected ? primary : textSecondary,
             ),
-            const SizedBox(width: 13),
-            Text(
-              title,
-              style: const TextStyle(color: textPrimary, fontSize: 16),
-            ),
+            SizedBox(width: 13),
+            Text(title, style: TextStyle(color: textPrimary, fontSize: 16)),
           ],
         ),
       ),
@@ -529,10 +541,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
           hint: 'Ej. 21040123',
           controller: controlNumberController,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         institutionField(),
         if (institution == 'otra') ...[
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           textField(
             label: 'Nombre de la institución',
             hint: 'Escribe el nombre de tu institución',
@@ -553,32 +565,32 @@ class _OnboardingPageState extends State<OnboardingPage> {
           hint: 'Ingresa tu matrícula',
           controller: controlNumberController,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         textField(
           label: 'Departamento / Academia',
           hint: 'Ej. Academia de Sistemas',
           controller: departmentController,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         textField(
           label: 'Especialidad / Área de conocimiento',
           hint: 'Ej. Desarrollo de Software',
           controller: specialtyController,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         academicDegreeField(),
         if (academicDegree == 'otro') ...[
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           textField(
             label: 'Especifica tu grado o título',
             hint: 'Escribe tu grado o título',
             controller: otherDegreeController,
           ),
         ],
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         institutionField(),
         if (institution == 'otra') ...[
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           textField(
             label: 'Nombre de la institución',
             hint: 'Escribe el nombre de tu institución',
@@ -600,13 +612,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
           value: ExternalExperience.sector,
           title: 'Trabajo en el sector',
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         externalExperienceOption(
           value: ExternalExperience.propia,
           title: 'Experiencia propia',
         ),
         if (externalExperience == ExternalExperience.sector) ...[
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           textField(
             label: 'Organización / procedencia',
             hint: 'Escribe tu organización o procedencia',
@@ -632,45 +644,50 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   // Presento la identidad de la comunidad, el aviso de protección y el
   // propósito de esta etapa antes de que el usuario complete sus datos.
+  Widget buildFormBrand() => Container(
+    width: double.infinity,
+    color: UnixColors.card,
+    padding: const EdgeInsets.fromLTRB(34, 26, 34, 10),
+    child: Wrap(
+      spacing: 20,
+      runSpacing: 12,
+      alignment: WrapAlignment.spaceBetween,
+      children: [
+        Text(
+          'C O M U N I D A D   U N I X   I T C',
+          style: TextStyle(
+            color: UnixColors.adapt(Color(0xFF65A7FF)),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.shield_outlined, color: green, size: 21),
+            SizedBox(width: 8),
+            Text(
+              'Datos protegidos',
+              style: TextStyle(color: textSecondary, fontSize: 14),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
   Widget buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(34, 32, 34, 30),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(34, 20, 34, 26),
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: borderColor)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 20,
-            runSpacing: 12,
-            alignment: WrapAlignment.spaceBetween,
-            children: [
-              const Text(
-                'C O M U N I D A D   U N I X   I T C',
-                style: TextStyle(
-                  color: Color(0xFF65A7FF),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.shield_outlined, color: green, size: 21),
-                  SizedBox(width: 8),
-                  Text(
-                    'Datos protegidos',
-                    style: TextStyle(color: textSecondary, fontSize: 14),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          const Text(
+          Text(
             'Completa tu registro',
             style: TextStyle(
               color: textPrimary,
@@ -678,8 +695,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 13),
-          const Text(
+          SizedBox(height: 13),
+          Text(
             'Verifica tu nombre y selecciona tu tipo de usuario.',
             style: TextStyle(color: textSecondary, fontSize: 17, height: 1.55),
           ),
@@ -692,7 +709,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   // final, manteniendo todo dentro del Form asociado a _formKey.
   Widget buildForm() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(34, 34, 34, 40),
+      padding: EdgeInsets.fromLTRB(34, 34, 34, 40),
       child: Form(
         key: _formKey,
         child: Column(
@@ -704,7 +721,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               hint: 'Tu nombre completo',
               controller: nameController,
             ),
-            const SizedBox(height: 34),
+            SizedBox(height: 34),
 
             // Hago explícita la selección del perfil antes de mostrar sus datos.
             sectionLabel('Tipo de usuario'),
@@ -714,24 +731,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
               subtitle: 'Estudiante de la comunidad',
               icon: Icons.school_outlined,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             roleOption(
               value: UserRole.instructor,
               title: 'Instructor',
               subtitle: 'Docente o instructor',
               icon: Icons.co_present_outlined,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             roleOption(
               value: UserRole.externo,
               title: 'Externo',
               subtitle: 'Miembro externo',
               icon: Icons.public_outlined,
             ),
-            const SizedBox(height: 34),
+            SizedBox(height: 34),
             // Cambio los campos visibles de acuerdo con el perfil seleccionado.
             roleFields(),
-            const SizedBox(height: 34),
+            SizedBox(height: 34),
 
             SizedBox(
               width: double.infinity,
@@ -748,7 +765,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: submitting
                     // Reemplazo el contenido del botón por un indicador durante
                     // la petición para evitar envíos repetidos.
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 23,
                         height: 23,
                         child: CircularProgressIndicator(
@@ -756,7 +773,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
@@ -779,35 +796,40 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Compongo la pantalla desplazable y limito su ancho para conservar la
-  // legibilidad del formulario en ventanas grandes y pequeñas.
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Scaffold(
       backgroundColor: background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 38),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: card,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: borderColor),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 30,
-                      offset: Offset(0, 12),
+        child: UnixRegistrationLayout(
+          header: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              children: [
+                Icon(Icons.shield_outlined, color: textPrimary, size: 25),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'COMUNIDAD UNIX ITC',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 14,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.w800,
                     ),
-                  ],
+                  ),
                 ),
-                child: Column(children: [buildHeader(), buildForm()]),
-              ),
+                const SizedBox(width: 10),
+                UnixThemeToggle(compact: constraints.maxWidth < 600),
+              ],
             ),
+          ),
+          formHeader: buildFormBrand(),
+          intro: const UnixRegistrationIntro(),
+          compactIntro: const UnixRegistrationIntro(compact: true),
+          form: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [buildHeader(), buildForm()],
           ),
         ),
       ),

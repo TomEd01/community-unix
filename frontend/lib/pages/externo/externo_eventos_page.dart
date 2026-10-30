@@ -1,3 +1,4 @@
+import '../../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class ExternoEventosPage extends StatefulWidget {
@@ -8,21 +9,21 @@ class ExternoEventosPage extends StatefulWidget {
 }
 
 class _ExternoEventosPageState extends State<ExternoEventosPage> {
-  static const Color _bg = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _cardSoft = Color(0xFF0D3153);
-  static const Color _border = Color(0xFF174064);
+  static Color get _bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _cardSoft => UnixColors.adapt(Color(0xFF0D3153));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _blue = Color(0xFF2796FF);
-  static const Color _cyan = Color(0xFF22D3C5);
-  static const Color _muted = Color(0xFF91A9BE);
+  static Color get _blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get _cyan => UnixColors.adapt(Color(0xFF22D3C5));
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   bool _yearView = true;
   int _selectedMonth = 10;
   int _selectedDay = 9;
   int _selectedEvent = 0;
 
-  final List<_EventData> _events = const [
+  final List<_EventData> _events = [
     _EventData(
       day: 9,
       month: 10,
@@ -66,10 +67,12 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       color: _bg,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final bool mobile = constraints.maxWidth < 760;
 
           return SingleChildScrollView(
@@ -81,16 +84,16 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1280),
+                constraints: BoxConstraints(maxWidth: 1280),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(mobile),
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
                     _buildControls(mobile),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     _buildLegend(),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     if (mobile)
                       _buildMobileContent()
                     else
@@ -120,18 +123,15 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               Text(
                 'Eventos',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: UnixColors.text,
                   fontSize: mobile ? 30 : 36,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 5),
-              const Text(
+              SizedBox(height: 5),
+              Text(
                 'Encuentra talleres, charlas y actividades de la comunidad.',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _muted, fontSize: 13),
               ),
             ],
           ),
@@ -145,23 +145,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: _border),
             ),
-            child: const TextField(
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
+            child: TextField(
+              style: TextStyle(color: UnixColors.text, fontSize: 12),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Buscar eventos...',
-                hintStyle: TextStyle(
-                  color: _muted,
-                  fontSize: 11,
-                ),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: _muted,
-                  size: 19,
-                ),
+                hintStyle: TextStyle(color: _muted, fontSize: 11),
+                prefixIcon: Icon(Icons.search_rounded, color: _muted, size: 19),
               ),
             ),
           ),
@@ -180,15 +170,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
           Row(
             children: [
               _navButton(Icons.chevron_left_rounded),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _todayButton(),
-              ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
+              Expanded(child: _todayButton()),
+              SizedBox(width: 8),
               _navButton(Icons.chevron_right_rounded),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _viewSelector(),
         ],
       );
@@ -196,21 +184,21 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
 
     return Row(
       children: [
-        const Text(
+        Text(
           '2026',
           style: TextStyle(
-            color: Colors.white,
+            color: UnixColors.text,
             fontSize: 35,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(width: 24),
+        SizedBox(width: 24),
         _navButton(Icons.chevron_left_rounded),
-        const SizedBox(width: 7),
+        SizedBox(width: 7),
         _todayButton(),
-        const SizedBox(width: 7),
+        SizedBox(width: 7),
         _navButton(Icons.chevron_right_rounded),
-        const Spacer(),
+        Spacer(),
         _viewSelector(),
       ],
     );
@@ -228,11 +216,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
       child: IconButton(
         onPressed: () {},
         padding: EdgeInsets.zero,
-        icon: Icon(
-          icon,
-          color: _muted,
-          size: 22,
-        ),
+        icon: Icon(icon, color: _muted, size: 22),
       ),
     );
   }
@@ -248,26 +232,21 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
           });
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: _border),
+          foregroundColor: UnixColors.text,
+          side: BorderSide(color: _border),
           backgroundColor: _card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: const Text(
-          'Hoy',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child: Text('Hoy', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }
 
   Widget _viewSelector() {
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(11),
@@ -276,43 +255,28 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _viewButton(
-            'Mes',
-            !_yearView,
-            () {
-              setState(() {
-                _yearView = false;
-              });
-            },
-          ),
-          _viewButton(
-            'Año',
-            _yearView,
-            () {
-              setState(() {
-                _yearView = true;
-              });
-            },
-          ),
+          _viewButton('Mes', !_yearView, () {
+            setState(() {
+              _yearView = false;
+            });
+          }),
+          _viewButton('Año', _yearView, () {
+            setState(() {
+              _yearView = true;
+            });
+          }),
         ],
       ),
     );
   }
 
-  Widget _viewButton(
-    String text,
-    bool selected,
-    VoidCallback onTap,
-  ) {
+  Widget _viewButton(String text, bool selected, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 22,
-          vertical: 10,
-        ),
+        duration: Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? _blue : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -320,7 +284,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
         child: Text(
           text,
           style: TextStyle(
-            color: selected ? Colors.white : _muted,
+            color: selected ? UnixColors.text : _muted,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
@@ -334,22 +298,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
   // ============================================================
 
   Widget _buildLegend() {
-    return const Wrap(
+    return Wrap(
       spacing: 22,
       runSpacing: 10,
       children: [
-        _LegendItem(
-          color: _blue,
-          text: 'Taller',
-        ),
-        _LegendItem(
-          color: _orange,
-          text: 'Charla',
-        ),
-        _LegendItem(
-          color: _cyan,
-          text: 'Comunidad',
-        ),
+        _LegendItem(color: _blue, text: 'Taller'),
+        _LegendItem(color: _orange, text: 'Charla'),
+        _LegendItem(color: _cyan, text: 'Comunidad'),
       ],
     );
   }
@@ -368,13 +323,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               ? _buildYearCalendar()
               : _buildMonthCalendar(_selectedMonth),
         ),
-        const SizedBox(width: 20),
+        SizedBox(width: 20),
         SizedBox(
           width: 330,
           child: Column(
             children: [
               _buildUpcomingEvents(),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _buildSelectedEvent(),
             ],
           ),
@@ -390,14 +345,14 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
   Widget _buildMobileContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [    
+      children: [
         if (_yearView)
           _buildYearCalendar()
         else
           _buildMonthCalendar(_selectedMonth),
-        const SizedBox(height: 28),
+        SizedBox(height: 28),
         _buildUpcomingEvents(),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         _buildSelectedEvent(),
       ],
     );
@@ -410,9 +365,9 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
   Widget _buildYearCalendar() {
     return GridView.builder(
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: NeverScrollableScrollPhysics(),
       itemCount: 12,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
@@ -424,156 +379,150 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
     );
   }
 
- Widget _buildMiniMonth(int month) {
-  const months = [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre',
-  ];
+  Widget _buildMiniMonth(int month) {
+    const months = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
 
-  final int days = _daysInMonth(month);
-  final int firstWeekday = DateTime(2026, month, 1).weekday;
+    final int days = _daysInMonth(month);
+    final int firstWeekday = DateTime(2026, month, 1).weekday;
 
-  void abrirMes([int? dia]) {
-    setState(() {
-      // Si se pulsa la tarjeta, conserva el día cuando sea válido.
-      // Si se pulsa un día, selecciona exactamente ese día.
-      final int diaSeleccionado = dia ??
-          (_selectedDay > days ? days : _selectedDay);
+    void abrirMes([int? dia]) {
+      setState(() {
+        // Si se pulsa la tarjeta, conserva el día cuando sea válido.
+        // Si se pulsa un día, selecciona exactamente ese día.
+        final int diaSeleccionado =
+            dia ?? (_selectedDay > days ? days : _selectedDay);
 
-      _selectedMonth = month;
-      _selectedDay = diaSeleccionado;
-      _yearView = false;
+        _selectedMonth = month;
+        _selectedDay = diaSeleccionado;
+        _yearView = false;
 
-      final event = _eventForDate(month, diaSeleccionado);
+        final event = _eventForDate(month, diaSeleccionado);
 
-      if (event != null) {
-        _selectedEvent = _events.indexOf(event);
-      }
-    });
-  }
+        if (event != null) {
+          _selectedEvent = _events.indexOf(event);
+        }
+      });
+    }
 
-  final List<Widget> cells = [];
+    final List<Widget> cells = [];
 
-  for (int i = 1; i < firstWeekday; i++) {
-    cells.add(const SizedBox());
-  }
+    for (int i = 1; i < firstWeekday; i++) {
+      cells.add(SizedBox());
+    }
 
-  for (int day = 1; day <= days; day++) {
-    final event = _eventForDate(month, day);
+    for (int day = 1; day <= days; day++) {
+      final event = _eventForDate(month, day);
 
-    final bool selected =
-        month == _selectedMonth && day == _selectedDay;
+      final bool selected = month == _selectedMonth && day == _selectedDay;
 
-    cells.add(
-      GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => abrirMes(day),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: selected
-              ? BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _orange,
-                    width: 2,
-                  ),
-                )
-              : null,
-          child: Stack(
+      cells.add(
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => abrirMes(day),
+          child: Container(
             alignment: Alignment.center,
-            children: [
-              Text(
-                '$day',
-                style: TextStyle(
-                  color: selected ? Colors.white : _muted,
-                  fontSize: 9,
-                  fontWeight: selected
-                      ? FontWeight.w800
-                      : FontWeight.w500,
+            decoration: selected
+                ? BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _orange, width: 2),
+                  )
+                : null,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  '$day',
+                  style: TextStyle(
+                    color: selected ? UnixColors.text : _muted,
+                    fontSize: 9,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  ),
                 ),
-              ),
-              if (event != null)
-                Positioned(
-                  bottom: 1,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: event.color,
-                      shape: BoxShape.circle,
+                if (event != null)
+                  Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: event.color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => abrirMes(),
+        child: Container(
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                months[month - 1],
+                style: TextStyle(
+                  color: UnixColors.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
                 ),
+              ),
+              SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _WeekLabel('L'),
+                  _WeekLabel('M'),
+                  _WeekLabel('M'),
+                  _WeekLabel('J'),
+                  _WeekLabel('V'),
+                  _WeekLabel('S'),
+                  _WeekLabel('D'),
+                ],
+              ),
+              SizedBox(height: 5),
+              Expanded(
+                child: GridView.count(
+                  padding: EdgeInsets.zero,
+                  physics: NeverScrollableScrollPhysics(),
+                  crossAxisCount: 7,
+                  // Ajusta las seis posibles semanas a la tarjeta.
+                  childAspectRatio: 1,
+                  children: cells,
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
-
-  return MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => abrirMes(),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: _border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              months[month - 1],
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _WeekLabel('L'),
-                _WeekLabel('M'),
-                _WeekLabel('M'),
-                _WeekLabel('J'),
-                _WeekLabel('V'),
-                _WeekLabel('S'),
-                _WeekLabel('D'),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Expanded(
-              child: GridView.count(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 7,
-                // Ajusta las seis posibles semanas a la tarjeta.
-                childAspectRatio: 1,
-                children: cells,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
   // ============================================================
   // CALENDARIO MENSUAL
   // ============================================================
@@ -600,13 +549,12 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
     final List<Widget> cells = [];
 
     for (int i = 1; i < firstWeekday; i++) {
-      cells.add(const SizedBox());
+      cells.add(SizedBox());
     }
 
     for (int day = 1; day <= days; day++) {
       final event = _eventForDate(month, day);
-      final bool selected =
-          month == _selectedMonth && day == _selectedDay;
+      final bool selected = month == _selectedMonth && day == _selectedDay;
 
       cells.add(
         GestureDetector(
@@ -621,15 +569,10 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
             });
           },
           child: Container(
-            margin: const EdgeInsets.all(2),
+            margin: EdgeInsets.all(2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: selected
-                  ? Border.all(
-                      color: _orange,
-                      width: 2,
-                    )
-                  : null,
+              border: selected ? Border.all(color: _orange, width: 2) : null,
               color: selected
                   ? _orange.withValues(alpha: 0.08)
                   : Colors.transparent,
@@ -640,11 +583,9 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                 Text(
                   '$day',
                   style: TextStyle(
-                    color: selected ? Colors.white : _muted,
+                    color: selected ? UnixColors.text : _muted,
                     fontSize: 12,
-                    fontWeight: selected
-                        ? FontWeight.w800
-                        : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
                   ),
                 ),
                 if (event != null)
@@ -668,7 +609,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(17),
@@ -679,14 +620,14 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
         children: [
           Text(
             '${months[month - 1]} 2026',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 17),
-          const Row(
+          SizedBox(height: 17),
+          Row(
             children: [
               Expanded(child: _WeekLabel('L')),
               Expanded(child: _WeekLabel('M')),
@@ -697,10 +638,10 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               Expanded(child: _WeekLabel('D')),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           GridView.count(
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: NeverScrollableScrollPhysics(),
             crossAxisCount: 7,
             childAspectRatio: 1.15,
             children: cells,
@@ -717,7 +658,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
   Widget _buildUpcomingEvents() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
+      padding: EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(17),
@@ -726,13 +667,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Expanded(
                 child: Text(
                   'Próximos eventos',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: UnixColors.text,
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
@@ -748,30 +689,21 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               ),
             ],
           ),
-          const SizedBox(height: 15),
-          ...List.generate(
-            _events.length,
-            (index) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: index == _events.length - 1 ? 0 : 10,
-                ),
-                child: _buildEventListItem(
-                  _events[index],
-                  index,
-                ),
-              );
-            },
-          ),
+          SizedBox(height: 15),
+          ...List.generate(_events.length, (index) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == _events.length - 1 ? 0 : 10,
+              ),
+              child: _buildEventListItem(_events[index], index),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildEventListItem(
-    _EventData event,
-    int index,
-  ) {
+  Widget _buildEventListItem(_EventData event, int index) {
     final bool selected = index == _selectedEvent;
 
     return InkWell(
@@ -784,14 +716,12 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
       },
       borderRadius: BorderRadius.circular(13),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(12),
+        duration: Duration(milliseconds: 180),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: selected ? _cardSoft : _bg,
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(
-            color: selected ? event.color : _border,
-          ),
+          border: Border.all(color: selected ? event.color : _border),
         ),
         child: Row(
           children: [
@@ -807,13 +737,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                 children: [
                   Text(
                     event.day.toString().padLeft(2, '0'),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: UnixColors.text,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'OCT',
                     style: TextStyle(
                       color: _muted,
@@ -824,20 +754,20 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     event.title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: UnixColors.text,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: 7),
                   Wrap(
                     spacing: 10,
                     runSpacing: 5,
@@ -855,11 +785,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: _muted,
-              size: 20,
-            ),
+            Icon(Icons.chevron_right_rounded, color: _muted, size: 20),
           ],
         ),
       ),
@@ -875,7 +801,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(17),
@@ -898,13 +824,13 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                   children: [
                     Text(
                       event.day.toString().padLeft(2, '0'),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: UnixColors.text,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'OCT',
                       style: TextStyle(
                         color: _muted,
@@ -915,20 +841,20 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 13),
+              SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       event.title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: UnixColors.text,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 5),
                     Text(
                       event.type,
                       style: TextStyle(
@@ -942,55 +868,41 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           _DetailRow(
             icon: Icons.schedule_rounded,
             text: '${event.time} - 18:00',
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
+          _DetailRow(icon: Icons.location_on_outlined, text: event.place),
+          SizedBox(height: 12),
           _DetailRow(
-            icon: Icons.location_on_outlined,
-            text: event.place,
-          ),
-          const SizedBox(height: 12),
-          const _DetailRow(
             icon: Icons.groups_outlined,
             text: 'Cupo limitado (30 participantes)',
           ),
-          const SizedBox(height: 17),
+          SizedBox(height: 17),
           Text(
             event.description,
-            style: const TextStyle(
-              color: _muted,
-              fontSize: 12,
-              height: 1.5,
-            ),
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () {},
               style: FilledButton.styleFrom(
                 backgroundColor: _orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 15,
-                ),
+                foregroundColor: UnixColors.text,
+                padding: EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(11),
                 ),
               ),
               iconAlignment: IconAlignment.end,
-              icon: const Icon(
-                Icons.arrow_forward_rounded,
-                size: 18,
-              ),
-              label: const Text(
+              icon: Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(
                 'Ver detalles',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -1007,10 +919,7 @@ class _ExternoEventosPageState extends State<ExternoEventosPage> {
     return DateTime(2026, month + 1, 0).day;
   }
 
-  _EventData? _eventForDate(
-    int month,
-    int day,
-  ) {
+  _EventData? _eventForDate(int month, int day) {
     for (final event in _events) {
       if (event.month == month && event.day == day) {
         return event;
@@ -1053,28 +962,23 @@ class _LegendItem extends StatelessWidget {
   final Color color;
   final String text;
 
-  const _LegendItem({
-    required this.color,
-    required this.text,
-  });
+  const _LegendItem({required this.color, required this.text});
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 7),
+        SizedBox(width: 7),
         Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             color: _ExternoEventosPageState._muted,
             fontSize: 11,
           ),
@@ -1091,10 +995,11 @@ class _WeekLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Center(
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: _ExternoEventosPageState._muted,
           fontSize: 9,
           fontWeight: FontWeight.w700,
@@ -1108,25 +1013,19 @@ class _SmallInfo extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _SmallInfo({
-    required this.icon,
-    required this.text,
-  });
+  const _SmallInfo({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          color: _ExternoEventosPageState._muted,
-          size: 13,
-        ),
-        const SizedBox(width: 4),
+        Icon(icon, color: _ExternoEventosPageState._muted, size: 13),
+        SizedBox(width: 4),
         Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             color: _ExternoEventosPageState._muted,
             fontSize: 10,
           ),
@@ -1140,26 +1039,20 @@ class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _DetailRow({
-    required this.icon,
-    required this.text,
-  });
+  const _DetailRow({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: _ExternoEventosPageState._muted,
-          size: 17,
-        ),
-        const SizedBox(width: 9),
+        Icon(icon, color: _ExternoEventosPageState._muted, size: 17),
+        SizedBox(width: 9),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               color: _ExternoEventosPageState._muted,
               fontSize: 11,
             ),

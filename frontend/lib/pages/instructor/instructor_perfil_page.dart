@@ -1,3 +1,4 @@
+import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -13,8 +14,7 @@ class InstructorPerfilPage extends StatefulWidget {
   const InstructorPerfilPage({super.key});
 
   @override
-  State<InstructorPerfilPage> createState() =>
-      _InstructorPerfilPageState();
+  State<InstructorPerfilPage> createState() => _InstructorPerfilPageState();
 }
 
 class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
@@ -22,14 +22,14 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
   // Usa la misma URL del login y cambia google/ por perfil/me/.
   static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
 
-  static const Color _background = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _field = Color(0xFF0C3152);
-  static const Color _border = Color(0xFF174064);
+  static Color get _background => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _field => UnixColors.adapt(Color(0xFF0C3152));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _muted = Color(0xFF91A9BE);
-  static const Color _red = Color(0xFFFF4D5A);
-  static const Color _green = Color(0xFF6ED9AB);
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
+  static Color get _red => UnixColors.adapt(Color(0xFFFF4D5A));
+  static Color get _green => UnixColors.adapt(Color(0xFF6ED9AB));
 
   final _formKey = GlobalKey<FormState>();
 
@@ -47,8 +47,7 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
 
   String? _error;
 
-  bool get _puedeEditar =>
-      _perfilCargado && !_cargando && !_ocupado;
+  bool get _puedeEditar => _perfilCargado && !_cargando && !_ocupado;
 
   String _dato(String campo) {
     return _perfil[campo]?.toString() ?? '';
@@ -110,23 +109,19 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
         case 'GET':
           respuesta = await http
               .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 20));
+              .timeout(Duration(seconds: 20));
           break;
 
         case 'PATCH':
           respuesta = await http
-              .patch(
-                uri,
-                headers: headers,
-                body: jsonEncode(datos),
-              )
-              .timeout(const Duration(seconds: 20));
+              .patch(uri, headers: headers, body: jsonEncode(datos))
+              .timeout(Duration(seconds: 20));
           break;
 
         case 'DELETE':
           respuesta = await http
               .delete(uri, headers: headers)
-              .timeout(const Duration(seconds: 20));
+              .timeout(Duration(seconds: 20));
           break;
 
         default:
@@ -147,9 +142,7 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
 
     if (respuesta.bodyBytes.isNotEmpty) {
       try {
-        final decoded = jsonDecode(
-          utf8.decode(respuesta.bodyBytes),
-        );
+        final decoded = jsonDecode(utf8.decode(respuesta.bodyBytes));
 
         if (decoded is Map<String, dynamic>) {
           contenido = decoded;
@@ -160,19 +153,17 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
     }
 
     if (respuesta.statusCode == 401) {
-      throw Exception(
-        'Tu sesión venció. Cierra sesión y vuelve a ingresar.',
-      );
+      throw Exception('Tu sesión venció. Cierra sesión y vuelve a ingresar.');
     }
 
-    if (respuesta.statusCode < 200 ||
-        respuesta.statusCode >= 300) {
-      final mensaje = contenido['error'] ??
+    if (respuesta.statusCode < 200 || respuesta.statusCode >= 300) {
+      final mensaje =
+          contenido['error'] ??
           contenido['detail'] ??
           (contenido.isNotEmpty
               ? contenido.entries
-                  .map((entry) => '${entry.key}: ${entry.value}')
-                  .join('\n')
+                    .map((entry) => '${entry.key}: ${entry.value}')
+                    .join('\n')
               : 'Error del servidor (${respuesta.statusCode}).');
 
       throw Exception(mensaje.toString());
@@ -188,9 +179,9 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
   void _avisar(String mensaje) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   Future<void> _cargarPerfil() async {
@@ -209,9 +200,7 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
       final rol = datos['rol']?.toString().toLowerCase();
 
       if (rol != 'instructor') {
-        throw Exception(
-          'Esta pantalla corresponde al perfil de profesor.',
-        );
+        throw Exception('Esta pantalla corresponde al perfil de profesor.');
       }
 
       setState(() {
@@ -260,11 +249,9 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
       'grado_academico': grado,
 
       // Compatibilidad con los valores especiales de tu backend.
-      if (procedencia == 'Otra institución')
-        'nombre_institucion': procedencia,
+      if (procedencia == 'Otra institución') 'nombre_institucion': procedencia,
 
-      if (grado == 'Otro')
-        'especifica_grado': grado,
+      if (grado == 'Otro') 'especifica_grado': grado,
     };
 
     try {
@@ -298,38 +285,25 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
     final resultado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        UnixTheme.watch(dialogContext);
         return AlertDialog(
           backgroundColor: _card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: Text(
-            titulo,
-            style: const TextStyle(color: Colors.white),
-          ),
-          content: Text(
-            mensaje,
-            style: const TextStyle(
-              color: _muted,
-              height: 1.5,
-            ),
-          ),
+          title: Text(titulo, style: TextStyle(color: UnixColors.text)),
+          content: Text(mensaje, style: TextStyle(color: _muted, height: 1.5)),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: _muted),
-              ),
+              child: Text('Cancelar', style: TextStyle(color: _muted)),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: peligro ? _red : _orange,
-                foregroundColor: peligro
-                    ? Colors.white
-                    : _background,
+                foregroundColor: peligro ? Colors.white : UnixColors.onOrange,
               ),
               onPressed: () {
                 Navigator.pop(dialogContext, true);
@@ -353,17 +327,13 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
     try {
       await GoogleSignIn.instance.signOut();
     } catch (error) {
-      debugPrint(
-        'No se pudo cerrar la sesión de Google: $error',
-      );
+      debugPrint('No se pudo cerrar la sesión de Google: $error');
     }
 
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const AccessScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => AccessScreen()),
       (route) => false,
     );
   }
@@ -430,24 +400,20 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_cargando) ...[
-          const LinearProgressIndicator(
-            color: _orange,
-            backgroundColor: _field,
-          ),
-          const SizedBox(height: 16),
+          LinearProgressIndicator(color: _orange, backgroundColor: _field),
+          SizedBox(height: 16),
         ],
 
-        if (_error != null) ...[
-          _avisoConexion(),
-          const SizedBox(height: 20),
-        ],
+        if (_error != null) ...[_avisoConexion(), SizedBox(height: 20)],
 
         LayoutBuilder(
           builder: (context, constraints) {
+            UnixTheme.watch(context);
             final perfil = _tarjetaPerfil();
             final formulario = _formulario();
             final acciones = _accionesCuenta();
@@ -457,17 +423,11 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 230,
-                    child: perfil,
-                  ),
-                  const SizedBox(width: 20),
+                  SizedBox(width: 230, child: perfil),
+                  SizedBox(width: 20),
                   Expanded(child: formulario),
-                  const SizedBox(width: 20),
-                  SizedBox(
-                    width: 250,
-                    child: acciones,
-                  ),
+                  SizedBox(width: 20),
+                  SizedBox(width: 250, child: acciones),
                 ],
               );
             }
@@ -480,16 +440,11 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
                   SizedBox(
                     width: 220,
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.stretch,
-                      children: [
-                        perfil,
-                        const SizedBox(height: 20),
-                        acciones,
-                      ],
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [perfil, SizedBox(height: 20), acciones],
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  SizedBox(width: 20),
                   Expanded(child: formulario),
                 ],
               );
@@ -500,9 +455,9 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 perfil,
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 formulario,
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 acciones,
               ],
             );
@@ -514,7 +469,7 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
 
   Widget _avisoConexion() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(14),
@@ -523,43 +478,31 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.info_outline,
-                color: _orange,
-                size: 21,
-              ),
+              Icon(Icons.info_outline, color: _orange, size: 21),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'No se pudieron cargar los datos',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: UnixColors.text,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: const TextStyle(
-              color: _muted,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
+          SizedBox(height: 8),
+          Text(_error!, style: TextStyle(color: _muted, height: 1.5)),
+          SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: _cargando || _ocupado
-                ? null
-                : _cargarPerfil,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reintentar conexión'),
+            onPressed: _cargando || _ocupado ? null : _cargarPerfil,
+            icon: Icon(Icons.refresh),
+            label: Text('Reintentar conexión'),
             style: OutlinedButton.styleFrom(
               foregroundColor: _orange,
-              side: const BorderSide(color: _border),
+              side: BorderSide(color: _border),
             ),
           ),
         ],
@@ -580,21 +523,17 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: _background,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(color: _border),
             ),
             child: id.isEmpty
-                ? const SizedBox(
+                ? SizedBox(
                     width: 110,
                     height: 110,
-                    child: Icon(
-                      Icons.person_rounded,
-                      size: 70,
-                      color: _muted,
-                    ),
+                    child: Icon(Icons.person_rounded, size: 70, color: _muted),
                   )
                 : AnimatedBlobatar(
                     key: ValueKey(id),
@@ -603,47 +542,41 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
                     animation: BlobatarAnimation.always,
                   ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Text(
             nombre.isEmpty ? 'Profesor' : nombre,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 6,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF123F62),
-              borderRadius: BorderRadius.circular(20),
+              color: UnixColors.adapt(Color(0xFF123F62)),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
+            child: Text(
               'Profesor',
               style: TextStyle(
-                color: Color(0xFF62B9FF),
+                color: UnixColors.adapt(Color(0xFF62B9FF)),
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           SelectableText(
             'ID: ${id.isEmpty ? '—' : id}',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _green,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: _green, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 20),
-          const Divider(color: _border),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 20),
+          Divider(color: _border),
+          SizedBox(height: 12),
+          Text(
             'Comunidad UNIX ITC',
             textAlign: TextAlign.center,
             style: TextStyle(color: _muted),
@@ -672,12 +605,10 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
               maxLength: 255,
               obligatorio: true,
             ),
-             
+
             _soloLectura(
               label: 'Rol',
-              valor: _dato('rol').isEmpty
-                  ? 'Instructor'
-                  : _dato('rol'),
+              valor: _dato('rol').isEmpty ? 'Instructor' : _dato('rol'),
               icon: Icons.badge_outlined,
             ),
             _soloLectura(
@@ -712,112 +643,94 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
               obligatorio: true,
             ),
             _cuentaGoogle(),
-              const SizedBox(height: 16
-              ),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'Escribe el nombre de tu institución '
               'y tu grado académico.',
-              style: TextStyle(
-                color: _muted,
-                fontSize: 12,
-                height: 1.5,
-              ),
+              style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _puedeEditar
-                  ? _actualizarPerfil
-                  : null,
+              onPressed: _puedeEditar ? _actualizarPerfil : null,
               style: FilledButton.styleFrom(
                 backgroundColor: _orange,
-                foregroundColor: _background,
+                foregroundColor: UnixColors.onOrange,
                 disabledBackgroundColor: _field,
                 disabledForegroundColor: _muted,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 12,
-                ),
+                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Actualizar perfil'),
+              icon: Icon(Icons.save_outlined),
+              label: Text('Actualizar perfil'),
             ),
           ],
         ),
       ),
     );
   }
-Widget _cuentaGoogle() {
-  final correo = _dato('email').trim();
 
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: _background,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: _border),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: const Text(
-            'G',
-            style: TextStyle(
-              color: Color(0xFF4285F4),
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
+  Widget _cuentaGoogle() {
+    final correo = _dato('email').trim();
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: UnixColors.text,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              'G',
+              style: TextStyle(
+                color: Color(0xFF4285F4),
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Cuenta vinculada con Google',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cuenta vinculada con Google',
+                  style: TextStyle(
+                    color: UnixColors.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 5),
-              SelectableText(
-                correo.isEmpty
-                    ? 'Correo pendiente de cargar'
-                    : correo,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 13,
+                SizedBox(height: 5),
+                SelectableText(
+                  correo.isEmpty ? 'Correo pendiente de cargar' : correo,
+                  style: TextStyle(color: _muted, fontSize: 13),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        const Tooltip(
-          message: 'El correo está vinculado a Google y no se puede editar.',
-          child: Icon(
-            Icons.lock_outline_rounded,
-            color: _muted,
-            size: 23,
+          SizedBox(width: 10),
+          Tooltip(
+            message: 'El correo está vinculado a Google y no se puede editar.',
+            child: Icon(Icons.lock_outline_rounded, color: _muted, size: 23),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _entrada({
     required String label,
@@ -827,22 +740,19 @@ Widget _cuentaGoogle() {
     bool obligatorio = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
         enabled: _puedeEditar,
         maxLength: maxLength,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: UnixColors.text),
         cursorColor: _orange,
         decoration: _decoracion(
           label: label,
           icon: icon,
-        ).copyWith(
-          counterText: '',
-        ),
+        ).copyWith(counterText: ''),
         validator: (value) {
-          if (obligatorio &&
-              (value == null || value.trim().isEmpty)) {
+          if (obligatorio && (value == null || value.trim().isEmpty)) {
             return 'Completa este campo.';
           }
 
@@ -858,30 +768,20 @@ Widget _cuentaGoogle() {
     required IconData icon,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16),
       child: TextFormField(
         key: ValueKey('$label:$valor'),
         initialValue: valor,
         readOnly: true,
-        style: const TextStyle(color: _muted),
-        decoration: _decoracion(
-          label: label,
-          icon: icon,
-        ).copyWith(
-          suffixIcon: const Icon(
-            Icons.lock_outline,
-            color: _muted,
-            size: 17,
-          ),
+        style: TextStyle(color: _muted),
+        decoration: _decoracion(label: label, icon: icon).copyWith(
+          suffixIcon: Icon(Icons.lock_outline, color: _muted, size: 17),
         ),
       ),
     );
   }
 
-  InputDecoration _decoracion({
-    required String label,
-    required IconData icon,
-  }) {
+  InputDecoration _decoracion({required String label, required IconData icon}) {
     OutlineInputBorder borde(Color color) {
       return OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -892,26 +792,19 @@ Widget _cuentaGoogle() {
     return InputDecoration(
       labelText: label,
       floatingLabelBehavior: FloatingLabelBehavior.always,
-      labelStyle: const TextStyle(color: _muted),
-      floatingLabelStyle: const TextStyle(color: _muted),
+      labelStyle: TextStyle(color: _muted),
+      floatingLabelStyle: TextStyle(color: _muted),
       filled: true,
       fillColor: _field,
-      prefixIcon: Icon(
-        icon,
-        color: _muted,
-        size: 21,
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 17,
-      ),
+      prefixIcon: Icon(icon, color: _muted, size: 21),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       border: borde(_border),
       enabledBorder: borde(_border),
       disabledBorder: borde(_border),
       focusedBorder: borde(_orange),
       errorBorder: borde(_red),
       focusedErrorBorder: borde(_red),
-      errorStyle: const TextStyle(color: _red),
+      errorStyle: TextStyle(color: _red),
     );
   }
 
@@ -925,37 +818,29 @@ Widget _cuentaGoogle() {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Administra tu sesión y tu cuenta.',
-            style: TextStyle(
-              color: _muted,
-              height: 1.5,
-            ),
+            style: TextStyle(color: _muted, height: 1.5),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           OutlinedButton.icon(
-            onPressed: _ocupado || _cargando
-                ? null
-                : _cerrarSesion,
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Cerrar sesión'),
+            onPressed: _ocupado || _cargando ? null : _cerrarSesion,
+            icon: Icon(Icons.logout_rounded),
+            label: Text('Cerrar sesión'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: UnixColors.text,
               disabledForegroundColor: _muted,
-              side: const BorderSide(color: _border),
-              padding: const EdgeInsets.symmetric(
-                vertical: 15,
-                horizontal: 10,
-              ),
+              side: BorderSide(color: _border),
+              padding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          const Divider(color: _border),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 24),
+          Divider(color: _border),
+          SizedBox(height: 16),
+          Text(
             'Eliminar cuenta',
             style: TextStyle(
               color: _red,
@@ -963,40 +848,29 @@ Widget _cuentaGoogle() {
               fontSize: 15,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'La eliminación de tu cuenta es permanente.',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 12,
-              height: 1.5,
-            ),
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           OutlinedButton.icon(
-            onPressed: _puedeEditar
-                ? _eliminarCuenta
-                : null,
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Eliminar cuenta'),
+            onPressed: _puedeEditar ? _eliminarCuenta : null,
+            icon: Icon(Icons.delete_outline),
+            label: Text('Eliminar cuenta'),
             style: OutlinedButton.styleFrom(
               foregroundColor: _red,
               disabledForegroundColor: _muted,
-              side: BorderSide(
-                color: _puedeEditar ? _red : _border,
-              ),
-              padding: const EdgeInsets.symmetric(
-                vertical: 15,
-                horizontal: 10,
-              ),
+              side: BorderSide(color: _puedeEditar ? _red : _border),
+              padding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
           if (_ocupado) ...[
-            const SizedBox(height: 18),
-            const Center(
+            SizedBox(height: 18),
+            Center(
               child: SizedBox(
                 width: 22,
                 height: 22,
@@ -1016,13 +890,10 @@ Widget _cuentaGoogle() {
   // CONTENEDOR DE TARJETAS
   // ============================================================
 
-  Widget _panel({
-    required String titulo,
-    required Widget child,
-  }) {
+  Widget _panel({required String titulo, required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
@@ -1033,13 +904,13 @@ Widget _cuentaGoogle() {
         children: [
           Text(
             titulo,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           child,
         ],
       ),

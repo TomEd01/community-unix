@@ -1,18 +1,19 @@
+import '../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const background = Color(0xFF080F22);
-  static const backgroundMiddle = Color(0xFF101535);
-  static const backgroundEnd = Color(0xFF171B48);
+  static Color get background => UnixColors.adapt(Color(0xFF080F22));
+  static Color get backgroundMiddle => UnixColors.adapt(Color(0xFF101535));
+  static Color get backgroundEnd => UnixColors.adapt(Color(0xFF171B48));
 
-  static const surface = Color(0xFF101A34);
-  static const surfaceLight = Color(0xFF182545);
-  static const active = Color(0xFF27345E);
-  static const border = Color(0xFF293A63);
+  static Color get surface => UnixColors.adapt(Color(0xFF101A34));
+  static Color get surfaceLight => UnixColors.adapt(Color(0xFF182545));
+  static Color get active => UnixColors.adapt(Color(0xFF27345E));
+  static Color get border => UnixColors.adapt(Color(0xFF293A63));
 
-  static const text = Color(0xFFF4F5FF);
-  static const textSoft = Color(0xFF9BA7C2);
-  static const textMuted = Color(0xFF75819E);
+  static Color get text => UnixColors.adapt(Color(0xFFF4F5FF));
+  static Color get textSoft => UnixColors.adapt(Color(0xFF9BA7C2));
+  static Color get textMuted => UnixColors.adapt(Color(0xFF75819E));
 
   static const orange = Color(0xFFFF7417);
   static const purple = Color(0xFFA755E8);
@@ -30,6 +31,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
 
     final mobile = screenWidth < 600;
@@ -47,7 +49,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
         constraints: BoxConstraints(
           minHeight: MediaQuery.sizeOf(context).height,
         ),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -62,7 +64,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
           child: SingleChildScrollView(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
+                constraints: BoxConstraints(maxWidth: 1200),
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   child: Column(
@@ -95,19 +97,20 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
     if (mobile) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
         decoration: _panelDecoration(radius: 16),
         child: Column(
           children: [
-            const Row(
+            Row(
               children: [
                 _Logo(size: 42),
                 SizedBox(width: 11),
                 Expanded(child: _BrandTitle()),
+                const UnixThemeToggle(compact: true),
               ],
             ),
 
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
 
             Container(
               width: double.infinity,
@@ -115,7 +118,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
               color: AppColors.border,
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
 
             Row(
               children: [
@@ -147,18 +150,19 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
       decoration: _panelDecoration(),
       child: Row(
         children: [
-          const Row(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [_Logo(), SizedBox(width: 12), _BrandTitle()],
           ),
 
-          const Spacer(),
+          Spacer(),
 
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 8,
             runSpacing: 8,
             children: [
+              UnixThemeToggle(compact: tablet),
               _menuItem('Cursos', Icons.menu_book_outlined),
               _menuItem('Calendario', Icons.calendar_month_outlined),
               _menuItem('Notificaciones', Icons.notifications_none_rounded),
@@ -180,13 +184,13 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        duration: Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
           color: selected ? AppColors.active : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? const Color(0x66FF7417) : Colors.transparent,
+            color: selected ? Color(0x66FF7417) : Colors.transparent,
           ),
         ),
         child: Row(
@@ -197,7 +201,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
               size: 18,
               color: selected ? AppColors.orange : AppColors.textSoft,
             ),
-            const SizedBox(width: 7),
+            SizedBox(width: 7),
             Text(
               name,
               style: TextStyle(
@@ -222,13 +226,13 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        duration: Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? AppColors.active : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? const Color(0x66FF7417) : Colors.transparent,
+            color: selected ? Color(0x66FF7417) : Colors.transparent,
           ),
         ),
         child: Column(
@@ -239,7 +243,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
               size: 20,
               color: selected ? AppColors.orange : AppColors.textSoft,
             ),
-            const SizedBox(height: 5),
+            SizedBox(height: 5),
             Text(
               name == 'Notificaciones' ? 'Avisos' : name,
               maxLines: 1,
@@ -299,14 +303,12 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
             width: iconSize,
             height: iconSize,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0x33FF7417), Color(0x33A755E8)],
               ),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0x55FF7417)),
-              boxShadow: const [
-                BoxShadow(color: Color(0x33FF7417), blurRadius: 30),
-              ],
+              border: Border.all(color: Color(0x55FF7417)),
+              boxShadow: [BoxShadow(color: Color(0x33FF7417), blurRadius: 30)],
             ),
             child: Icon(
               Icons.construction_rounded,
@@ -341,10 +343,10 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 650),
+            constraints: BoxConstraints(maxWidth: 650),
             child: Text(
               'Estamos trabajando para ofrecerte una mejor experiencia de aprendizaje.',
               textAlign: TextAlign.center,
@@ -368,7 +370,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: AppColors.border),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
@@ -403,9 +405,9 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
     if (mobile) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         decoration: _panelDecoration(radius: 16),
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _FooterBrand(),
@@ -453,9 +455,9 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
     if (tablet) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(26),
+        padding: EdgeInsets.all(26),
         decoration: _panelDecoration(),
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _FooterBrand(),
@@ -501,9 +503,9 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(30),
+      padding: EdgeInsets.all(30),
       decoration: _panelDecoration(),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(flex: 2, child: _FooterBrand()),
@@ -544,7 +546,7 @@ class _EnDesarrolloPageState extends State<EnDesarrolloPage> {
       color: AppColors.surface.withValues(alpha: 0.92),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: AppColors.border),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
           color: Color(0x33000000),
           blurRadius: 24,
@@ -566,18 +568,17 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.orange, AppColors.purple],
-        ),
+        gradient: LinearGradient(colors: [AppColors.orange, AppColors.purple]),
         borderRadius: BorderRadius.circular(size * 0.27),
       ),
       child: Icon(
         Icons.terminal_rounded,
-        color: Colors.white,
+        color: UnixColors.text,
         size: size * 0.58,
       ),
     );
@@ -593,7 +594,8 @@ class _BrandTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    UnixTheme.watch(context);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -628,7 +630,8 @@ class _FooterBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    UnixTheme.watch(context);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -670,25 +673,23 @@ class _FooterColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: AppColors.text,
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w800),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         ...items.map(
           (item) => Padding(
-            padding: const EdgeInsets.only(bottom: 11),
+            padding: EdgeInsets.only(bottom: 11),
             child: Text(
               item,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSoft,
                 fontSize: 13,
                 height: 1.3,

@@ -1,3 +1,5 @@
+import '../../theme/unix_role_brand.dart';
+import '../../theme/unix_theme.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../widgets/unix_account_bar.dart';
@@ -30,6 +32,7 @@ class AdminPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Theme(
       data: AdminStyle.theme,
       child: _AdminShell(
@@ -109,9 +112,7 @@ class _AdminPageState extends State<_AdminShell> {
     // Compatibilidad con accesos antiguos al perfil, antes en índice 5.
     final destination = index == 5 ? 4 : index;
 
-    if (!mounted ||
-        destination < 0 ||
-        destination >= labels.length) {
+    if (!mounted || destination < 0 || destination >= labels.length) {
       return;
     }
 
@@ -131,15 +132,12 @@ class _AdminPageState extends State<_AdminShell> {
       await prefs.remove('jwt_token');
       await prefs.remove('user_rol');
 
-      if (prefs.containsKey('jwt_token') ||
-          prefs.containsKey('user_rol')) {
+      if (prefs.containsKey('jwt_token') || prefs.containsKey('user_rol')) {
         throw Exception('No se pudo eliminar la sesión guardada.');
       }
 
       try {
-        await GoogleSignIn.instance
-            .signOut()
-            .timeout(const Duration(seconds: 10));
+        await GoogleSignIn.instance.signOut().timeout(Duration(seconds: 10));
       } catch (error) {
         debugPrint('No se pudo cerrar la sesión de Google: $error');
       }
@@ -149,7 +147,7 @@ class _AdminPageState extends State<_AdminShell> {
 
       if (callback != null) {
         try {
-          await callback().timeout(const Duration(seconds: 10));
+          await callback().timeout(Duration(seconds: 10));
         } catch (error) {
           debugPrint('Error en la limpieza adicional de sesión: $error');
         }
@@ -158,9 +156,7 @@ class _AdminPageState extends State<_AdminShell> {
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const AccessScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => AccessScreen()),
         (route) => false,
       );
     } catch (error) {
@@ -181,21 +177,27 @@ class _AdminPageState extends State<_AdminShell> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Theme(
       data: AdminStyle.theme,
       child: AnimatedBuilder(
         animation: store,
         builder: (context, _) {
+          UnixTheme.watch(context);
           return LayoutBuilder(
             builder: (context, constraints) {
+              UnixTheme.watch(context);
               final mobile = constraints.maxWidth < 700;
-              final compact = constraints.maxWidth < 1150;
+              final compact = constraints.maxWidth < 700;
 
               return Scaffold(
                 appBar: mobile
                     ? PreferredSize(
-                        preferredSize: const Size.fromHeight(136),
-                        child: SafeArea(bottom: false, child: _buildAccountBar(mobile: true)),
+                        preferredSize: Size.fromHeight(70),
+                        child: SafeArea(
+                          bottom: false,
+                          child: _buildAccountBar(mobile: true),
+                        ),
                       )
                     : null,
                 drawer: mobile
@@ -209,22 +211,21 @@ class _AdminPageState extends State<_AdminShell> {
                     children: [
                       if (!mobile)
                         SizedBox(
-                          width: compact ? 82 : 226,
+                          width: compact
+                              ? 82
+                              : (constraints.maxWidth < 1100 ? 185 : 220),
                           child: sidebar(compact),
                         ),
                       Expanded(
                         child: Column(
                           children: [
-                            if (!mobile)
-                              _buildAccountBar(mobile: false),
+                            if (!mobile) _buildAccountBar(mobile: false),
                             Expanded(
                               child: SingleChildScrollView(
                                 padding: EdgeInsets.all(mobile ? 16 : 26),
                                 child: Center(
                                   child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 1400,
-                                    ),
+                                    constraints: BoxConstraints(maxWidth: 1400),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -238,8 +239,8 @@ class _AdminPageState extends State<_AdminShell> {
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        const Text(
+                                        SizedBox(height: 6),
+                                        Text(
                                           'Algunas secciones contienen '
                                           'datos de demostración.',
                                           style: TextStyle(
@@ -247,23 +248,22 @@ class _AdminPageState extends State<_AdminShell> {
                                             fontSize: 12,
                                           ),
                                         ),
-                                        const SizedBox(height: 24),
+                                        SizedBox(height: 18),
+                                        _buildSectionSearch(),
+                                        SizedBox(height: 20),
                                         Column(
                                           children: [
                                             for (final entry in <Widget>[
                                               AdminInicioPage(
+                                                nombre: _nombreReal,
                                                 store: store,
                                                 onNavigate: navigate,
                                               ),
                                               AdminMacroeventosPage(
                                                 store: store,
                                               ),
-                                              AdminUsuariosPage(
-                                                store: store,
-                                              ),
-                                              AdminFoliosPage(
-                                                store: store,
-                                              ),
+                                              AdminUsuariosPage(store: store),
+                                              AdminFoliosPage(store: store),
                                               AdminPerfilPage(
                                                 store: store,
                                                 onLogout: logout,
@@ -271,8 +271,7 @@ class _AdminPageState extends State<_AdminShell> {
                                               ),
                                             ].asMap().entries)
                                               Visibility(
-                                                visible:
-                                                    entry.key == selected,
+                                                visible: entry.key == selected,
                                                 maintainState: true,
                                                 child: entry.value,
                                               ),
@@ -301,7 +300,7 @@ class _AdminPageState extends State<_AdminShell> {
                             showMore();
                           }
                         },
-                        destinations: const [
+                        destinations: [
                           NavigationDestination(
                             icon: Icon(Icons.home_outlined),
                             label: 'Inicio',
@@ -329,7 +328,6 @@ class _AdminPageState extends State<_AdminShell> {
     );
   }
 
-
   Future<void> _loadHeaderProfile() async {
     if (_loadingProfile || loggingOut) return;
     _loadingProfile = true;
@@ -339,11 +337,19 @@ class _AdminPageState extends State<_AdminShell> {
       if (token == null || token.trim().isEmpty) {
         throw Exception('No hay una sesión guardada.');
       }
-      final response = await http.get(Uri.parse(_perfilUrl), headers: {
-        'Authorization': 'Bearer $token', 'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            Uri.parse(_perfilUrl),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(Duration(seconds: 20));
       if (response.statusCode != 200) {
-        throw Exception('No se pudo cargar el perfil (${response.statusCode}).');
+        throw Exception(
+          'No se pudo cargar el perfil (${response.statusCode}).',
+        );
       }
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       if (data is! Map) throw Exception('Respuesta de perfil inesperada.');
@@ -357,7 +363,10 @@ class _AdminPageState extends State<_AdminShell> {
       });
     } catch (error) {
       if (mounted && !loggingOut) {
-        setState(() => _profileError = error.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () =>
+              _profileError = error.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingProfile = false);
@@ -367,23 +376,45 @@ class _AdminPageState extends State<_AdminShell> {
   Future<void> _buscarSecciones(String query) async {
     final texto = query.trim().toLowerCase();
     if (texto.isEmpty) return;
-    final resultados = labels.asMap().entries.where(
-      (entry) => entry.value.toLowerCase().contains(texto)).toList();
-    final destino = await showDialog<int>(context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AdminStyle.card,
-        title: const Text('Buscar sección'),
-        content: SizedBox(width: 400, child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: resultados.isEmpty
-              ? [const Text('No se encontraron secciones con ese nombre.')]
-              : resultados.map((entry) => ListTile(
-                  leading: Icon(icons[entry.key]), title: Text(entry.value),
-                  onTap: () => Navigator.pop(dialogContext, entry.key),
-                )).toList(),
-        )),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar'))],
-      ));
+    final resultados = labels
+        .asMap()
+        .entries
+        .where((entry) => entry.value.toLowerCase().contains(texto))
+        .toList();
+    final destino = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        UnixTheme.watch(dialogContext);
+        return AlertDialog(
+          backgroundColor: AdminStyle.card,
+          title: Text('Buscar sección'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: resultados.isEmpty
+                  ? [Text('No se encontraron secciones con ese nombre.')]
+                  : resultados
+                        .map(
+                          (entry) => ListTile(
+                            leading: Icon(icons[entry.key]),
+                            title: Text(entry.value),
+                            onTap: () =>
+                                Navigator.pop(dialogContext, entry.key),
+                          ),
+                        )
+                        .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
     if (mounted && destino != null) navigate(destino);
   }
 
@@ -392,26 +423,44 @@ class _AdminPageState extends State<_AdminShell> {
     rol: 'Super Admin',
     identificador: _idReal,
     profileError: _profileError,
-    leading: mobile ? Builder(builder: (scaffoldContext) => IconButton(
-      tooltip: 'Abrir menú', icon: const Icon(Icons.menu, color: AdminStyle.muted),
-      onPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
-    )) : null,
+    leading: mobile
+        ? Builder(
+            builder: (scaffoldContext) {
+              UnixTheme.watch(scaffoldContext);
+              return IconButton(
+                tooltip: 'Abrir menú',
+                icon: Icon(Icons.menu, color: AdminStyle.muted),
+                onPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
+              );
+            },
+          )
+        : null,
     onProfile: () => navigate(4),
-    onNotifications: () => adminMessage(context, 'No hay un servicio de notificaciones conectado.'),
+    onNotifications: () => adminMessage(
+      context,
+      'No hay un servicio de notificaciones conectado.',
+    ),
     accountMenu: profileMenu(),
-    search: TextField(
-      onSubmitted: _buscarSecciones,
-      style: const TextStyle(color: Colors.white, fontSize: 13),
-      decoration: InputDecoration(
-        hintText: 'Buscar secciones: usuarios, eventos o folios...',
-        hintStyle: const TextStyle(color: AdminStyle.muted, fontSize: 12),
-        prefixIcon: const Icon(Icons.search_rounded, color: AdminStyle.muted, size: 20),
-        isDense: true, filled: true, fillColor: AdminStyle.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AdminStyle.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AdminStyle.border)),
+  );
+
+  Widget _buildSectionSearch() => TextField(
+    onSubmitted: _buscarSecciones,
+    style: TextStyle(color: UnixColors.text, fontSize: 13),
+    decoration: InputDecoration(
+      hintText: 'Buscar secciones: usuarios, eventos o folios...',
+      hintStyle: TextStyle(color: AdminStyle.muted, fontSize: 12),
+      prefixIcon: Icon(Icons.search_rounded, color: AdminStyle.muted, size: 20),
+      isDense: true,
+      filled: true,
+      fillColor: AdminStyle.background,
+      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AdminStyle.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AdminStyle.border),
       ),
     ),
   );
@@ -420,7 +469,7 @@ class _AdminPageState extends State<_AdminShell> {
     return PopupMenuButton<int>(
       enabled: !loggingOut,
       tooltip: 'Opciones de cuenta',
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AdminStyle.muted),
+      icon: Icon(Icons.keyboard_arrow_down_rounded, color: AdminStyle.muted),
       onSelected: (value) async {
         if (value == 0) {
           navigate(4);
@@ -434,22 +483,17 @@ class _AdminPageState extends State<_AdminShell> {
         PopupMenuItem<int>(
           value: 2,
           enabled: !_loadingProfile,
-          child: const Text('Actualizar datos'),
+          child: Text('Actualizar datos'),
         ),
-        const PopupMenuItem<int>(
-          value: 0,
-          child: Text('Mi perfil'),
-        ),
+        PopupMenuItem<int>(value: 0, child: Text('Mi perfil')),
         PopupMenuItem<int>(
           value: 1,
           enabled: !loggingOut,
           child: Row(
             children: [
-              const Icon(Icons.logout_rounded, size: 19),
-              const SizedBox(width: 10),
-              Text(
-                loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión',
-              ),
+              Icon(Icons.logout_rounded, size: 19),
+              SizedBox(width: 10),
+              Text(loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'),
             ],
           ),
         ),
@@ -464,54 +508,39 @@ class _AdminPageState extends State<_AdminShell> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 24,
-              ),
-              child: compact
-                  ? const Icon(
-                      Icons.terminal,
-                      color: AdminStyle.orange,
-                      size: 32,
-                    )
-                  : const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'UNIX ITC',
-                          style: TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        AdminBadge(
-                          'Super Admin',
-                          color: AdminStyle.green,
-                        ),
-                      ],
-                    ),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+              child: UnixRoleBrand(compact: compact),
             ),
             Expanded(
               child: ListView.builder(
                 itemCount: labels.length,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Tooltip(
                       message: labels[index],
                       child: ListTile(
+                        dense: true,
                         selected: index == selected,
-                        selectedColor: AdminStyle.orange,
-                        selectedTileColor: AdminStyle.orange.withAlpha(24),
+                        selectedColor: UnixColors.dark
+                            ? AdminStyle.orange
+                            : UnixColors.link,
+                        selectedTileColor: UnixColors.selected,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        leading: Icon(icons[index]),
-                        title: compact ? null : Text(labels[index]),
+                        leading: Icon(
+                          icons[index],
+                          color: index == selected
+                              ? AdminStyle.orange
+                              : AdminStyle.muted,
+                        ),
+                        title: compact
+                            ? null
+                            : Text(
+                                labels[index],
+                                style: const TextStyle(fontSize: 13),
+                              ),
                         onTap: () {
                           if (closeDrawer) {
                             Navigator.of(context).pop();
@@ -535,13 +564,19 @@ class _AdminPageState extends State<_AdminShell> {
       context: context,
       backgroundColor: AdminStyle.surface,
       builder: (sheetContext) {
+        UnixTheme.watch(sheetContext);
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final index in [3, 4])
                 ListTile(
-                  leading: Icon(icons[index]),
+                  leading: Icon(
+                    icons[index],
+                    color: index == selected
+                        ? AdminStyle.orange
+                        : AdminStyle.muted,
+                  ),
                   title: Text(labels[index]),
                   onTap: () {
                     Navigator.pop(sheetContext);

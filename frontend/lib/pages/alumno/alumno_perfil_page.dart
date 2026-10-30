@@ -1,3 +1,4 @@
+import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -17,18 +18,17 @@ class AlumnoPerfilPage extends StatefulWidget {
 }
 
 class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
-  static const String _perfilUrl =
-      'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
 
-  static const Color _bg = Color(0xFF031426);
-  static const Color _card = Color(0xFF0A2947);
-  static const Color _field = Color(0xFF0C3152);
-  static const Color _border = Color(0xFF174064);
+  static Color get _bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get _field => UnixColors.adapt(Color(0xFF0C3152));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _blue = Color(0xFF2796FF);
-  static const Color _red = Color(0xFFFF4D5A);
-  static const Color _muted = Color(0xFF91A9BE);
-  static const Color _green = Color(0xFF6ED9AB);
+  static Color get _blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get _red => UnixColors.adapt(Color(0xFFFF4D5A));
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
+  static Color get _green => UnixColors.adapt(Color(0xFF6ED9AB));
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -89,23 +89,19 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         case 'GET':
           response = await http
               .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 20));
+              .timeout(Duration(seconds: 20));
           break;
 
         case 'PATCH':
           response = await http
-              .patch(
-                uri,
-                headers: headers,
-                body: jsonEncode(data),
-              )
-              .timeout(const Duration(seconds: 20));
+              .patch(uri, headers: headers, body: jsonEncode(data))
+              .timeout(Duration(seconds: 20));
           break;
 
         case 'DELETE':
           response = await http
               .delete(uri, headers: headers)
-              .timeout(const Duration(seconds: 20));
+              .timeout(Duration(seconds: 20));
           break;
 
         default:
@@ -136,18 +132,17 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     }
 
     if (response.statusCode == 401) {
-      throw Exception(
-        'Tu sesión venció. Cierra sesión y vuelve a ingresar.',
-      );
+      throw Exception('Tu sesión venció. Cierra sesión y vuelve a ingresar.');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = body['error'] ??
+      final message =
+          body['error'] ??
           body['detail'] ??
           (body.isNotEmpty
               ? body.entries
-                  .map((entry) => '${entry.key}: ${entry.value}')
-                  .join('\n')
+                    .map((entry) => '${entry.key}: ${entry.value}')
+                    .join('\n')
               : 'Error del servidor (${response.statusCode}).');
 
       throw Exception(message.toString());
@@ -182,9 +177,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       if (!mounted) return;
 
       if (data['rol']?.toString().toLowerCase() != 'alumno') {
-        throw Exception(
-          'La sesión actual no corresponde a un alumno.',
-        );
+        throw Exception('La sesión actual no corresponde a un alumno.');
       }
 
       setState(() {
@@ -246,37 +239,36 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            backgroundColor: _card,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            title: Text(
-              title,
-              style: const TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              message,
-              style: const TextStyle(color: _muted, height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text(
-                  'Cancelar',
-                  style: TextStyle(color: _muted),
-                ),
+          builder: (dialogContext) {
+            UnixTheme.watch(dialogContext);
+            return AlertDialog(
+              backgroundColor: _card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
               ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: danger ? _red : _orange,
-                  foregroundColor: danger ? Colors.white : _bg,
-                ),
-                child: Text(action),
+              title: Text(title, style: TextStyle(color: UnixColors.text)),
+              content: Text(
+                message,
+                style: TextStyle(color: _muted, height: 1.5),
               ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text('Cancelar', style: TextStyle(color: _muted)),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: danger ? _red : _orange,
+                    foregroundColor: danger
+                        ? Colors.white
+                        : UnixColors.onOrange,
+                  ),
+                  child: Text(action),
+                ),
+              ],
+            );
+          },
         ) ??
         false;
   }
@@ -301,7 +293,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     if (!mounted) return;
 
     Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AccessScreen()),
+      MaterialPageRoute(builder: (_) => AccessScreen()),
       (route) => false,
     );
   }
@@ -359,10 +351,12 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       color: _bg,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final width = constraints.maxWidth;
           final mobile = width < 700;
           final tablet = width >= 700 && width < 1100;
@@ -376,34 +370,34 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1250),
+                constraints: BoxConstraints(maxWidth: 1250),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
                       'Mi perfil',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: UnixColors.text,
                         fontSize: mobile ? 30 : 36,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    const Text(
+                    SizedBox(height: 5),
+                    Text(
                       'Administra tu perfil y tu información personal.',
                       style: TextStyle(color: _muted, fontSize: 13),
                     ),
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
                     if (_loading) ...[
-                      const LinearProgressIndicator(
+                      LinearProgressIndicator(
                         color: _orange,
                         backgroundColor: _field,
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                     ],
                     if (_error != null) ...[
                       _buildError(),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                     ],
                     if (mobile)
                       _buildMobileLayout()
@@ -426,20 +420,17 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'No se pudieron cargar los datos',
-            style: TextStyle(
-              color: _orange,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: _orange, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
-          Text(_error!, style: const TextStyle(color: _muted)),
-          const SizedBox(height: 12),
+          SizedBox(height: 8),
+          Text(_error!, style: TextStyle(color: _muted)),
+          SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _busy || _loading ? null : _loadProfile,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reintentar'),
+            icon: Icon(Icons.refresh),
+            label: Text('Reintentar'),
             style: OutlinedButton.styleFrom(foregroundColor: _orange),
           ),
         ],
@@ -452,15 +443,15 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(width: 260, child: _buildProfileCard()),
-        const SizedBox(width: 18),
+        SizedBox(width: 18),
         Expanded(child: _buildPersonalInfo()),
-        const SizedBox(width: 18),
+        SizedBox(width: 18),
         SizedBox(
           width: 280,
           child: Column(
             children: [
               _buildSession(),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _buildDeleteAccount(),
             ],
           ),
@@ -476,13 +467,13 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(width: 240, child: _buildProfileCard()),
-            const SizedBox(width: 18),
+            SizedBox(width: 18),
             Expanded(child: _buildPersonalInfo()),
           ],
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         _buildSession(),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         _buildDeleteAccount(),
       ],
     );
@@ -492,11 +483,11 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     return Column(
       children: [
         _buildProfileCard(),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _buildPersonalInfo(),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _buildSession(),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _buildDeleteAccount(),
       ],
     );
@@ -513,34 +504,30 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     return _panel(
       child: Column(
         children: [
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Perfil',
               style: TextStyle(
-                color: Colors.white,
+                color: UnixColors.text,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: _bg,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(color: _border, width: 2),
             ),
             child: id.isEmpty
-                ? const SizedBox(
+                ? SizedBox(
                     width: 105,
                     height: 105,
-                    child: Icon(
-                      Icons.person_rounded,
-                      color: _muted,
-                      size: 62,
-                    ),
+                    child: Icon(Icons.person_rounded, color: _muted, size: 62),
                   )
                 : AnimatedBlobatar(
                     key: ValueKey(id),
@@ -549,47 +536,38 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
                     animation: BlobatarAnimation.always,
                   ),
           ),
-          const SizedBox(height: 15),
+          SizedBox(height: 15),
           Text(
             nombre.isEmpty ? 'Alumno' : nombre,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontSize: 23,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 7,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: _blue.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
+            child: Text(
               'Alumno',
-              style: TextStyle(
-                color: _blue,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(color: _blue, fontWeight: FontWeight.w800),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SelectableText(
             'ID: ${id.isEmpty ? '—' : id}',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _green,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: _green, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 24),
-          const Divider(color: _border),
-          const SizedBox(height: 14),
-          const Text(
+          SizedBox(height: 24),
+          Divider(color: _border),
+          SizedBox(height: 14),
+          Text(
             'Comunidad UNIX ITC',
             textAlign: TextAlign.center,
             style: TextStyle(color: _muted),
@@ -610,68 +588,65 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Información personal',
               style: TextStyle(
-                color: Colors.white,
+                color: UnixColors.text,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 22),
+            SizedBox(height: 22),
             _editableField(
               label: 'Nombre completo',
               controller: _nameController,
               icon: Icons.person_outline,
               maxLength: 255,
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _readOnlyField(
               label: 'Rol',
               value: _dato('rol'),
               icon: Icons.badge_outlined,
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _readOnlyField(
               label: 'Número de control / ID',
               value: _dato('numero_control'),
               icon: Icons.fingerprint,
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _editableField(
               label: 'Institución de procedencia',
               controller: _procedenciaController,
               icon: Icons.school_outlined,
               maxLength: 100,
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _buildGoogleAccount(),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _canEdit ? _updateProfile : null,
               style: FilledButton.styleFrom(
                 backgroundColor: _orange,
-                foregroundColor: _bg,
+                foregroundColor: UnixColors.onOrange,
                 disabledBackgroundColor: _field,
                 disabledForegroundColor: _muted,
-                minimumSize: const Size(0, 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 15,
-                ),
+                minimumSize: Size(0, 48),
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(11),
                 ),
               ),
-              icon: const Icon(Icons.save_outlined, size: 20),
-              label: const Text(
+              icon: Icon(Icons.save_outlined, size: 20),
+              label: Text(
                 'Actualizar perfil',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             if (_busy) ...[
-              const SizedBox(height: 16),
-              const Center(
+              SizedBox(height: 16),
+              Center(
                 child: SizedBox(
                   width: 22,
                   height: 22,
@@ -699,7 +674,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       enabled: _canEdit,
       maxLength: maxLength,
       textCapitalization: TextCapitalization.words,
-      style: const TextStyle(color: Colors.white, fontSize: 13),
+      style: TextStyle(color: UnixColors.text, fontSize: 13),
       cursorColor: _orange,
       decoration: _decoration(label, icon).copyWith(counterText: ''),
       validator: (value) {
@@ -720,13 +695,9 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       key: ValueKey('$label:$value'),
       initialValue: value,
       readOnly: true,
-      style: const TextStyle(color: _muted, fontSize: 13),
+      style: TextStyle(color: _muted, fontSize: 13),
       decoration: _decoration(label, icon).copyWith(
-        suffixIcon: const Icon(
-          Icons.lock_outline_rounded,
-          color: _muted,
-          size: 18,
-        ),
+        suffixIcon: Icon(Icons.lock_outline_rounded, color: _muted, size: 18),
       ),
     );
   }
@@ -735,7 +706,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     return InputDecoration(
       labelText: label,
       floatingLabelBehavior: FloatingLabelBehavior.always,
-      labelStyle: const TextStyle(color: _muted),
+      labelStyle: TextStyle(color: _muted),
       filled: true,
       fillColor: _field,
       prefixIcon: Icon(icon, color: _muted, size: 21),
@@ -744,11 +715,8 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       focusedBorder: _inputBorder(_blue, width: 2),
       errorBorder: _inputBorder(_red),
       focusedErrorBorder: _inputBorder(_red, width: 2),
-      errorStyle: const TextStyle(color: _red),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 16,
-      ),
+      errorStyle: TextStyle(color: _red),
+      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
     );
   }
 
@@ -763,7 +731,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
     final email = _dato('email').trim();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _bg,
         borderRadius: BorderRadius.circular(12),
@@ -771,9 +739,9 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 20,
-            backgroundColor: Colors.white,
+            backgroundColor: UnixColors.text,
             child: Text(
               'G',
               style: TextStyle(
@@ -783,33 +751,29 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Cuenta vinculada con Google',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: UnixColors.text,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 SelectableText(
                   email.isEmpty ? 'Correo pendiente de cargar' : email,
-                  style: const TextStyle(color: _muted, fontSize: 11),
+                  style: TextStyle(color: _muted, fontSize: 11),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(
-            Icons.lock_outline_rounded,
-            color: _muted,
-            size: 20,
-          ),
+          SizedBox(width: 8),
+          Icon(Icons.lock_outline_rounded, color: _muted, size: 20),
         ],
       ),
     );
@@ -824,30 +788,30 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Sesión',
             style: TextStyle(
-              color: Colors.white,
+              color: UnixColors.text,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 12),
+          Text(
             'Salir de tu cuenta en este dispositivo.',
             style: TextStyle(color: _muted, fontSize: 12),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _busy || _loading ? null : _logout,
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Cerrar sesión'),
+            icon: Icon(Icons.logout_rounded),
+            label: Text('Cerrar sesión'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: UnixColors.text,
               disabledForegroundColor: _muted,
               backgroundColor: _field,
-              side: const BorderSide(color: _border),
-              minimumSize: const Size(0, 48),
+              side: BorderSide(color: _border),
+              minimumSize: Size(0, 48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -861,7 +825,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   Widget _buildDeleteAccount() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _red.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(17),
@@ -870,29 +834,25 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Eliminar cuenta',
             style: TextStyle(
-              color: Colors.white,
+              color: UnixColors.text,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 14),
-          const Text(
+          SizedBox(height: 14),
+          Text(
             'La eliminación de tu cuenta es permanente '
             'y no se puede deshacer.',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 12,
-              height: 1.5,
-            ),
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
           ),
-          const SizedBox(height: 17),
+          SizedBox(height: 17),
           OutlinedButton.icon(
             onPressed: _canEdit ? _deleteAccount : null,
-            icon: const Icon(Icons.delete_outline_rounded, size: 20),
-            label: const Text(
+            icon: Icon(Icons.delete_outline_rounded, size: 20),
+            label: Text(
               'Eliminar cuenta',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
@@ -900,7 +860,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
               foregroundColor: _red,
               disabledForegroundColor: _muted,
               side: BorderSide(color: _canEdit ? _red : _border),
-              minimumSize: const Size(0, 48),
+              minimumSize: Size(0, 48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -914,7 +874,7 @@ class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
   Widget _panel({required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(17),
