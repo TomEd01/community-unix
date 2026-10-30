@@ -1,6 +1,6 @@
-import uuid
+import secrets, string
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
-from django.db import models
+from django.db import models, IntegrityError, transaction
 # Create your models here.
 class ManejadorUsuario(BaseUserManager):
     def create_user(self, email, nombre_completo, password=None):
@@ -63,17 +63,35 @@ class Instructor(models.Model):
 
 class Externo(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
-    numero_control = models.CharField(max_length=50, unique=True, blank=True)
+    numero_control = models.CharField(max_length=11, unique=True, blank=True, editable=False)
     tipo_experiencia = models.CharField(max_length=50, default='Experiencia propia')
     organizacion = models.CharField(max_length=100)
 
+    @staticmethod
+    def generar_numero_control():
+        # Genera 8 dígitos numéricos aleatorios (ej. "04928173")
+        digitos = "".join(secrets.choice(string.digits) for _ in range(8))
+        return f"U{digitos}"
     # Sobrescribimos el método save para autogenerar el ID del externo
     def save(self, *args, **kwargs):
-        # Primero generamos el ID si no existe 
         if not self.numero_control:
-            generado = str(uuid.uuid4())[:8] # Genera un código aleatorio de 8 caracteres
-            self.numero_control = f"U{generado}"
-        super().save(*args, **kwargs)
+        # Intentamos guardar hasta encontrar un número disponible
+            while True:
+                nuevo_codigo = self.generar_numero_control()
+                # Verifico de manera rápida en la base de datos
+                if not Externo.objects.filter(numero_control=nuevo_codigo).exists():
+                    self.numero_control = nuevo_codigo
+                    try:
+                        # Protección contra condición de carrera (race condition)
+                        with transaction.atomic():
+                            super().save(*args, **kwargs)
+                        break  # Se guardó con éxito, salimos del bucle
+                    except IntegrityError:
+                        # Si otro proceso ganó el mismo número en ese instante, repite el ciclo
+                        self.numero_control = None
+                        continue
+        else:
+            super().save(*args, **kwargs)
 
 class HorarioClase(models.Model):
     # Relaciono el bloque de clase con el Instructor; si el instructor borra su cuenta, se limpian sus horarios

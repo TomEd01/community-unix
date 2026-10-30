@@ -192,12 +192,33 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
       // Informo cualquier respuesta no exitosa y conservo al usuario en el form.
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error del servidor: ${response.statusCode}'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        String mensaje = 'No se pudo completar el registro.';
+
+        try {
+          final datos = jsonDecode(utf8.decode(response.bodyBytes));
+
+          if (datos is Map) {
+            final error = datos['error'] ?? datos['detail'];
+
+            if (error is String && error.trim().isNotEmpty) {
+              mensaje = error;
+            }
+          }
+        } catch (_) {
+          // Conserva el mensaje general si no se recibe JSON.
+        }
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(mensaje),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+
         return;
       }
 

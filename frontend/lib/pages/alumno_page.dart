@@ -682,7 +682,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
       case 0:
-        return const AlumnoInicioPage();
+        return AlumnoInicioPage(nombre: _nombre);
       case 1:
         return const AlumnoCursosPage();
       case 2:
@@ -692,7 +692,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
       case 4:
         return const AlumnoPerfilPage();
       default:
-        return const AlumnoInicioPage();
+        return AlumnoInicioPage(nombre: _nombre);
     }
   }
 }

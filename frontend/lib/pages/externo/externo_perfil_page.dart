@@ -503,7 +503,7 @@ class _ExternoPerfilPageState extends State<ExternoPerfilPage> {
   // ============================================================
 
   Widget _buildProfileCard() {
-    final id = externoId(_perfil);
+    final id = _dato('numero_control').trim();
     final seed = externoAvatarSeed(_perfil);
     final nombre = _dato('nombre_completo').trim();
 
