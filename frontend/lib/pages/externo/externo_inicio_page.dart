@@ -60,7 +60,7 @@ class ExternoInicioPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '¡Hola, ${nombre.trim().isEmpty ? 'Externo' : nombre.trim().split(RegExp(r'\s+')).first}! 👋',
+          '¡Hola, ${nombre.trim().isEmpty ? 'Externo' : nombre.trim().split(RegExp(r'\s+')).first}!',
           style: TextStyle(
             color: Colors.white,
             fontSize: mobile ? 28 : 34,
