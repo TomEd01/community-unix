@@ -379,12 +379,23 @@ class CatalogoProfesoresView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Permito buscar profesores por nombre mediante ?q=Nombre (ej. /api/alumno/profesores/?q=Israel)
-        busqueda = request.query_params.get('q', '').strip()
+        # Acepto cualquiera de los parámetros comunes por si Flutter envía ?q=, ?search=, ?nombre= o ?busqueda=
+        busqueda = (
+            request.query_params.get('q') or 
+            request.query_params.get('search') or 
+            request.query_params.get('nombre') or 
+            request.query_params.get('busqueda') or 
+            ''
+        ).strip()
 
-        instructores_qs = Instructor.objects.select_related('usuario').prefetch_related('horarios').all()
+        instructores_qs = Instructor.objects.select_related('usuario').prefetch_related('horarios').all().order_by('usuario__nombre_completo')
+        # Búsqueda triple: por Nombre, Correo o Número de Control del Instructor
         if busqueda:
-            instructores_qs = instructores_qs.filter(usuario__nombre_completo__icontains=busqueda)
+            instructores_qs = instructores_qs.filter(
+                Q(usuario__nombre_completo__icontains=busqueda) |
+                Q(usuario__email__icontains=busqueda) |
+                Q(numero_control__icontains=busqueda)
+            )
 
         catalogo = []
         for inst in instructores_qs:
@@ -401,7 +412,9 @@ class CatalogoProfesoresView(APIView):
             if bloques:
                 catalogo.append({
                     "instructor_id": inst.id,
-                    "nombre_profesor": inst.usuario.nombre_completo,
+                    "nombre_instructor": inst.usuario.nombre_completo,
+                    "email": inst.usuario.email,
+                    "numero_control": inst.numero_control,
                     "departamento": inst.departamento,
                     "horarios_disponibles": bloques
                 })
