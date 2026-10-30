@@ -5,11 +5,7 @@ class ExternoConfig {
 
 // No se reutiliza numero_control como identificador del externo.
 String externoId(Map<String, dynamic> data) {
-  for (final key in ['id', 'user_id']) {
-    final value = data[key]?.toString().trim() ?? '';
-    if (value.isNotEmpty) return value;
-  }
-  return '';
+  return data['numero_control']?.toString().trim() ?? '';
 }
 
 String externoAvatarSeed(Map<String, dynamic> data) {

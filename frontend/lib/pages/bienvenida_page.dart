@@ -1,3 +1,4 @@
+import '../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 
 class BienvenidaPage extends StatelessWidget {
@@ -5,11 +6,11 @@ class BienvenidaPage extends StatelessWidget {
 
   final VoidCallback onRegister;
 
-  static const Color cream = Color(0xFFF5F1EC);
-  static const Color paper = Color(0xFFFFFCF8);
-  static const Color navy = Color(0xFF192A39);
-  static const Color muted = Color(0xFF73777D);
-  static const Color line = Color(0xFFE5DED6);
+  static Color get cream => UnixColors.background;
+  static Color get paper => UnixColors.card;
+  static Color get navy => UnixColors.text;
+  static Color get muted => UnixColors.muted;
+  static Color get line => UnixColors.border;
 
   static final Map<String, GlobalKey> _sectionKeys = {
     'inicio': GlobalKey(),
@@ -24,13 +25,14 @@ class BienvenidaPage extends StatelessWidget {
 
     Scrollable.ensureVisible(
       targetContext,
-      duration: const Duration(milliseconds: 400),
+      duration: Duration(milliseconds: 400),
       curve: Curves.easeInOut,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Scaffold(
       backgroundColor: cream,
       body: SafeArea(
@@ -54,7 +56,8 @@ class BienvenidaPage extends StatelessWidget {
   Widget _header() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final mobile = constraints.maxWidth < 650;
+        UnixTheme.watch(context);
+        final mobile = constraints.maxWidth < 950;
 
         return Container(
           color: paper,
@@ -64,9 +67,9 @@ class BienvenidaPage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.groups_rounded, color: navy, size: 32),
-              const SizedBox(width: 8),
-              const Expanded(
+              Icon(Icons.groups_rounded, color: navy, size: 32),
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'Comunidad\nUNIX ITC',
                   style: TextStyle(
@@ -82,25 +85,27 @@ class BienvenidaPage extends StatelessWidget {
                 _navItem('Eventos', 'eventos'),
                 _navItem('Comunidad', 'comunidad'),
                 _navItem('Acerca de', 'acerca'),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
               ] else
                 PopupMenuButton<String>(
                   tooltip: 'Abrir menú',
-                  icon: const Icon(Icons.menu_rounded, color: navy),
+                  icon: Icon(Icons.menu_rounded, color: navy),
                   onSelected: _scrollToSection,
-                  itemBuilder: (context) => const [
+                  itemBuilder: (context) => [
                     PopupMenuItem(value: 'inicio', child: Text('Inicio')),
                     PopupMenuItem(value: 'eventos', child: Text('Eventos')),
                     PopupMenuItem(value: 'comunidad', child: Text('Comunidad')),
                     PopupMenuItem(value: 'acerca', child: Text('Acerca de')),
                   ],
                 ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
+              UnixThemeToggle(compact: mobile),
+              SizedBox(width: 8),
               FilledButton(
                 onPressed: onRegister,
                 style: FilledButton.styleFrom(
-                  backgroundColor: navy,
-                  foregroundColor: Colors.white,
+                  backgroundColor: UnixColors.orange,
+                  foregroundColor: UnixColors.onOrange,
                   padding: EdgeInsets.symmetric(
                     horizontal: mobile ? 10 : 17,
                     vertical: 13,
@@ -111,10 +116,7 @@ class BienvenidaPage extends StatelessWidget {
                 ),
                 child: Text(
                   mobile ? 'Registrarse' : 'Registrarse a la comunidad',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -128,11 +130,11 @@ class BienvenidaPage extends StatelessWidget {
     return TextButton(
       onPressed: () => _scrollToSection(section),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 9, vertical: 8),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(label, style: const TextStyle(color: navy, fontSize: 12)),
+      child: Text(label, style: TextStyle(color: navy, fontSize: 12)),
     );
   }
 
@@ -140,9 +142,10 @@ class BienvenidaPage extends StatelessWidget {
     return Container(
       key: _sectionKeys['inicio'],
       color: paper,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final mobile = constraints.maxWidth < 800;
           final smallPhone = constraints.maxWidth < 380;
 
@@ -150,7 +153,7 @@ class BienvenidaPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'APRENDE  ·  PARTICIPA  ·  CONECTA',
                 style: TextStyle(
                   color: muted,
@@ -159,7 +162,7 @@ class BienvenidaPage extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               Text(
                 'Bienvenido a\nComunidad UNIX ITC',
                 style: TextStyle(
@@ -174,34 +177,34 @@ class BienvenidaPage extends StatelessWidget {
                   letterSpacing: -0.8,
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
+              SizedBox(height: 14),
+              Text(
                 'Un espacio para estudiantes, instructores y '
                 'entusiastas de la tecnología. Participa en eventos, '
                 'desarrolla tus habilidades y forma parte de una '
                 'comunidad activa.',
                 style: TextStyle(
-                  color: Color(0xFF505761),
+                  color: UnixColors.muted,
                   fontSize: 14,
                   height: 1.6,
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               Wrap(
                 spacing: 9,
                 runSpacing: 9,
                 children: [
                   FilledButton.icon(
                     onPressed: onRegister,
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-                    label: const Text(
+                    icon: Icon(Icons.arrow_forward_rounded, size: 17),
+                    label: Text(
                       'Registrarse a la comunidad',
                       style: TextStyle(fontSize: 12),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: navy,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
+                      backgroundColor: UnixColors.orange,
+                      foregroundColor: UnixColors.onOrange,
+                      padding: EdgeInsets.symmetric(
                         horizontal: 15,
                         vertical: 15,
                       ),
@@ -214,8 +217,8 @@ class BienvenidaPage extends StatelessWidget {
                     onPressed: () => _scrollToSection('acerca'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: navy,
-                      side: const BorderSide(color: Color(0xFFB9B4AE)),
-                      padding: const EdgeInsets.symmetric(
+                      side: BorderSide(color: UnixColors.border),
+                      padding: EdgeInsets.symmetric(
                         horizontal: 17,
                         vertical: 15,
                       ),
@@ -223,10 +226,7 @@ class BienvenidaPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(9),
                       ),
                     ),
-                    child: const Text(
-                      'Conoce más',
-                      style: TextStyle(fontSize: 12),
-                    ),
+                    child: Text('Conoce más', style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -246,7 +246,7 @@ class BienvenidaPage extends StatelessWidget {
                     '?auto=format&fit=crop&w=1200&q=85',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
-                      return const DecoratedBox(
+                      return DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -262,7 +262,7 @@ class BienvenidaPage extends StatelessWidget {
                           child: Icon(
                             Icons.account_balance_rounded,
                             size: 80,
-                            color: Colors.white70,
+                            color: UnixColors.text.withValues(alpha: 0.7),
                           ),
                         ),
                       );
@@ -273,12 +273,12 @@ class BienvenidaPage extends StatelessWidget {
                     right: 12,
                     bottom: 12,
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: paper.withValues(alpha: 0.96),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -306,11 +306,11 @@ class BienvenidaPage extends StatelessWidget {
 
           return Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1250),
+              constraints: BoxConstraints(maxWidth: 1250),
               child: mobile
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [copy, const SizedBox(height: 22), image],
+                      children: [copy, SizedBox(height: 22), image],
                     )
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -318,7 +318,7 @@ class BienvenidaPage extends StatelessWidget {
                         Expanded(
                           flex: 5,
                           child: Padding(
-                            padding: const EdgeInsets.only(right: 28),
+                            padding: EdgeInsets.only(right: 28),
                             child: copy,
                           ),
                         ),
@@ -353,18 +353,19 @@ class BienvenidaPage extends StatelessWidget {
 
     return Container(
       color: paper,
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+      padding: EdgeInsets.fromLTRB(18, 0, 18, 22),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: BoxConstraints(maxWidth: 1200),
           child: LayoutBuilder(
             builder: (context, constraints) {
+              UnixTheme.watch(context);
               if (constraints.maxWidth < 650) {
                 return Column(
                   children: items
                       .map(
                         (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: EdgeInsets.only(bottom: 10),
                           child: item,
                         ),
                       )
@@ -378,7 +379,7 @@ class BienvenidaPage extends StatelessWidget {
                     .map(
                       (item) => Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 7),
+                          padding: EdgeInsets.symmetric(horizontal: 7),
                           child: item,
                         ),
                       ),
@@ -394,7 +395,7 @@ class BienvenidaPage extends StatelessWidget {
 
   Widget _benefit(IconData icon, String title, String description) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: cream,
         borderRadius: BorderRadius.circular(14),
@@ -402,34 +403,30 @@ class BienvenidaPage extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEAE4DC),
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: UnixColors.selected,
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: navy, size: 22),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: navy,
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
                   description,
-                  style: const TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: muted, fontSize: 12, height: 1.4),
                 ),
               ],
             ),
@@ -443,7 +440,7 @@ class BienvenidaPage extends StatelessWidget {
     return Container(
       key: _sectionKeys['acerca'],
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 14, 12, 8),
+      margin: EdgeInsets.fromLTRB(12, 14, 12, 8),
       padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 17 : 22),
       decoration: BoxDecoration(
         color: paper,
@@ -452,6 +449,7 @@ class BienvenidaPage extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           final mobile = constraints.maxWidth < 700;
 
           final text = Column(
@@ -465,29 +463,26 @@ class BienvenidaPage extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: 10),
+              Text(
                 'Una comunidad creada para impulsar el aprendizaje, '
                 'la colaboración y la participación en actividades '
                 'tecnológicas dentro del ITC.',
                 style: TextStyle(
-                  color: Color(0xFF505761),
+                  color: UnixColors.muted,
                   fontSize: 14,
                   height: 1.6,
                 ),
               ),
-              const SizedBox(height: 15),
+              SizedBox(height: 15),
               OutlinedButton(
                 onPressed: onRegister,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: navy,
-                  side: const BorderSide(color: navy),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 13,
-                  ),
+                  side: BorderSide(color: navy),
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 13),
                 ),
-                child: const Text('Únete a la comunidad'),
+                child: Text('Únete a la comunidad'),
               ),
             ],
           );
@@ -502,7 +497,7 @@ class BienvenidaPage extends StatelessWidget {
                 '?auto=format&fit=crop&w=1000&q=85',
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const ColoredBox(
+                  return ColoredBox(
                     color: Color(0xFFE5DED6),
                     child: Center(
                       child: Icon(
@@ -520,12 +515,12 @@ class BienvenidaPage extends StatelessWidget {
           return mobile
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [text, const SizedBox(height: 18), image],
+                  children: [text, SizedBox(height: 18), image],
                 )
               : Row(
                   children: [
                     Expanded(child: text),
-                    const SizedBox(width: 24),
+                    SizedBox(width: 24),
                     Expanded(child: image),
                   ],
                 );
@@ -538,7 +533,7 @@ class BienvenidaPage extends StatelessWidget {
     return Container(
       key: _sectionKeys['comunidad'],
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      margin: EdgeInsets.fromLTRB(12, 8, 12, 8),
       padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 17 : 22),
       decoration: BoxDecoration(
         color: paper,
@@ -556,9 +551,10 @@ class BienvenidaPage extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
+              UnixTheme.watch(context);
               final items = [
                 _audienceCard(
                   Icons.school_rounded,
@@ -582,7 +578,7 @@ class BienvenidaPage extends StatelessWidget {
                   children: items
                       .map(
                         (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: EdgeInsets.only(bottom: 10),
                           child: item,
                         ),
                       )
@@ -595,7 +591,7 @@ class BienvenidaPage extends StatelessWidget {
                 children: items.map((item) {
                   return Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 6),
                       child: item,
                     ),
                   );
@@ -611,7 +607,7 @@ class BienvenidaPage extends StatelessWidget {
   Widget _audienceCard(IconData icon, String title, String description) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(19),
+      padding: EdgeInsets.all(19),
       decoration: BoxDecoration(
         color: cream,
         borderRadius: BorderRadius.circular(14),
@@ -619,21 +615,21 @@ class BienvenidaPage extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon, color: navy, size: 34),
-          const SizedBox(height: 9),
+          SizedBox(height: 9),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: navy,
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 7),
+          SizedBox(height: 7),
           Text(
             description,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: muted, fontSize: 12, height: 1.5),
+            style: TextStyle(color: muted, fontSize: 12, height: 1.5),
           ),
         ],
       ),
@@ -644,10 +640,10 @@ class BienvenidaPage extends StatelessWidget {
     return Container(
       key: _sectionKeys['eventos'],
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 23),
-      color: navy,
-      child: const Column(
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 23),
+      color: Color(0xFF061C31),
+      child: Column(
         children: [
           Icon(Icons.groups_rounded, color: Colors.white, size: 32),
           SizedBox(height: 8),

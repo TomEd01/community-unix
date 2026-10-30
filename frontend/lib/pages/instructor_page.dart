@@ -1,3 +1,5 @@
+import '../theme/unix_role_brand.dart';
+import '../theme/unix_theme.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'widgets/unix_account_bar.dart';
 import 'alumno/alumno_eventos_page.dart';
 import 'instructor/instructor_perfil_page.dart';
 import 'instructor/instructor_horarios_page.dart';
@@ -19,22 +22,23 @@ class InstructorPage extends StatefulWidget {
 }
 
 class _InstructorPageState extends State<InstructorPage> {
-  static const String _perfilUrl =
-      'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
 
-  static const bg = Color(0xFF031426);
-  static const sidebar = Color(0xFF061C31);
-  static const card = Color(0xFF0A2947);
-  static const border = Color(0xFF174064);
+  static Color get bg => UnixColors.adapt(Color(0xFF031426));
+  static Color get sidebar => UnixColors.adapt(Color(0xFF061C31));
+  static Color get card => UnixColors.adapt(Color(0xFF0A2947));
+  static Color get border => UnixColors.border;
   static const orange = Color(0xFFFF8A24);
-  static const blue = Color(0xFF2796FF);
-  static const muted = Color(0xFF91A9BE);
+  static Color get blue => UnixColors.adapt(Color(0xFF2796FF));
+  static Color get muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   int _selected = 0;
   int _profileVersion = 0;
 
   String _query = '';
   String _primerNombre = 'profesor';
+  String _nombreCompleto = '';
+  String _numeroControl = '';
 
   bool _loggingOut = false;
   bool _loadingName = false;
@@ -60,23 +64,15 @@ class _InstructorPageState extends State<InstructorPage> {
     Icons.assignment_ind_outlined,
   ];
 
-  final List<_Course> _courses = const [
+  final List<_Course> _courses = [
     _Course(
       title: 'Comandos básicos de Linux',
       description:
           'Introducción a la terminal, archivos y comandos fundamentales.',
       modules: 6,
       icon: Icons.terminal_rounded,
-      students: [
-        'Ana Torres',
-        'Luis Pérez',
-        'María López',
-        'José García',
-      ],
-      materials: [
-        'Guía de comandos.pdf',
-        'Permisos y archivos.pdf',
-      ],
+      students: ['Ana Torres', 'Luis Pérez', 'María López', 'José García'],
+      materials: ['Guía de comandos.pdf', 'Permisos y archivos.pdf'],
     ),
     _Course(
       title: 'Fundamentos de programación',
@@ -84,11 +80,7 @@ class _InstructorPageState extends State<InstructorPage> {
           'Variables, condicionales, ciclos y funciones mediante ejemplos.',
       modules: 4,
       icon: Icons.code_rounded,
-      students: [
-        'Sofía Hernández',
-        'Carlos Ruiz',
-        'Elena Díaz',
-      ],
+      students: ['Sofía Hernández', 'Carlos Ruiz', 'Elena Díaz'],
       materials: ['Introducción a Python.pdf'],
     ),
   ];
@@ -100,10 +92,7 @@ class _InstructorPageState extends State<InstructorPage> {
   }
 
   int get _studentCount {
-    return _courses.fold(
-      0,
-      (total, course) => total + course.students.length,
-    );
+    return _courses.fold(0, (total, course) => total + course.students.length);
   }
 
   @override
@@ -134,18 +123,18 @@ class _InstructorPageState extends State<InstructorPage> {
         throw Exception('Inicia sesión para cargar tu nombre.');
       }
 
-      final response = await http.get(
-        Uri.parse(_perfilUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            Uri.parse(_perfilUrl),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
-        throw Exception(
-          'Tu sesión venció. Cierra sesión y vuelve a ingresar.',
-        );
+        throw Exception('Tu sesión venció. Cierra sesión y vuelve a ingresar.');
       }
 
       if (response.statusCode != 200) {
@@ -164,12 +153,13 @@ class _InstructorPageState extends State<InstructorPage> {
         throw Exception('La sesión no corresponde a un instructor.');
       }
 
-      final nombreCompleto =
-          data['nombre_completo']?.toString().trim() ?? '';
+      final nombreCompleto = data['nombre_completo']?.toString().trim() ?? '';
 
       if (!mounted || nombreCompleto.isEmpty) return;
 
       setState(() {
+        _nombreCompleto = nombreCompleto;
+        _numeroControl = data['numero_control']?.toString().trim() ?? '';
         _primerNombre = nombreCompleto.split(RegExp(r'\s+')).first;
       });
     } catch (error) {
@@ -212,10 +202,12 @@ class _InstructorPageState extends State<InstructorPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return LayoutBuilder(
       builder: (context, constraints) {
+        UnixTheme.watch(context);
         final mobile = constraints.maxWidth < 760;
-        final compact = constraints.maxWidth < 1150;
+        final compact = constraints.maxWidth < 760;
 
         return Scaffold(
           backgroundColor: bg,
@@ -232,17 +224,17 @@ class _InstructorPageState extends State<InstructorPage> {
                           padding: EdgeInsets.all(mobile ? 16 : 24),
                           child: Center(
                             child: ConstrainedBox(
-                              constraints:
-                                  const BoxConstraints(maxWidth: 1350),
+                              constraints: BoxConstraints(maxWidth: 1350),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   if (_selected != 2) ...[
                                     _buildHeading(mobile),
-                                    const SizedBox(height: 12),
-                                    if (_selected != 4 && _selected != 3 && _selected != 5) ...[
-                                      const Text(
+                                    SizedBox(height: 12),
+                                    if (_selected != 4 &&
+                                        _selected != 3 &&
+                                        _selected != 5) ...[
+                                      Text(
                                         'Vista de demostración · '
                                         'Datos de ejemplo',
                                         style: TextStyle(
@@ -250,9 +242,12 @@ class _InstructorPageState extends State<InstructorPage> {
                                           fontSize: 12,
                                         ),
                                       ),
-                                      const SizedBox(height: 20),
-                                      _buildSearch(),
+                                      SizedBox(height: 20),
                                     ],
+                                    SizedBox(height: 20),
+                                  ],
+                                  if (_selected == 0 || _selected == 1) ...[
+                                    _buildSearch(),
                                     const SizedBox(height: 20),
                                   ],
                                   _buildCurrentPage(),
@@ -280,59 +275,38 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _buildSidebar(bool compact) {
     return Container(
-      width: compact ? 82 : 220,
-      decoration: const BoxDecoration(
+      width: compact
+          ? 82
+          : (MediaQuery.sizeOf(context).width < 1100 ? 185 : 220),
+      decoration: BoxDecoration(
         color: sidebar,
         border: Border(right: BorderSide(color: border)),
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 26,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('🐧', style: TextStyle(fontSize: 32)),
-                if (!compact) ...[
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Comunidad\nUNIX ITC',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 26),
+            child: UnixRoleBrand(compact: compact),
           ),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: EdgeInsets.symmetric(horizontal: 10),
               itemCount: _labels.length,
               itemBuilder: (context, index) {
                 final active = _selected == index;
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.only(bottom: 8),
                   child: Tooltip(
                     message: _labels[index],
                     child: Material(
-                      color: active
-                          ? blue.withValues(alpha: 0.18)
-                          : sidebar,
+                      color: active ? UnixColors.selected : sidebar,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         onTap: () => _navigate(index),
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.all(14),
+                          padding: EdgeInsets.all(14),
                           child: Row(
                             mainAxisAlignment: compact
                                 ? MainAxisAlignment.center
@@ -341,16 +315,21 @@ class _InstructorPageState extends State<InstructorPage> {
                               Icon(
                                 _icons[index],
                                 color: active ? orange : muted,
+                                size: 20,
                               ),
                               if (!compact) ...[
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     _labels[index],
                                     style: TextStyle(
-                                      color:
-                                          active ? Colors.white : muted,
+                                      color: active
+                                          ? (UnixColors.dark
+                                                ? UnixColors.text
+                                                : blue)
+                                          : muted,
                                       fontWeight: FontWeight.w600,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -375,117 +354,57 @@ class _InstructorPageState extends State<InstructorPage> {
   // ============================================================
 
   Widget _buildTopBar(bool mobile) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 24,
-        vertical: 12,
-      ),
-      decoration: const BoxDecoration(
+    return UnixAccountBar(
+      nombre: _nombreCompleto.isEmpty ? _primerNombre : _nombreCompleto,
+      rol: 'Instructor',
+      identificador: _numeroControl,
+      onProfile: () => _navigate(4),
+      onNotifications: _showRequests,
+      notificationsTooltip: 'Solicitudes locales',
+      accountMenu: PopupMenuButton<String>(
+        tooltip: 'Opciones de cuenta',
+        enabled: !_loggingOut,
         color: sidebar,
-        border: Border(bottom: BorderSide(color: border)),
-      ),
-      child: Row(
-        children: [
-          if (mobile)
-            const Text('🐧 ', style: TextStyle(fontSize: 25)),
-          const Expanded(
+        icon: Icon(Icons.keyboard_arrow_down_rounded, color: muted),
+        onSelected: (value) {
+          switch (value) {
+            case 'profile':
+              _navigate(4);
+              break;
+
+            case 'refresh':
+              setState(() {
+                _profileVersion++;
+              });
+              _cargarNombre(mostrarError: true);
+              break;
+
+            case 'logout':
+              _logout();
+              break;
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem<String>(
+            value: 'profile',
+            child: Text('Mi perfil', style: TextStyle(color: UnixColors.text)),
+          ),
+          PopupMenuItem<String>(
+            value: 'refresh',
             child: Text(
-              'Comunidad UNIX ITC',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
+              'Actualizar datos',
+              style: TextStyle(color: UnixColors.text),
             ),
           ),
-          IconButton(
-            tooltip: 'Solicitudes locales',
-            onPressed: _showRequests,
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              color: muted,
+          PopupMenuItem<String>(
+            value: 'logout',
+            child: Row(
+              children: [
+                Icon(Icons.logout_rounded, color: UnixColors.text, size: 19),
+                SizedBox(width: 10),
+                Text('Cerrar sesión', style: TextStyle(color: UnixColors.text)),
+              ],
             ),
-          ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => _navigate(4),
-            borderRadius: BorderRadius.circular(20),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundColor: card,
-              child: Icon(Icons.person, color: Colors.white),
-            ),
-          ),
-          if (!mobile) ...[
-            const SizedBox(width: 10),
-            const Text(
-              'Profesor\nInstructor',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ],
-          const SizedBox(width: 6),
-          PopupMenuButton<String>(
-            tooltip: 'Opciones de cuenta',
-            enabled: !_loggingOut,
-            color: sidebar,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: muted,
-            ),
-            onSelected: (value) {
-              switch (value) {
-                case 'profile':
-                  _navigate(4);
-                  break;
-
-                case 'refresh':
-                  setState(() {
-                    _selected = 4;
-                    _profileVersion++;
-                    _query = '';
-                    _searchController.clear();
-                  });
-                  _cargarNombre(mostrarError: true);
-                  break;
-
-                case 'logout':
-                  _logout();
-                  break;
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem<String>(
-                value: 'profile',
-                child: Text(
-                  'Mi perfil',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'refresh',
-                child: Text(
-                  'Actualizar datos',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      color: Colors.white,
-                      size: 19,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Cerrar sesión',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -498,7 +417,7 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _buildBottomBar() {
     return BottomNavigationBar(
-      backgroundColor: sidebar,
+      backgroundColor: Color.fromARGB(255, 130, 146, 161),
       type: BottomNavigationBarType.fixed,
       selectedItemColor: orange,
       unselectedItemColor: muted,
@@ -510,7 +429,7 @@ class _InstructorPageState extends State<InstructorPage> {
           _navigate(index);
         }
       },
-      items: const [
+      items: [
         BottomNavigationBarItem(
           icon: Icon(Icons.home_rounded),
           label: 'Inicio',
@@ -535,22 +454,25 @@ class _InstructorPageState extends State<InstructorPage> {
     final selectedIndex = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: sidebar,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final index in [3, 5, 4])
-              ListTile(
-                leading: Icon(_icons[index], color: blue),
-                title: Text(
-                  _labels[index],
-                  style: const TextStyle(color: Colors.white),
+      builder: (sheetContext) {
+        UnixTheme.watch(sheetContext);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final index in [3, 5, 4])
+                ListTile(
+                  leading: Icon(_icons[index], color: blue),
+                  title: Text(
+                    _labels[index],
+                    style: TextStyle(color: UnixColors.text),
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, index),
                 ),
-                onTap: () => Navigator.pop(sheetContext, index),
-              ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
 
     if (!mounted || selectedIndex == null) return;
@@ -559,11 +481,9 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _buildHeading(bool mobile) {
     return Text(
-      _selected == 0
-          ? '¡Hola, $_primerNombre!'
-          : _labels[_selected],
+      _selected == 0 ? '¡Hola, $_primerNombre!' : _labels[_selected],
       style: TextStyle(
-        color: Colors.white,
+        color: UnixColors.text,
         fontSize: mobile ? 28 : 34,
         fontWeight: FontWeight.w900,
       ),
@@ -576,22 +496,22 @@ class _InstructorPageState extends State<InstructorPage> {
       onChanged: (value) {
         setState(() => _query = value.trim().toLowerCase());
       },
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: UnixColors.text),
       decoration: InputDecoration(
         hintText: _selected == 3
             ? 'Buscar alumnos o cursos...'
             : 'Buscar cursos...',
-        hintStyle: const TextStyle(color: muted),
-        prefixIcon: const Icon(Icons.search, color: muted),
+        hintStyle: TextStyle(color: muted),
+        prefixIcon: Icon(Icons.search, color: muted),
         filled: true,
         fillColor: sidebar,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
+          borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
+          borderSide: BorderSide(color: border),
         ),
       ),
     );
@@ -610,27 +530,22 @@ class _InstructorPageState extends State<InstructorPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _requestButton(),
-            ),
-            const SizedBox(height: 18),
-            const AlumnoEventosPage(),
-            const SizedBox(height: 18),
+            Align(alignment: Alignment.centerLeft, child: _requestButton()),
+            SizedBox(height: 18),
+            AlumnoEventosPage(),
+            SizedBox(height: 18),
             _buildRequestsPanel(),
           ],
         );
 
       case 3:
-        return const InstructorHorariosPage();
+        return InstructorHorariosPage();
 
       case 5:
-        return const InstructorActividadesPage();
+        return InstructorActividadesPage();
 
       case 4:
-        return InstructorPerfilPage(
-          key: ValueKey(_profileVersion),
-        );
+        return InstructorPerfilPage(key: ValueKey(_profileVersion));
 
       default:
         return _buildDashboard();
@@ -645,16 +560,16 @@ class _InstructorPageState extends State<InstructorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Consulta tus cursos y acompaña a tus alumnos.',
           style: TextStyle(color: muted),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         LayoutBuilder(
           builder: (context, constraints) {
+            UnixTheme.watch(context);
             final columns = constraints.maxWidth < 650 ? 1 : 3;
-            final width =
-                (constraints.maxWidth - (columns - 1) * 12) / columns;
+            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
 
             return Wrap(
               spacing: 12,
@@ -668,29 +583,24 @@ class _InstructorPageState extends State<InstructorPage> {
                   1,
                 ),
                 _stat(width, Icons.event, '1', 'Próximo evento', 2),
-                _stat(
-                  width,
-                  Icons.groups,
-                  '$_studentCount',
-                  'Alumnos',
-                  3,
-                ),
+                _stat(width, Icons.groups, '$_studentCount', 'Alumnos', 3),
               ],
             );
           },
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         _requestButton(),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         LayoutBuilder(
           builder: (context, constraints) {
+            UnixTheme.watch(context);
             if (constraints.maxWidth < 950) {
               return Column(
                 children: [
                   _buildCourses(),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   _buildEvents(),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   _buildActivity(),
                 ],
               );
@@ -700,13 +610,13 @@ class _InstructorPageState extends State<InstructorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(flex: 7, child: _buildCourses()),
-                const SizedBox(width: 18),
+                SizedBox(width: 18),
                 Expanded(
                   flex: 3,
                   child: Column(
                     children: [
                       _buildEvents(),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       _buildActivity(),
                     ],
                   ),
@@ -715,7 +625,7 @@ class _InstructorPageState extends State<InstructorPage> {
             );
           },
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         _buildStudentsPreview(),
       ],
     );
@@ -734,34 +644,30 @@ class _InstructorPageState extends State<InstructorPage> {
         color: card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: border),
+          side: BorderSide(color: border),
         ),
         child: InkWell(
           onTap: () => _navigate(destination),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             child: Row(
               children: [
                 Icon(icon, color: blue, size: 27),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         value,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: UnixColors.text,
                           fontSize: 23,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      Text(
-                        label,
-                        style:
-                            const TextStyle(color: muted, fontSize: 12),
-                      ),
+                      Text(label, style: TextStyle(color: muted, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -782,17 +688,12 @@ class _InstructorPageState extends State<InstructorPage> {
       onPressed: _requestEvent,
       style: FilledButton.styleFrom(
         backgroundColor: orange,
-        foregroundColor: bg,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 16,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        foregroundColor: UnixColors.onOrange,
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      icon: const Icon(Icons.event_available_rounded),
-      label: const Text(
+      icon: Icon(Icons.event_available_rounded),
+      label: Text(
         'Solicitar asignación de evento',
         textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w800),
@@ -814,6 +715,7 @@ class _InstructorPageState extends State<InstructorPage> {
           ? _empty('No se encontraron cursos.')
           : LayoutBuilder(
               builder: (context, constraints) {
+                UnixTheme.watch(context);
                 final twoColumns = constraints.maxWidth >= 600;
                 final width = twoColumns
                     ? (constraints.maxWidth - 14) / 2
@@ -824,10 +726,7 @@ class _InstructorPageState extends State<InstructorPage> {
                   runSpacing: 14,
                   children: [
                     for (final course in courses)
-                      SizedBox(
-                        width: width,
-                        child: _courseCard(course),
-                      ),
+                      SizedBox(width: width, child: _courseCard(course)),
                   ],
                 );
               },
@@ -837,7 +736,7 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _courseCard(_Course course) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: sidebar,
         borderRadius: BorderRadius.circular(12),
@@ -847,41 +746,37 @@ class _InstructorPageState extends State<InstructorPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(course.icon, color: blue, size: 38),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             course.title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontWeight: FontWeight.w800,
               fontSize: 15,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             '${course.students.length} alumnos · '
             '${course.modules} módulos',
-            style: const TextStyle(color: blue, fontSize: 12),
+            style: TextStyle(color: blue, fontSize: 12),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             course.description,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 12,
-              height: 1.5,
-            ),
+            style: TextStyle(color: muted, fontSize: 12, height: 1.5),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
               onPressed: () => _showReport(course),
               style: FilledButton.styleFrom(
                 backgroundColor: orange,
-                foregroundColor: bg,
+                foregroundColor: UnixColors.onOrange,
               ),
-              icon: const Icon(Icons.description_outlined, size: 18),
-              label: const Text('Ver reporte'),
+              icon: Icon(Icons.description_outlined, size: 18),
+              label: Text('Ver reporte'),
             ),
           ),
         ],
@@ -900,32 +795,26 @@ class _InstructorPageState extends State<InstructorPage> {
       child: ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Text(
+          child: Text(
             '24\nOCT',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: orange,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(color: orange, fontWeight: FontWeight.w800),
           ),
         ),
-        title: const Text(
+        title: Text(
           'Taller de Linux',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: UnixColors.text, fontWeight: FontWeight.w700),
         ),
-        subtitle: const Text(
+        subtitle: Text(
           '16:00 · En línea\nEvento de ejemplo',
           style: TextStyle(color: muted, fontSize: 12),
         ),
-        trailing: const Icon(Icons.chevron_right, color: blue),
+        trailing: Icon(Icons.chevron_right, color: blue),
         onTap: () => _showDetails(
           'Taller de Linux',
           'Evento de ejemplo\n\n'
@@ -942,14 +831,14 @@ class _InstructorPageState extends State<InstructorPage> {
   Widget _buildActivity() {
     return _panel(
       title: 'Actividad reciente',
-      child: const Column(
+      child: Column(
         children: [
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.description, color: blue),
             title: Text(
               'Material publicado',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: UnixColors.text, fontSize: 13),
             ),
             subtitle: Text(
               'Guía de comandos · Ejemplo',
@@ -961,7 +850,7 @@ class _InstructorPageState extends State<InstructorPage> {
             leading: Icon(Icons.person_add, color: blue),
             title: Text(
               'Nuevo alumno inscrito',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: UnixColors.text, fontSize: 13),
             ),
             subtitle: Text(
               'Ana Torres · Ejemplo',
@@ -989,13 +878,13 @@ class _InstructorPageState extends State<InstructorPage> {
               leading: Icon(course.icon, color: blue),
               title: Text(
                 course.title,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: UnixColors.text),
               ),
               subtitle: Text(
                 '${course.students.length} alumnos de ejemplo',
-                style: const TextStyle(color: muted),
+                style: TextStyle(color: muted),
               ),
-              trailing: const Icon(Icons.chevron_right, color: blue),
+              trailing: Icon(Icons.chevron_right, color: blue),
               onTap: () => _showReport(course),
             ),
         ],
@@ -1003,28 +892,22 @@ class _InstructorPageState extends State<InstructorPage> {
     );
   }
 
-
   Widget _buildRequestsPanel() {
     return _panel(
       title: 'Mis solicitudes locales',
       child: _requests.isEmpty
-          ? _empty(
-              'Todavía no has registrado solicitudes en esta pantalla.',
-            )
+          ? _empty('Todavía no has registrado solicitudes en esta pantalla.')
           : Column(
               children: [
                 for (final request in _requests)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.pending_actions,
-                      color: orange,
-                    ),
+                    leading: Icon(Icons.pending_actions, color: orange),
                     title: Text(
                       request,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: UnixColors.text),
                     ),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'Borrador local · No enviado al servidor',
                       style: TextStyle(color: muted),
                     ),
@@ -1043,11 +926,12 @@ class _InstructorPageState extends State<InstructorPage> {
       final result = await showDialog<String>(
         context: context,
         builder: (dialogContext) {
+          UnixTheme.watch(dialogContext);
           return AlertDialog(
             backgroundColor: card,
-            title: const Text(
+            title: Text(
               'Solicitar asignación de evento',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: UnixColors.text),
             ),
             content: SizedBox(
               width: 430,
@@ -1057,16 +941,16 @@ class _InstructorPageState extends State<InstructorPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Indica el evento y tu motivo para participar. '
                         'La solicitud se guardará como borrador local.',
                         style: TextStyle(color: muted),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       TextFormField(
                         controller: eventController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: UnixColors.text),
+                        decoration: InputDecoration(
                           labelText: 'Nombre del evento',
                           labelStyle: TextStyle(color: muted),
                         ),
@@ -1077,12 +961,12 @@ class _InstructorPageState extends State<InstructorPage> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       TextFormField(
                         controller: reasonController,
                         maxLines: 3,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: UnixColors.text),
+                        decoration: InputDecoration(
                           labelText: 'Motivo de la solicitud',
                           labelStyle: TextStyle(color: muted),
                         ),
@@ -1101,12 +985,12 @@ class _InstructorPageState extends State<InstructorPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancelar'),
+                child: Text('Cancelar'),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: orange,
-                  foregroundColor: bg,
+                  foregroundColor: UnixColors.onOrange,
                 ),
                 onPressed: () {
                   if (!(formKey.currentState?.validate() ?? false)) {
@@ -1119,7 +1003,7 @@ class _InstructorPageState extends State<InstructorPage> {
                     '${reasonController.text.trim()}',
                   );
                 },
-                child: const Text('Guardar borrador'),
+                child: Text('Guardar borrador'),
               ),
             ],
           );
@@ -1166,35 +1050,35 @@ class _InstructorPageState extends State<InstructorPage> {
       _requests.isEmpty
           ? 'No hay solicitudes guardadas en esta pantalla.'
           : '${_requests.join('\n\n')}\n\n'
-              'Estos borradores no se han enviado al servidor.',
+                'Estos borradores no se han enviado al servidor.',
     );
   }
 
   Future<void> _showDetails(String title, String description) {
     return showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: card,
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Text(
-              description,
-              style: const TextStyle(color: muted, height: 1.6),
+      builder: (dialogContext) {
+        UnixTheme.watch(dialogContext);
+        return AlertDialog(
+          backgroundColor: card,
+          title: Text(title, style: TextStyle(color: UnixColors.text)),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Text(
+                description,
+                style: TextStyle(color: muted, height: 1.6),
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Cerrar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1209,31 +1093,34 @@ class _InstructorPageState extends State<InstructorPage> {
     try {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: card,
-          title: const Text(
-            '¿Cerrar sesión?',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'Se cerrará tu sesión en este dispositivo.',
-            style: TextStyle(color: muted),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
+        builder: (dialogContext) {
+          UnixTheme.watch(dialogContext);
+          return AlertDialog(
+            backgroundColor: card,
+            title: Text(
+              '¿Cerrar sesión?',
+              style: TextStyle(color: UnixColors.text),
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: orange,
-                foregroundColor: bg,
+            content: Text(
+              'Se cerrará tu sesión en este dispositivo.',
+              style: TextStyle(color: muted),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text('Cancelar'),
               ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Cerrar sesión'),
-            ),
-          ],
-        ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: orange,
+                  foregroundColor: UnixColors.onOrange,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text('Cerrar sesión'),
+              ),
+            ],
+          );
+        },
       );
 
       if (!mounted || confirmed != true) return;
@@ -1256,7 +1143,7 @@ class _InstructorPageState extends State<InstructorPage> {
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AccessScreen()),
+        MaterialPageRoute(builder: (_) => AccessScreen()),
         (route) => false,
       );
     } catch (error) {
@@ -1273,8 +1160,8 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _empty(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Text(text, style: const TextStyle(color: muted)),
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Text(text, style: TextStyle(color: muted)),
     );
   }
 
@@ -1285,7 +1172,7 @@ class _InstructorPageState extends State<InstructorPage> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: card,
         borderRadius: BorderRadius.circular(14),
@@ -1299,8 +1186,8 @@ class _InstructorPageState extends State<InstructorPage> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: UnixColors.text,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1309,14 +1196,11 @@ class _InstructorPageState extends State<InstructorPage> {
               if (action != null)
                 TextButton(
                   onPressed: action,
-                  child: const Text(
-                    'Ver todos',
-                    style: TextStyle(color: blue),
-                  ),
+                  child: Text('Ver todos', style: TextStyle(color: blue)),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           child,
         ],
       ),

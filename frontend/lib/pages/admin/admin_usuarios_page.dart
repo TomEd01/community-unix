@@ -1,3 +1,4 @@
+import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -9,10 +10,7 @@ import 'admin_store.dart';
 import 'admin_style.dart';
 
 class AdminUsuariosPage extends StatefulWidget {
-  const AdminUsuariosPage({
-    super.key,
-    required this.store,
-  });
+  const AdminUsuariosPage({super.key, required this.store});
 
   // Se conserva porque tu AdminPage ya envía este dato.
   final AdminStore store;
@@ -23,11 +21,9 @@ class AdminUsuariosPage extends StatefulWidget {
 
 class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
   // Dirección del backend.
-  static const String _baseUrl =
-      'http://127.0.0.1:8000/api/auth/superadmin';
+  static const String _baseUrl = 'http://127.0.0.1:8000/api/auth/superadmin';
 
-  final TextEditingController _busquedaController =
-      TextEditingController();
+  final TextEditingController _busquedaController = TextEditingController();
 
   Timer? _temporizadorBusqueda;
 
@@ -61,15 +57,10 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     final token = prefs.getString('jwt_token');
 
     if (token == null || token.trim().isEmpty) {
-      throw Exception(
-        'No se encontró una sesión. Vuelve a iniciar sesión.',
-      );
+      throw Exception('No se encontró una sesión. Vuelve a iniciar sesión.');
     }
 
-    return {
-      'Authorization': 'Bearer $token',
-      'Accept': 'application/json',
-    };
+    return {'Authorization': 'Bearer $token', 'Accept': 'application/json'};
   }
 
   String _mensajeError(Object error) {
@@ -90,9 +81,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(mensaje)),
-      );
+      ..showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   Future<void> _cargarUsuarios() async {
@@ -120,13 +109,11 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
       final uri = Uri.parse(
         '$_baseUrl/dashboard/',
-      ).replace(
-        queryParameters: parametros.isEmpty ? null : parametros,
-      );
+      ).replace(queryParameters: parametros.isEmpty ? null : parametros);
 
       final response = await http
           .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 20));
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
         throw Exception(
@@ -136,9 +123,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
       }
 
       if (response.statusCode == 403) {
-        throw Exception(
-          'Esta cuenta no tiene permiso para ver los usuarios.',
-        );
+        throw Exception('Esta cuenta no tiene permiso para ver los usuarios.');
       }
 
       if (response.statusCode == 404) {
@@ -155,14 +140,10 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
         );
       }
 
-      final decoded = jsonDecode(
-        utf8.decode(response.bodyBytes),
-      );
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (decoded is! Map<String, dynamic>) {
-        throw Exception(
-          'El dashboard devolvió una respuesta inesperada.',
-        );
+        throw Exception('El dashboard devolvió una respuesta inesperada.');
       }
 
       final lista = decoded['usuarios'];
@@ -177,9 +158,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
       for (final item in lista) {
         if (item is! Map<String, dynamic>) {
-          throw Exception(
-            'Uno de los usuarios tiene un formato inesperado.',
-          );
+          throw Exception('Uno de los usuarios tiene un formato inesperado.');
         }
 
         usuariosRecibidos.add(item);
@@ -211,10 +190,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     // Marca como antiguas las respuestas que ya estén en camino.
     _numeroPeticion++;
 
-    _temporizadorBusqueda = Timer(
-      const Duration(milliseconds: 400),
-      _cargarUsuarios,
-    );
+    _temporizadorBusqueda = Timer(Duration(milliseconds: 400), _cargarUsuarios);
   }
 
   void _seleccionarRol(String rol) {
@@ -235,10 +211,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     return valor.toString().trim();
   }
 
-  String _primerValor(
-    Map<String, dynamic> datos,
-    List<String> claves,
-  ) {
+  String _primerValor(Map<String, dynamic> datos, List<String> claves) {
     for (final clave in claves) {
       final valor = _texto(datos[clave]);
 
@@ -251,33 +224,24 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
   }
 
   String _nombreUsuario(Map<String, dynamic> usuario) {
-    return _primerValor(
-      usuario,
-      ['nombre_completo', 'nombre', 'name'],
-    );
+    return _primerValor(usuario, ['nombre_completo', 'nombre', 'name']);
   }
 
   String _idUsuario(Map<String, dynamic> usuario) {
-    return _primerValor(
-      usuario,
-      ['id', 'usuario_id'],
-    );
+    return _primerValor(usuario, ['id', 'usuario_id']);
   }
 
   String _identificadorVisible(Map<String, dynamic> usuario) {
     final detalles = _comoMapa(usuario['detalles_perfil']);
 
-    final numero = _primerValor(
-      usuario,
-      ['numero_control', 'matricula'],
-    );
+    final numero = _primerValor(usuario, ['numero_control', 'matricula']);
 
     if (numero.isNotEmpty) return numero;
 
-    final numeroDetalle = _primerValor(
-      detalles,
-      ['numero_control', 'matricula'],
-    );
+    final numeroDetalle = _primerValor(detalles, [
+      'numero_control',
+      'matricula',
+    ]);
 
     if (numeroDetalle.isNotEmpty) return numeroDetalle;
 
@@ -298,9 +262,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
   Map<String, dynamic> _comoMapa(dynamic valor) {
     if (valor is Map) {
-      return valor.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
+      return valor.map((key, value) => MapEntry(key.toString(), value));
     }
 
     return {};
@@ -317,9 +279,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     }
   }
 
-  Future<void> _mostrarDetalles(
-  Map<String, dynamic> usuario,
-  ) async {
+  Future<void> _mostrarDetalles(Map<String, dynamic> usuario) async {
     final nombre = _nombreUsuario(usuario);
     final correo = _primerValor(usuario, ['email', 'correo']);
     final identificador = _identificadorVisible(usuario);
@@ -327,19 +287,20 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
     final detalles = _comoMapa(usuario['detalles_perfil']);
     final resumen = _comoMapa(usuario['resumen_actividades'])
-      ..removeWhere((clave, valor) =>
-          clave.toLowerCase() == 'nivel' ||
-          clave.toLowerCase().contains('xp'));
+      ..removeWhere(
+        (clave, valor) =>
+            clave.toLowerCase() == 'nivel' ||
+            clave.toLowerCase().contains('xp'),
+      );
 
     // Espera la opción seleccionada en la ventana de detalles.
     final accion = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
+        UnixTheme.watch(dialogContext);
         return AlertDialog(
           backgroundColor: AdminStyle.card,
-          title: Text(
-            nombre.isEmpty ? 'Detalle de usuario' : nombre,
-          ),
+          title: Text(nombre.isEmpty ? 'Detalle de usuario' : nombre),
           content: SizedBox(
             width: 500,
             child: SingleChildScrollView(
@@ -353,31 +314,27 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                   ),
                   _filaDetalle(
                     'ID / matrícula',
-                    identificador.isEmpty
-                        ? 'No disponible'
-                        : identificador,
+                    identificador.isEmpty ? 'No disponible' : identificador,
                   ),
                   _filaDetalle('Rol', rol),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
 
-                  const Text(
+                  Text(
                     'Información del perfil',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: UnixColors.text,
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
 
                   if (detalles.isEmpty)
-                    const Text(
+                    Text(
                       'No hay detalles de perfil disponibles.',
-                      style: TextStyle(
-                        color: AdminStyle.muted,
-                      ),
+                      style: TextStyle(color: AdminStyle.muted),
                     )
                   else
                     for (final entry in detalles.entries)
@@ -386,25 +343,23 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                         _valorVisible(entry.value),
                       ),
 
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
 
-                  const Text(
+                  Text(
                     'Resumen de actividades',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: UnixColors.text,
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
 
                   if (resumen.isEmpty)
-                    const Text(
+                    Text(
                       'No hay actividades disponibles.',
-                      style: TextStyle(
-                        color: AdminStyle.muted,
-                      ),
+                      style: TextStyle(color: AdminStyle.muted),
                     )
                   else
                     for (final entry in resumen.entries)
@@ -419,7 +374,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           ),
           actions: [
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: EdgeInsets.only(top: 12),
               child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -431,24 +386,32 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: usuario['es_superadmin'] == true
-                          ? AdminStyle.red : AdminStyle.orange,
+                          ? AdminStyle.red
+                          : AdminStyle.orange,
                       side: BorderSide(
                         color: usuario['es_superadmin'] == true
-                            ? AdminStyle.red : AdminStyle.orange,
+                            ? AdminStyle.red
+                            : AdminStyle.orange,
                         width: 1.5,
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    icon: Icon(usuario['es_superadmin'] == true
-                        ? Icons.remove_moderator_outlined
-                        : Icons.admin_panel_settings_outlined),
-                    label: Text(usuario['es_superadmin'] == true
-                        ? 'Quitar Super Admin' : 'Hacer Super Admin'),
+                    icon: Icon(
+                      usuario['es_superadmin'] == true
+                          ? Icons.remove_moderator_outlined
+                          : Icons.admin_panel_settings_outlined,
+                    ),
+                    label: Text(
+                      usuario['es_superadmin'] == true
+                          ? 'Quitar Super Admin'
+                          : 'Hacer Super Admin',
+                    ),
                   ),
 
                   OutlinedButton(
@@ -457,11 +420,8 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AdminStyle.orange,
-                      side: const BorderSide(
-                        color: AdminStyle.orange,
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(
+                      side: BorderSide(color: AdminStyle.orange, width: 1.5),
+                      padding: EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 14,
                       ),
@@ -469,7 +429,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text('Cerrar'),
+                    child: Text('Cerrar'),
                   ),
 
                   OutlinedButton.icon(
@@ -478,11 +438,8 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AdminStyle.red,
-                      side: const BorderSide(
-                        color: AdminStyle.red,
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(
+                      side: BorderSide(color: AdminStyle.red, width: 1.5),
+                      padding: EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 14,
                       ),
@@ -490,8 +447,8 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Eliminar cuenta'),
+                    icon: Icon(Icons.delete_outline),
+                    label: Text('Eliminar cuenta'),
                   ),
                 ],
               ),
@@ -501,19 +458,17 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
       },
     );
 
-  // Si seleccionó eliminar, abre la confirmación existente.
-  if (!mounted) return;
+    // Si seleccionó eliminar, abre la confirmación existente.
+    if (!mounted) return;
 
-  if (accion == 'eliminar') {
+    if (accion == 'eliminar') {
       await _confirmarEliminar(usuario);
     } else if (accion == 'hacer_admin') {
       await _confirmarSuperAdmin(usuario);
     }
   }
 
-  Future<void> _confirmarSuperAdmin(
-    Map<String, dynamic> usuario,
-  ) async {
+  Future<void> _confirmarSuperAdmin(Map<String, dynamic> usuario) async {
     if (_otorgandoPermisos || _eliminando) return;
     final id = _idUsuario(usuario);
     final nombre = _nombreUsuario(usuario);
@@ -528,37 +483,48 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     try {
       final confirmado = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: AdminStyle.card,
-          title: Text(esAdminActual
-              ? 'Quitar permisos de Super Admin'
-              : 'Otorgar permisos de Super Admin'),
-          content: Text(esAdminActual
-              ? '¿Estás seguro de que quieres quitar los permisos de Super Admin a $nombreVisible?'
-              : '¿Estás seguro de que quieres hacer Super Admin a $nombreVisible?'),
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
+        builder: (dialogContext) {
+          UnixTheme.watch(dialogContext);
+          return AlertDialog(
+            backgroundColor: AdminStyle.card,
+            title: Text(
+              esAdminActual
+                  ? 'Quitar permisos de Super Admin'
+                  : 'Otorgar permisos de Super Admin',
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: esAdminActual ? AdminStyle.red : AdminStyle.orange,
-                foregroundColor: Colors.white,
+            content: Text(
+              esAdminActual
+                  ? '¿Estás seguro de que quieres quitar los permisos de Super Admin a $nombreVisible?'
+                  : '¿Estás seguro de que quieres hacer Super Admin a $nombreVisible?',
+            ),
+            actions: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text('Cancelar'),
               ),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(esAdminActual ? 'Quitar permisos' : 'Confirmar'),
-            ),
-          ],
-        ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: esAdminActual
+                      ? AdminStyle.red
+                      : AdminStyle.orange,
+                  foregroundColor: UnixColors.text,
+                ),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(esAdminActual ? 'Quitar permisos' : 'Confirmar'),
+              ),
+            ],
+          );
+        },
       );
       if (!mounted || confirmado != true) return;
       final headers = await _obtenerHeaders();
-      final response = await http.patch(
-        Uri.parse('$_baseUrl/usuarios/${Uri.encodeComponent(id)}/'),
-        headers: {...headers, 'Content-Type': 'application/json'},
-        body: jsonEncode({'es_superadmin': nuevoEstado}),
-      ).timeout(const Duration(seconds: 20));
+      final response = await http
+          .patch(
+            Uri.parse('$_baseUrl/usuarios/${Uri.encodeComponent(id)}/'),
+            headers: {...headers, 'Content-Type': 'application/json'},
+            body: jsonEncode({'es_superadmin': nuevoEstado}),
+          )
+          .timeout(Duration(seconds: 20));
       if (response.statusCode == 401) {
         throw Exception('Tu sesión venció. Vuelve a iniciar sesión.');
       }
@@ -571,13 +537,18 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           final body = jsonDecode(utf8.decode(response.bodyBytes));
           if (body is Map) detalle = _texto(body['error'] ?? body['detail']);
         } catch (_) {}
-        throw Exception(detalle.isNotEmpty ? detalle
-            : 'No se pudo actualizar el permiso. Código: ${response.statusCode}.');
+        throw Exception(
+          detalle.isNotEmpty
+              ? detalle
+              : 'No se pudo actualizar el permiso. Código: ${response.statusCode}.',
+        );
       }
       if (!mounted) return;
-      _mostrarMensaje(nuevoEstado
-          ? '$nombreVisible ahora tiene permisos de Super Admin.'
-          : 'Se quitaron los permisos de Super Admin a $nombreVisible.');
+      _mostrarMensaje(
+        nuevoEstado
+            ? '$nombreVisible ahora tiene permisos de Super Admin.'
+            : 'Se quitaron los permisos de Super Admin a $nombreVisible.',
+      );
       await _cargarUsuarios();
     } catch (error) {
       if (!mounted) return;
@@ -589,20 +560,20 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
   Widget _filaDetalle(String titulo, String valor) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: 10),
       child: Text.rich(
         TextSpan(
           children: [
             TextSpan(
               text: '$titulo: ',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AdminStyle.muted,
                 fontWeight: FontWeight.w600,
               ),
             ),
             TextSpan(
               text: valor.isEmpty ? 'No disponible' : valor,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: UnixColors.text),
             ),
           ],
         ),
@@ -646,9 +617,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     return texto.isEmpty ? 'No disponible' : texto;
   }
 
-  Future<void> _confirmarEliminar(
-    Map<String, dynamic> usuario,
-  ) async {
+  Future<void> _confirmarEliminar(Map<String, dynamic> usuario) async {
     if (_eliminando) return;
 
     final id = _idUsuario(usuario);
@@ -667,9 +636,10 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        UnixTheme.watch(dialogContext);
         return AlertDialog(
           backgroundColor: AdminStyle.card,
-          title: const Text('Eliminar usuario'),
+          title: Text('Eliminar usuario'),
           content: Text(
             '¿Deseas eliminar a $nombreVisible?\n\n'
             'Esta acción eliminará la cuenta según las reglas '
@@ -680,17 +650,17 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
               },
-              child: const Text('Cancelar'),
+              child: Text('Cancelar'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: AdminStyle.red,
-                foregroundColor: Colors.white,
+                foregroundColor: UnixColors.text,
               ),
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
-              child: const Text('Eliminar'),
+              child: Text('Eliminar'),
             ),
           ],
         );
@@ -710,13 +680,11 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
     try {
       final headers = await _obtenerHeaders();
 
-      final uri = Uri.parse(
-        '$_baseUrl/usuarios/${Uri.encodeComponent(id)}/',
-      );
+      final uri = Uri.parse('$_baseUrl/usuarios/${Uri.encodeComponent(id)}/');
 
       final response = await http
           .delete(uri, headers: headers)
-          .timeout(const Duration(seconds: 20));
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
         throw Exception(
@@ -726,25 +694,18 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
       }
 
       if (response.statusCode == 403) {
-        throw Exception(
-          'No tienes permiso para eliminar este usuario.',
-        );
+        throw Exception('No tienes permiso para eliminar este usuario.');
       }
 
       if (response.statusCode == 404) {
-        throw Exception(
-          'No se encontró el usuario o la ruta de eliminación.',
-        );
+        throw Exception('No se encontró el usuario o la ruta de eliminación.');
       }
 
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         String detalle = '';
 
         try {
-          final body = jsonDecode(
-            utf8.decode(response.bodyBytes),
-          );
+          final body = jsonDecode(utf8.decode(response.bodyBytes));
 
           if (body is Map) {
             detalle = _texto(body['error'] ?? body['detail']);
@@ -757,7 +718,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           detalle.isNotEmpty
               ? detalle
               : 'No se pudo eliminar el usuario. '
-                  'Código: ${response.statusCode}.',
+                    'Código: ${response.statusCode}.',
         );
       }
 
@@ -782,12 +743,13 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return AdminPanel(
       title: 'Usuarios registrados',
       action: IconButton(
         tooltip: 'Actualizar lista',
         onPressed: _cargando ? null : _cargarUsuarios,
-        icon: const Icon(Icons.refresh),
+        icon: Icon(Icons.refresh),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,24 +757,19 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           TextField(
             controller: _busquedaController,
             onChanged: _alBuscar,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Buscar nombre, ID o correo',
               prefixIcon: Icon(Icons.search),
             ),
           ),
 
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
 
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final rol in [
-                'Todos',
-                'Alumno',
-                'Maestro',
-                'Externo',
-              ])
+              for (final rol in ['Todos', 'Alumno', 'Maestro', 'Externo'])
                 ChoiceChip(
                   label: Text(rol),
                   selected: _rolSeleccionado == rol,
@@ -821,37 +778,30 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           if (_cargando)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(
-                  color: AdminStyle.orange,
-                ),
+                child: CircularProgressIndicator(color: AdminStyle.orange),
               ),
             )
           else if (_error != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _error!,
-                  style: const TextStyle(
-                    color: AdminStyle.red,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                Text(_error!, style: TextStyle(color: AdminStyle.red)),
+                SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: _cargarUsuarios,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
+                  icon: Icon(Icons.refresh),
+                  label: Text('Reintentar'),
                 ),
               ],
             )
           else if (_usuarios.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Text(
                 'No se encontraron usuarios.',
@@ -861,14 +811,10 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           else ...[
             Text(
               '${_usuarios.length} usuario(s)',
-              style: const TextStyle(
-                color: AdminStyle.muted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: AdminStyle.muted, fontSize: 12),
             ),
-            const SizedBox(height: 12),
-            for (final usuario in _usuarios)
-              _tarjetaUsuario(usuario),
+            SizedBox(height: 12),
+            for (final usuario in _usuarios) _tarjetaUsuario(usuario),
           ],
         ],
       ),
@@ -888,7 +834,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
         : '?';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: Container(
         decoration: BoxDecoration(
           color: AdminStyle.background,
@@ -896,15 +842,12 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           border: Border.all(color: AdminStyle.border),
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 10,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           leading: CircleAvatar(
             backgroundColor: AdminStyle.orange,
             child: Text(
               inicial,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AdminStyle.background,
                 fontWeight: FontWeight.bold,
               ),
@@ -912,29 +855,29 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
           ),
           title: Text(
             nombre.isEmpty ? 'Sin nombre' : nombre,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: UnixColors.text,
               fontWeight: FontWeight.bold,
             ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
 
               Text(
                 'ID: ${identificador.isEmpty ? 'No disponible' : identificador}',
-                style: const TextStyle(color: AdminStyle.muted),
+                style: TextStyle(color: AdminStyle.muted),
               ),
 
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
 
               Text(
                 correo.isEmpty ? 'Sin correo' : correo,
-                style: const TextStyle(color: AdminStyle.muted),
+                style: TextStyle(color: AdminStyle.muted),
               ),
 
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
 
               Wrap(
                 spacing: 8,
@@ -945,9 +888,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
                   if (activo is bool)
                     AdminBadge(
                       activo ? 'Activo' : 'Inactivo',
-                      color: activo
-                          ? AdminStyle.green
-                          : AdminStyle.red,
+                      color: activo ? AdminStyle.green : AdminStyle.red,
                     ),
                 ],
               ),
@@ -959,7 +900,7 @@ class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
             onSelected: (opcion) {
               _abrirOpciones(usuario, opcion);
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem<String>(
                 value: 'detalles',
                 child: Text('Ver detalles'),

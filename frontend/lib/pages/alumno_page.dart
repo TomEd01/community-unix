@@ -1,4 +1,6 @@
-﻿import 'dart:convert';
+import '../theme/unix_role_brand.dart';
+import '../theme/unix_theme.dart';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:blobatar/flutter.dart';
@@ -22,14 +24,13 @@ class AlumnoPage extends StatefulWidget {
 }
 
 class _AlumnoPageState extends State<AlumnoPage> {
-  static const String _perfilUrl =
-      'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
 
-  static const Color _background = Color(0xFF031426);
-  static const Color _sidebar = Color(0xFF061C31);
-  static const Color _border = Color(0xFF174064);
+  static Color get _background => UnixColors.adapt(Color(0xFF031426));
+  static Color get _sidebar => UnixColors.adapt(Color(0xFF061C31));
+  static Color get _border => UnixColors.border;
   static const Color _orange = Color(0xFFFF8A24);
-  static const Color _muted = Color(0xFF91A9BE);
+  static Color get _muted => UnixColors.adapt(Color(0xFF91A9BE));
 
   int _selectedIndex = 0;
 
@@ -40,7 +41,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
   bool _loadingProfile = false;
   bool _loggingOut = false;
 
-  final List<_NavItem> _items = const [
+  final List<_NavItem> _items = [
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
     _NavItem(icon: Icons.menu_book_rounded, label: 'Cursos'),
     _NavItem(icon: Icons.event_rounded, label: 'Eventos'),
@@ -70,18 +71,18 @@ class _AlumnoPageState extends State<AlumnoPage> {
         throw Exception('Inicia sesión para cargar tus datos.');
       }
 
-      final response = await http.get(
-        Uri.parse(_perfilUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            Uri.parse(_perfilUrl),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 401) {
-        throw Exception(
-          'Tu sesión venció. Cierra sesión y vuelve a ingresar.',
-        );
+        throw Exception('Tu sesión venció. Cierra sesión y vuelve a ingresar.');
       }
 
       if (response.statusCode != 200) {
@@ -113,8 +114,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
       if (!mounted) return;
 
       setState(() {
-        _profileError =
-            error.toString().replaceFirst('Exception: ', '');
+        _profileError = error.toString().replaceFirst('Exception: ', '');
       });
     } finally {
       if (mounted) {
@@ -158,7 +158,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AccessScreen()),
+        MaterialPageRoute(builder: (_) => AccessScreen()),
         (route) => false,
       );
     } catch (error) {
@@ -166,9 +166,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
-          ),
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
     } finally {
@@ -182,10 +180,10 @@ class _AlumnoPageState extends State<AlumnoPage> {
       height: size,
       child: _numeroControl.isEmpty
           ? CircleAvatar(
-              backgroundColor: const Color(0xFF123451),
+              backgroundColor: UnixColors.adapt(Color(0xFF123451)),
               child: Icon(
                 Icons.person_rounded,
-                color: Colors.white,
+                color: UnixColors.text,
                 size: size * 0.6,
               ),
             )
@@ -207,25 +205,22 @@ class _AlumnoPageState extends State<AlumnoPage> {
           _nombre,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: UnixColors.text,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 3),
-        const Text(
-          'Alumno',
-          style: TextStyle(color: _muted, fontSize: 10),
-        ),
+        SizedBox(height: 3),
+        Text('Alumno', style: TextStyle(color: _muted, fontSize: 10)),
         if (_numeroControl.isNotEmpty) ...[
-          const SizedBox(height: 3),
+          SizedBox(height: 3),
           Text(
             'ID: $_numeroControl',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF6ED9AB),
+            style: TextStyle(
+              color: UnixColors.adapt(Color(0xFF6ED9AB)),
               fontSize: 10,
             ),
           ),
@@ -236,10 +231,12 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Scaffold(
       backgroundColor: _background,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          UnixTheme.watch(context);
           if (constraints.maxWidth < 760) {
             return Column(
               children: [
@@ -272,7 +269,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
     return Column(
       children: [
         if (_loadingProfile)
-          const LinearProgressIndicator(
+          LinearProgressIndicator(
             minHeight: 2,
             color: _orange,
             backgroundColor: _sidebar,
@@ -281,33 +278,20 @@ class _AlumnoPageState extends State<AlumnoPage> {
           Container(
             width: double.infinity,
             color: _sidebar,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  color: _orange,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
+                Icon(Icons.info_outline, color: _orange, size: 18),
+                SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _profileError!,
-                    style: const TextStyle(
-                      color: _muted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: _muted, fontSize: 12),
                   ),
                 ),
                 TextButton(
                   onPressed: _loadingProfile ? null : _loadProfile,
-                  child: const Text(
-                    'Reintentar',
-                    style: TextStyle(color: _orange),
-                  ),
+                  child: Text('Reintentar', style: TextStyle(color: _orange)),
                 ),
               ],
             ),
@@ -323,8 +307,8 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
   Widget _buildSidebar() {
     return Container(
-      width: 245,
-      decoration: const BoxDecoration(
+      width: MediaQuery.sizeOf(context).width < 1100 ? 185 : 220,
+      decoration: BoxDecoration(
         color: _sidebar,
         border: Border(right: BorderSide(color: _border)),
       ),
@@ -332,56 +316,14 @@ class _AlumnoPageState extends State<AlumnoPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 25, 22, 30),
-              child: Row(
-                children: [
-                  Container(
-                    width: 43,
-                    height: 43,
-                    decoration: BoxDecoration(
-                      color: _orange.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.terminal_rounded,
-                      color: _orange,
-                      size: 25,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Comunidad',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'UNIX ITC',
-                          style: TextStyle(
-                            color: _orange,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              padding: EdgeInsets.fromLTRB(22, 25, 22, 30),
+              child: const UnixRoleBrand(),
             ),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 13),
+                padding: EdgeInsets.symmetric(horizontal: 13),
                 itemCount: _items.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: 5),
+                separatorBuilder: (_, __) => SizedBox(height: 5),
                 itemBuilder: (context, index) {
                   final item = _items[index];
                   final selected = _selectedIndex == index;
@@ -392,14 +334,14 @@ class _AlumnoPageState extends State<AlumnoPage> {
                       onTap: () => _selectPage(index),
                       borderRadius: BorderRadius.circular(11),
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(
+                        duration: Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 13,
                         ),
                         decoration: BoxDecoration(
                           color: selected
-                              ? _orange.withValues(alpha: 0.13)
+                              ? UnixColors.selected
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(11),
                         ),
@@ -410,12 +352,14 @@ class _AlumnoPageState extends State<AlumnoPage> {
                               size: 20,
                               color: selected ? _orange : _muted,
                             ),
-                            const SizedBox(width: 13),
+                            SizedBox(width: 13),
                             Text(
                               item.label,
                               style: TextStyle(
                                 color: selected
-                                    ? Colors.white
+                                    ? (UnixColors.dark
+                                          ? UnixColors.text
+                                          : UnixColors.link)
                                     : _muted,
                                 fontSize: 13,
                                 fontWeight: selected
@@ -432,7 +376,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(15),
+              padding: EdgeInsets.all(15),
               child: Material(
                 color: _background,
                 borderRadius: BorderRadius.circular(14),
@@ -440,7 +384,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
                   onTap: () => _selectPage(4),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
-                    padding: const EdgeInsets.all(13),
+                    padding: EdgeInsets.all(13),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: _border),
@@ -448,7 +392,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
                     child: Row(
                       children: [
                         _avatar(42),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Expanded(child: _userInfo()),
                       ],
                     ),
@@ -468,56 +412,41 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
   Widget _buildTopBar() {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
+      height: 70,
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
         color: _sidebar,
         border: Border(bottom: BorderSide(color: _border)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                color: _background,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
-              ),
-              child: const TextField(
-                style: TextStyle(color: Colors.white, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Buscar cursos, eventos o comunidad...',
-                  hintStyle: TextStyle(color: _muted, fontSize: 12),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
-                    color: _muted,
-                    size: 20,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
-                ),
+            child: Text(
+              'Comunidad UNIX ITC',
+              style: TextStyle(
+                color: UnixColors.text,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 12),
+          UnixThemeToggle(compact: MediaQuery.sizeOf(context).width < 1250),
+          SizedBox(width: 8),
           IconButton(
             tooltip: 'Notificaciones',
             onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              color: _muted,
-            ),
+            icon: Icon(Icons.notifications_none_rounded, color: _muted),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Container(width: 1, height: 28, color: _border),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           InkWell(
             onTap: () => _selectPage(4),
             borderRadius: BorderRadius.circular(22),
             child: _avatar(40),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           SizedBox(width: 130, child: _userInfo()),
           _buildAccountMenu(),
         ],
@@ -525,15 +454,31 @@ class _AlumnoPageState extends State<AlumnoPage> {
     );
   }
 
+  Widget _buildGlobalSearch() => Container(
+    height: 42,
+    decoration: BoxDecoration(
+      color: _background,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: _border),
+    ),
+    child: TextField(
+      style: TextStyle(color: UnixColors.text, fontSize: 13),
+      decoration: InputDecoration(
+        hintText: 'Buscar cursos, eventos o comunidad...',
+        hintStyle: TextStyle(color: _muted, fontSize: 12),
+        prefixIcon: Icon(Icons.search_rounded, color: _muted, size: 20),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(vertical: 12),
+      ),
+    ),
+  );
+
   Widget _buildAccountMenu() {
     return PopupMenuButton<String>(
       enabled: !_loggingOut,
       tooltip: 'Opciones de cuenta',
       color: _sidebar,
-      icon: const Icon(
-        Icons.keyboard_arrow_down_rounded,
-        color: _muted,
-      ),
+      icon: Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
       onSelected: (value) async {
         switch (value) {
           case 'profile':
@@ -547,31 +492,25 @@ class _AlumnoPageState extends State<AlumnoPage> {
             break;
         }
       },
-      itemBuilder: (_) => const [
+      itemBuilder: (_) => [
         PopupMenuItem<String>(
           value: 'profile',
-          child: Text(
-            'Mi perfil',
-            style: TextStyle(color: Colors.white),
-          ),
+          child: Text('Mi perfil', style: TextStyle(color: UnixColors.text)),
         ),
         PopupMenuItem<String>(
           value: 'refresh',
           child: Text(
             'Actualizar datos',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: UnixColors.text),
           ),
         ),
         PopupMenuItem<String>(
           value: 'logout',
           child: Row(
             children: [
-              Icon(Icons.logout_rounded, color: Colors.white, size: 19),
+              Icon(Icons.logout_rounded, color: UnixColors.text, size: 19),
               SizedBox(width: 10),
-              Text(
-                'Cerrar sesión',
-                style: TextStyle(color: Colors.white),
-              ),
+              Text('Cerrar sesión', style: TextStyle(color: UnixColors.text)),
             ],
           ),
         ),
@@ -585,48 +524,40 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
   Widget _buildMobileHeader() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _sidebar,
         border: Border(bottom: BorderSide(color: _border)),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(
-                Icons.terminal_rounded,
-                color: _orange,
-                size: 27,
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
+              Icon(Icons.terminal_rounded, color: _orange, size: 27),
+              SizedBox(width: 10),
+              Expanded(
                 child: Text(
                   'Comunidad UNIX',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: UnixColors.text,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
+              UnixThemeToggle(compact: true),
+              SizedBox(width: 6),
               IconButton(
                 tooltip: 'Notificaciones',
                 onPressed: () {},
-                icon: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: _muted,
-                ),
+                icon: Icon(Icons.notifications_none_rounded, color: _muted),
               ),
               Tooltip(
                 message: _nombre,
                 child: InkWell(
                   onTap: () => _selectPage(4),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   child: _avatar(36),
                 ),
               ),
@@ -640,7 +571,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
 
   Widget _buildBottomNavigation() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: _border)),
       ),
       child: BottomNavigationBar(
@@ -653,7 +584,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
         unselectedFontSize: 9,
         showUnselectedLabels: true,
         onTap: _selectPage,
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_rounded),
             label: 'Inicio',
@@ -682,17 +613,17 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
       case 0:
-        return const AlumnoInicioPage();
+        return AlumnoInicioPage(nombre: _nombre, search: _buildGlobalSearch());
       case 1:
-        return const AlumnoCursosPage();
+        return AlumnoCursosPage();
       case 2:
-        return const AlumnoEventosPage();
+        return AlumnoEventosPage();
       case 3:
-        return const AlumnoComunidadPage();
+        return AlumnoComunidadPage();
       case 4:
-        return const AlumnoPerfilPage();
+        return AlumnoPerfilPage();
       default:
-        return const AlumnoInicioPage();
+        return AlumnoInicioPage(nombre: _nombre, search: _buildGlobalSearch());
     }
   }
 }
@@ -701,8 +632,5 @@ class _NavItem {
   final IconData icon;
   final String label;
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-  });
+  const _NavItem({required this.icon, required this.label});
 }
