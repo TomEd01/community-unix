@@ -89,56 +89,214 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     }
   }
 
-  Future<void> _crear() async {
-    if (_guardando) return;
-    String materia = '';
-    String horario = '';
-    final formKey = GlobalKey<FormState>();
-    Map<String, String>? datos;
-    datos = await showDialog<Map<String, String>>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: _card,
-          title: const Text('Nuevo horario de clase', style: TextStyle(color: Colors.white)),
-          content: SizedBox(width: 420, child: Form(
-            key: formKey,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextFormField(onChanged: (v) => materia = v, maxLength: 120,
-                style: const TextStyle(color: Colors.white),
-                decoration: _campo('Materia', 'Ej. Programación'),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Escribe la materia.' : null),
-              const SizedBox(height: 12),
-              TextFormField(onChanged: (v) => horario = v, maxLength: 80,
-                style: const TextStyle(color: Colors.white),
-                decoration: _campo('Horario', 'Ej. Lunes y miércoles, 08:00–09:00'),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Escribe el horario.' : null),
-            ]),
-          )),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
-            FilledButton(style: FilledButton.styleFrom(backgroundColor: _orange, foregroundColor: Colors.black),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(dialogContext, {'materia': materia.trim(), 'horario': horario.trim()});
-                }
-              }, child: const Text('Crear horario')),
-          ],
-        ),
-      );
-    if (datos == null || !mounted || _guardando) return;
-    setState(() => _guardando = true);
-    try {
-      final headers = await _headers();
-      final response = await http.post(Uri.parse(_url), headers: headers, body: jsonEncode(datos))
-          .timeout(const Duration(seconds: 20));
-      _respuesta(response);
-      if (!mounted) return;
-      _aviso('Horario creado correctamente.');
-      await _cargar();
-    } catch (error) { _aviso(_mensaje(error)); }
-    finally { if (mounted) setState(() => _guardando = false); }
+ Future<void> _crear() async {
+  if (_guardando) return;
+
+  final formKey = GlobalKey<FormState>();
+
+  String materia = '';
+  String inicio = '';
+  String termino = '';
+  String periodo = 'AM';
+
+  String? validarHora(String? valor) {
+    final texto = valor?.trim() ?? '';
+
+    if (texto.isEmpty) {
+      return 'Escribe la hora.';
+    }
+
+    // Formato de 12 horas: 1:00, 08:30, 12:45...
+    final formato = RegExp(r'^(0?[1-9]|1[0-2]):[0-5][0-9]$');
+
+    if (!formato.hasMatch(texto)) {
+      return 'Usa el formato 08:30.';
+    }
+
+    return null;
   }
 
+  int minutos(String hora) {
+    final partes = hora.trim().split(':');
+    final horas = int.parse(partes[0]) % 12;
+    final minutos = int.parse(partes[1]);
+
+    return horas * 60 + minutos;
+  }
+
+  String formatearHora(String hora) {
+    final partes = hora.trim().split(':');
+
+    return '${partes[0].padLeft(2, '0')}:${partes[1]}';
+  }
+
+  final datos = await showDialog<Map<String, String>>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: _card,
+        title: const Text(
+          'Nuevo horario de clase',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    maxLength: 120,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _campo(
+                      'Materia',
+                      'Ej. Programación',
+                    ),
+                    onChanged: (valor) => materia = valor,
+                    validator: (valor) {
+                      if (valor == null || valor.trim().isEmpty) {
+                        return 'Escribe la materia.';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.datetime,
+                    decoration: _campo(
+                      'Hora de inicio',
+                      'Ej. 08:00',
+                    ),
+                    onChanged: (valor) => inicio = valor,
+                    validator: validarHora,
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.datetime,
+                    decoration: _campo(
+                      'Hora de término',
+                      'Ej. 09:30',
+                    ),
+                    onChanged: (valor) => termino = valor,
+                    validator: (valor) {
+                      final error = validarHora(valor);
+
+                      if (error != null) return error;
+
+                      if (validarHora(inicio) == null &&
+                          minutos(valor!) <= minutos(inicio)) {
+                        return 'Debe ser posterior a la hora de inicio.';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<String>(
+                    initialValue: 'AM',
+                    dropdownColor: _card,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _campo(
+                      'AM / PM',
+                      'Selecciona el período',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'AM',
+                        child: Text('AM — Mañana'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'PM',
+                        child: Text('PM — Tarde / Noche'),
+                      ),
+                    ],
+                    onChanged: (valor) {
+                      if (valor != null) periodo = valor;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'El período seleccionado se aplica a ambas horas.',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _orange,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+
+              final horario =
+                  '${formatearHora(inicio)} – '
+                  '${formatearHora(termino)} $periodo';
+
+              Navigator.pop<Map<String, String>>(
+                dialogContext,
+                {
+                  'materia': materia.trim(),
+                  'horario': horario,
+                },
+              );
+            },
+            child: const Text('Crear horario'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (datos == null || !mounted || _guardando) return;
+
+  setState(() => _guardando = true);
+
+  try {
+    final headers = await _headers();
+
+    final response = await http
+        .post(
+          Uri.parse(_url),
+          headers: headers,
+          body: jsonEncode(datos),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    _respuesta(response);
+
+    if (!mounted) return;
+
+    _aviso('Horario creado correctamente.');
+    await _cargar();
+  } catch (error) {
+    _aviso(_mensaje(error));
+  } finally {
+    if (mounted) {
+      setState(() => _guardando = false);
+    }
+  }
+}
   Future<void> _eliminar(Map<String, dynamic> bloque) async {
     if (_guardando) return;
     final confirmar = await showDialog<bool>(context: context,

@@ -2,7 +2,20 @@ import 'package:flutter/material.dart';
 import 'alumno_vinculo_profesor.dart';
 
 class AlumnoInicioPage extends StatelessWidget {
-  const AlumnoInicioPage({super.key});
+  const AlumnoInicioPage({
+  super.key,
+  this.nombre = '',
+});
+
+final String nombre;
+
+String get primerNombre {
+  final texto = nombre.trim();
+
+  if (texto.isEmpty || texto == 'Alumno') return '';
+
+  return texto.split(RegExp(r'\s+')).first;
+}
 
   static const Color _bg = Color(0xFF031426);
   static const Color _card = Color(0xFF0A2947);
@@ -61,7 +74,9 @@ class AlumnoInicioPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '¡Hola, Alumno! 👋',
+          primerNombre.isEmpty
+            ? '¡Hola!'
+            : '¡Hola, $primerNombre!',
           style: TextStyle(
             color: Colors.white,
             fontSize: mobile ? 28 : 34,

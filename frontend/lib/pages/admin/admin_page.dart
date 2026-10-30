@@ -1,4 +1,11 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../widgets/unix_account_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../main.dart' show AccessScreen;
 import 'admin_store.dart';
 import 'admin_style.dart';
 import 'admin_inicio_page.dart';
@@ -8,147 +15,543 @@ import 'admin_folios_page.dart';
 import 'admin_perfil_page.dart';
 
 class AdminPage extends StatelessWidget {
-  const AdminPage({super.key, this.nombre = 'Administrador',
-    this.correo = '', this.id = 'ADMIN-DEMO', this.onLogout});
-  final String nombre, correo, id;
-  /// Conectar aquí limpieza de JWT/Google y navegación al login del proyecto.
+  const AdminPage({
+    super.key,
+    this.nombre = 'Administrador',
+    this.correo = '',
+    this.id = 'ADMIN-DEMO',
+    this.onLogout,
+  });
+
+  final String nombre;
+  final String correo;
+  final String id;
   final Future<void> Function()? onLogout;
+
   @override
-  Widget build(BuildContext context) => Theme(data: AdminStyle.theme,
-    child: _AdminShell(nombre: nombre, correo: correo, id: id, onLogout: onLogout));
+  Widget build(BuildContext context) {
+    return Theme(
+      data: AdminStyle.theme,
+      child: _AdminShell(
+        nombre: nombre,
+        correo: correo,
+        id: id,
+        onLogout: onLogout,
+      ),
+    );
+  }
 }
+
 class _AdminShell extends StatefulWidget {
-  const _AdminShell({required this.nombre, required this.correo, required this.id, this.onLogout});
-  final String nombre, correo, id;
+  const _AdminShell({
+    required this.nombre,
+    required this.correo,
+    required this.id,
+    this.onLogout,
+  });
+
+  final String nombre;
+  final String correo;
+  final String id;
   final Future<void> Function()? onLogout;
+
   @override
   State<_AdminShell> createState() => _AdminPageState();
 }
+
 class _AdminPageState extends State<_AdminShell> {
   late final AdminStore store;
+
   int selected = 0;
   bool loggingOut = false;
-  static const labels = ['Inicio', 'Macro eventos', 'Usuarios',
-    'Verificar folios', 'Mi perfil'];
-  static const icons = [Icons.home_outlined, Icons.event_outlined,
-    Icons.people_outline, Icons.verified_user_outlined,
-    Icons.bar_chart_rounded, Icons.person_outline];
+  bool _loadingProfile = false;
+  String _nombreReal = '';
+  String _idReal = '';
+  String? _profileError;
+  static const _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+
+  static const labels = [
+    'Inicio',
+    'Macro eventos',
+    'Usuarios',
+    'Verificar folios',
+    'Mi perfil',
+  ];
+
+  static const icons = [
+    Icons.home_outlined,
+    Icons.event_outlined,
+    Icons.people_outline,
+    Icons.verified_user_outlined,
+    Icons.person_outline,
+  ];
+
   @override
   void initState() {
     super.initState();
-    store = AdminStore(adminName: widget.nombre, adminEmail: widget.correo,
-      adminId: widget.id);
+
+    store = AdminStore(
+      adminName: widget.nombre,
+      adminEmail: widget.correo,
+      adminId: widget.id,
+    );
+    _nombreReal = widget.nombre;
+    _loadHeaderProfile();
   }
+
   @override
-  void dispose() { store.dispose(); super.dispose(); }
-  void navigate(int index) => setState(() => selected = index);
+  void dispose() {
+    store.dispose();
+    super.dispose();
+  }
+
+  void navigate(int index) {
+    // Compatibilidad con accesos antiguos al perfil, antes en índice 5.
+    final destination = index == 5 ? 4 : index;
+
+    if (!mounted ||
+        destination < 0 ||
+        destination >= labels.length) {
+      return;
+    }
+
+    final previous = selected;
+    setState(() => selected = destination);
+    if (previous == 4 || destination == 4) _loadHeaderProfile();
+  }
+
   Future<void> logout() async {
-    if (loggingOut || widget.onLogout == null) return;
+    if (loggingOut) return;
+
     setState(() => loggingOut = true);
-    try { await widget.onLogout!(); }
-    catch (_) { if (mounted) adminMessage(context, 'No se pudo cerrar la sesión.'); }
-    finally { if (mounted) setState(() => loggingOut = false); }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      await prefs.remove('jwt_token');
+      await prefs.remove('user_rol');
+
+      if (prefs.containsKey('jwt_token') ||
+          prefs.containsKey('user_rol')) {
+        throw Exception('No se pudo eliminar la sesión guardada.');
+      }
+
+      try {
+        await GoogleSignIn.instance
+            .signOut()
+            .timeout(const Duration(seconds: 10));
+      } catch (error) {
+        debugPrint('No se pudo cerrar la sesión de Google: $error');
+      }
+
+      // Conserva cualquier limpieza adicional configurada por el proyecto.
+      final callback = widget.onLogout;
+
+      if (callback != null) {
+        try {
+          await callback().timeout(const Duration(seconds: 10));
+        } catch (error) {
+          debugPrint('Error en la limpieza adicional de sesión: $error');
+        }
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const AccessScreen(),
+        ),
+        (route) => false,
+      );
+    } catch (error) {
+      debugPrint('Error al cerrar sesión: $error');
+
+      if (!mounted) return;
+
+      adminMessage(
+        context,
+        'No se pudo cerrar la sesión. Inténtalo nuevamente.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => loggingOut = false);
+      }
+    }
   }
+
   @override
-  Widget build(BuildContext context) => Theme(data: AdminStyle.theme,
-    child: AnimatedBuilder(animation: store, builder: (context, _) {
-      return LayoutBuilder(builder: (context, constraints) {
-        final mobile = constraints.maxWidth < 700;
-        final compact = constraints.maxWidth < 1150;
-        return Scaffold(
-          appBar: mobile ? AppBar(title: const Text('Comunidad UNIX ITC'),
-            actions: [profileMenu()]) : null,
-          drawer: mobile ? Drawer(backgroundColor: AdminStyle.surface,
-            child: sidebar(false, closeDrawer: true)) : null,
-          body: SafeArea(child: Row(children: [
-            if (!mobile) SizedBox(width: compact ? 82 : 226,
-              child: sidebar(compact)),
-            Expanded(child: Column(children: [
-              if (!mobile) Container(height: 70,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                color: AdminStyle.surface,
-                child: Row(children: [const Expanded(child: Text(
-                  'Comunidad UNIX ITC', style: TextStyle(fontWeight: FontWeight.bold))),
-                  Flexible(child: Text(store.adminName, overflow: TextOverflow.ellipsis)),
-                  const SizedBox(width: 8), profileMenu()])),
-              Expanded(child: SingleChildScrollView(
-                padding: EdgeInsets.all(mobile ? 16 : 26),
-                child: Center(child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1400),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [Text(selected == 0 ? 'Panel de administración' : labels[selected],
-                      style: TextStyle(fontSize: mobile ? 25 : 30,
-                        fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 6),
-                      const Text('Demostración local · Los cambios no se guardan en el servidor',
-                        style: TextStyle(color: AdminStyle.muted, fontSize: 12)),
-                      const SizedBox(height: 24),
-                      // Mantiene el estado de búsqueda y filtros al cambiar de sección.
-                      Column(children: [
-                        for (final entry in <Widget>[
-                        AdminInicioPage(store: store, onNavigate: navigate),
-                        AdminMacroeventosPage(store: store),
-                        AdminUsuariosPage(store: store),
-                        AdminFoliosPage(store: store),
-                        AdminPerfilPage(store: store, onLogout: widget.onLogout == null
-                          ? null : logout, loggingOut: loggingOut),
-                        ].asMap().entries) Visibility(
-                          visible: entry.key == selected, maintainState: true,
-                          child: entry.value),
-                      ]),
-                    ]))),
-              )),
-            ])),
-          ])),
-          bottomNavigationBar: mobile ? NavigationBar(
-            backgroundColor: AdminStyle.surface,
-            selectedIndex: selected <= 2 ? selected : 3,
-            onDestinationSelected: (index) {
-              if (index < 3) { navigate(index); } else { showMore(); }
-            }, destinations: const [
-              NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Inicio'),
-              NavigationDestination(icon: Icon(Icons.event_outlined), label: 'Eventos'),
-              NavigationDestination(icon: Icon(Icons.people_outline), label: 'Usuarios'),
-              NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Más'),
-            ]) : null,
-        );
+  Widget build(BuildContext context) {
+    return Theme(
+      data: AdminStyle.theme,
+      child: AnimatedBuilder(
+        animation: store,
+        builder: (context, _) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final mobile = constraints.maxWidth < 700;
+              final compact = constraints.maxWidth < 1150;
+
+              return Scaffold(
+                appBar: mobile
+                    ? PreferredSize(
+                        preferredSize: const Size.fromHeight(136),
+                        child: SafeArea(bottom: false, child: _buildAccountBar(mobile: true)),
+                      )
+                    : null,
+                drawer: mobile
+                    ? Drawer(
+                        backgroundColor: AdminStyle.surface,
+                        child: sidebar(false, closeDrawer: true),
+                      )
+                    : null,
+                body: SafeArea(
+                  child: Row(
+                    children: [
+                      if (!mobile)
+                        SizedBox(
+                          width: compact ? 82 : 226,
+                          child: sidebar(compact),
+                        ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            if (!mobile)
+                              _buildAccountBar(mobile: false),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                padding: EdgeInsets.all(mobile ? 16 : 26),
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 1400,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          selected == 0
+                                              ? 'Panel de administración'
+                                              : labels[selected],
+                                          style: TextStyle(
+                                            fontSize: mobile ? 25 : 30,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'Algunas secciones contienen '
+                                          'datos de demostración.',
+                                          style: TextStyle(
+                                            color: AdminStyle.muted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        Column(
+                                          children: [
+                                            for (final entry in <Widget>[
+                                              AdminInicioPage(
+                                                store: store,
+                                                onNavigate: navigate,
+                                              ),
+                                              AdminMacroeventosPage(
+                                                store: store,
+                                              ),
+                                              AdminUsuariosPage(
+                                                store: store,
+                                              ),
+                                              AdminFoliosPage(
+                                                store: store,
+                                              ),
+                                              AdminPerfilPage(
+                                                store: store,
+                                                onLogout: logout,
+                                                loggingOut: loggingOut,
+                                              ),
+                                            ].asMap().entries)
+                                              Visibility(
+                                                visible:
+                                                    entry.key == selected,
+                                                maintainState: true,
+                                                child: entry.value,
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                bottomNavigationBar: mobile
+                    ? NavigationBar(
+                        backgroundColor: AdminStyle.surface,
+                        selectedIndex: selected <= 2 ? selected : 3,
+                        onDestinationSelected: (index) {
+                          if (index < 3) {
+                            navigate(index);
+                          } else {
+                            showMore();
+                          }
+                        },
+                        destinations: const [
+                          NavigationDestination(
+                            icon: Icon(Icons.home_outlined),
+                            label: 'Inicio',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.event_outlined),
+                            label: 'Eventos',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.people_outline),
+                            label: 'Usuarios',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.more_horiz),
+                            label: 'Más',
+                          ),
+                        ],
+                      )
+                    : null,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+
+  Future<void> _loadHeaderProfile() async {
+    if (_loadingProfile || loggingOut) return;
+    _loadingProfile = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token');
+      if (token == null || token.trim().isEmpty) {
+        throw Exception('No hay una sesión guardada.');
+      }
+      final response = await http.get(Uri.parse(_perfilUrl), headers: {
+        'Authorization': 'Bearer $token', 'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw Exception('No se pudo cargar el perfil (${response.statusCode}).');
+      }
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data is! Map) throw Exception('Respuesta de perfil inesperada.');
+      if (!mounted || loggingOut) return;
+      setState(() {
+        final nombre = data['nombre_completo']?.toString().trim() ?? '';
+        if (nombre.isNotEmpty) _nombreReal = nombre;
+        // La matrícula/ID del perfil es distinta del ID numérico interno.
+        _idReal = data['numero_control']?.toString().trim() ?? '';
+        _profileError = null;
       });
-    }));
-  Widget profileMenu() => PopupMenuButton<int>(
-    tooltip: 'Opciones de cuenta',
-    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-    onSelected: (value) { if (value == 0) { navigate(5); } else { logout(); } },
-    itemBuilder: (_) => [const PopupMenuItem(value: 0, child: Text('Mi perfil')),
-      PopupMenuItem(value: 1, enabled: widget.onLogout != null && !loggingOut,
-        child: Text(loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'))]);
-  Widget sidebar(bool compact, {bool closeDrawer = false}) => Container(
-    color: AdminStyle.surface,
-    child: SafeArea(child: Column(children: [
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
-        child: compact ? const Icon(Icons.terminal, color: AdminStyle.orange, size: 32)
-          : const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('UNIX ITC', style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8), AdminBadge('Super Admin', color: AdminStyle.green)])),
-      Expanded(child: ListView.builder(itemCount: labels.length,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Tooltip(message: labels[index], child: ListTile(
-            selected: index == selected,
-            selectedColor: AdminStyle.orange,
-            selectedTileColor: AdminStyle.orange.withAlpha(24),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            leading: Icon(icons[index]), title: compact ? null : Text(labels[index]),
-            onTap: () { navigate(index); if (closeDrawer) Navigator.of(context).pop(); },
-          ))))),
-    ])));
+    } catch (error) {
+      if (mounted && !loggingOut) {
+        setState(() => _profileError = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
+
+  Future<void> _buscarSecciones(String query) async {
+    final texto = query.trim().toLowerCase();
+    if (texto.isEmpty) return;
+    final resultados = labels.asMap().entries.where(
+      (entry) => entry.value.toLowerCase().contains(texto)).toList();
+    final destino = await showDialog<int>(context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AdminStyle.card,
+        title: const Text('Buscar sección'),
+        content: SizedBox(width: 400, child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: resultados.isEmpty
+              ? [const Text('No se encontraron secciones con ese nombre.')]
+              : resultados.map((entry) => ListTile(
+                  leading: Icon(icons[entry.key]), title: Text(entry.value),
+                  onTap: () => Navigator.pop(dialogContext, entry.key),
+                )).toList(),
+        )),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar'))],
+      ));
+    if (mounted && destino != null) navigate(destino);
+  }
+
+  Widget _buildAccountBar({required bool mobile}) => UnixAccountBar(
+    nombre: _nombreReal,
+    rol: 'Super Admin',
+    identificador: _idReal,
+    profileError: _profileError,
+    leading: mobile ? Builder(builder: (scaffoldContext) => IconButton(
+      tooltip: 'Abrir menú', icon: const Icon(Icons.menu, color: AdminStyle.muted),
+      onPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
+    )) : null,
+    onProfile: () => navigate(4),
+    onNotifications: () => adminMessage(context, 'No hay un servicio de notificaciones conectado.'),
+    accountMenu: profileMenu(),
+    search: TextField(
+      onSubmitted: _buscarSecciones,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      decoration: InputDecoration(
+        hintText: 'Buscar secciones: usuarios, eventos o folios...',
+        hintStyle: const TextStyle(color: AdminStyle.muted, fontSize: 12),
+        prefixIcon: const Icon(Icons.search_rounded, color: AdminStyle.muted, size: 20),
+        isDense: true, filled: true, fillColor: AdminStyle.background,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AdminStyle.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AdminStyle.border)),
+      ),
+    ),
+  );
+
+  Widget profileMenu() {
+    return PopupMenuButton<int>(
+      enabled: !loggingOut,
+      tooltip: 'Opciones de cuenta',
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AdminStyle.muted),
+      onSelected: (value) async {
+        if (value == 0) {
+          navigate(4);
+        } else if (value == 2) {
+          await _loadHeaderProfile();
+        } else if (value == 1) {
+          await logout();
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem<int>(
+          value: 2,
+          enabled: !_loadingProfile,
+          child: const Text('Actualizar datos'),
+        ),
+        const PopupMenuItem<int>(
+          value: 0,
+          child: Text('Mi perfil'),
+        ),
+        PopupMenuItem<int>(
+          value: 1,
+          enabled: !loggingOut,
+          child: Row(
+            children: [
+              const Icon(Icons.logout_rounded, size: 19),
+              const SizedBox(width: 10),
+              Text(
+                loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget sidebar(bool compact, {bool closeDrawer = false}) {
+    return Container(
+      color: AdminStyle.surface,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 24,
+              ),
+              child: compact
+                  ? const Icon(
+                      Icons.terminal,
+                      color: AdminStyle.orange,
+                      size: 32,
+                    )
+                  : const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'UNIX ITC',
+                          style: TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        AdminBadge(
+                          'Super Admin',
+                          color: AdminStyle.green,
+                        ),
+                      ],
+                    ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: labels.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Tooltip(
+                      message: labels[index],
+                      child: ListTile(
+                        selected: index == selected,
+                        selectedColor: AdminStyle.orange,
+                        selectedTileColor: AdminStyle.orange.withAlpha(24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        leading: Icon(icons[index]),
+                        title: compact ? null : Text(labels[index]),
+                        onTap: () {
+                          if (closeDrawer) {
+                            Navigator.of(context).pop();
+                          }
+                          navigate(index);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void showMore() {
-    showModalBottomSheet<void>(context: context,
-      backgroundColor: AdminStyle.surface, builder: (sheet) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (final index in [3, 4, 5]) ListTile(leading: Icon(icons[index]),
-            title: Text(labels[index]), onTap: () {
-              Navigator.pop(sheet); navigate(index);
-            }),
-        ])));
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AdminStyle.surface,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final index in [3, 4])
+                ListTile(
+                  leading: Icon(icons[index]),
+                  title: Text(labels[index]),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    navigate(index);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

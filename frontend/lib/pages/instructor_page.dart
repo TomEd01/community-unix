@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'widgets/unix_account_bar.dart';
 import 'alumno/alumno_eventos_page.dart';
 import 'instructor/instructor_perfil_page.dart';
 import 'instructor/instructor_horarios_page.dart';
@@ -35,6 +36,8 @@ class _InstructorPageState extends State<InstructorPage> {
 
   String _query = '';
   String _primerNombre = 'profesor';
+  String _nombreCompleto = '';
+  String _numeroControl = '';
 
   bool _loggingOut = false;
   bool _loadingName = false;
@@ -170,6 +173,8 @@ class _InstructorPageState extends State<InstructorPage> {
       if (!mounted || nombreCompleto.isEmpty) return;
 
       setState(() {
+        _nombreCompleto = nombreCompleto;
+        _numeroControl = data['numero_control']?.toString().trim() ?? '';
         _primerNombre = nombreCompleto.split(RegExp(r'\s+')).first;
       });
     } catch (error) {
@@ -251,7 +256,6 @@ class _InstructorPageState extends State<InstructorPage> {
                                         ),
                                       ),
                                       const SizedBox(height: 20),
-                                      _buildSearch(),
                                     ],
                                     const SizedBox(height: 20),
                                   ],
@@ -374,123 +378,77 @@ class _InstructorPageState extends State<InstructorPage> {
   // BARRA SUPERIOR Y OPCIONES
   // ============================================================
 
-  Widget _buildTopBar(bool mobile) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 24,
-        vertical: 12,
+ Widget _buildTopBar(bool mobile) {
+  return UnixAccountBar(
+    nombre: _nombreCompleto.isEmpty ? _primerNombre : _nombreCompleto,
+    rol: 'Instructor',
+    identificador: _numeroControl,
+    search: _buildSearch(),
+    onProfile: () => _navigate(4),
+    onNotifications: _showRequests,
+    notificationsTooltip: 'Solicitudes locales',
+    accountMenu: PopupMenuButton<String>(
+      tooltip: 'Opciones de cuenta',
+      enabled: !_loggingOut,
+      color: sidebar,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: muted,
       ),
-      decoration: const BoxDecoration(
-        color: sidebar,
-        border: Border(bottom: BorderSide(color: border)),
-      ),
-      child: Row(
-        children: [
-          if (mobile)
-            const Text('🐧 ', style: TextStyle(fontSize: 25)),
-          const Expanded(
-            child: Text(
-              'Comunidad UNIX ITC',
-              style: TextStyle(
+      onSelected: (value) {
+        switch (value) {
+          case 'profile':
+            _navigate(4);
+            break;
+
+          case 'refresh':
+            setState(() {
+              _profileVersion++;
+            });
+            _cargarNombre(mostrarError: true);
+            break;
+
+          case 'logout':
+            _logout();
+            break;
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem<String>(
+          value: 'profile',
+          child: Text(
+            'Mi perfil',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'refresh',
+          child: Text(
+            'Actualizar datos',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(
+                Icons.logout_rounded,
                 color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
+                size: 19,
               ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Solicitudes locales',
-            onPressed: _showRequests,
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              color: muted,
-            ),
-          ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => _navigate(4),
-            borderRadius: BorderRadius.circular(20),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundColor: card,
-              child: Icon(Icons.person, color: Colors.white),
-            ),
-          ),
-          if (!mobile) ...[
-            const SizedBox(width: 10),
-            const Text(
-              'Profesor\nInstructor',
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ],
-          const SizedBox(width: 6),
-          PopupMenuButton<String>(
-            tooltip: 'Opciones de cuenta',
-            enabled: !_loggingOut,
-            color: sidebar,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: muted,
-            ),
-            onSelected: (value) {
-              switch (value) {
-                case 'profile':
-                  _navigate(4);
-                  break;
-
-                case 'refresh':
-                  setState(() {
-                    _selected = 4;
-                    _profileVersion++;
-                    _query = '';
-                    _searchController.clear();
-                  });
-                  _cargarNombre(mostrarError: true);
-                  break;
-
-                case 'logout':
-                  _logout();
-                  break;
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem<String>(
-                value: 'profile',
-                child: Text(
-                  'Mi perfil',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'refresh',
-                child: Text(
-                  'Actualizar datos',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      color: Colors.white,
-                      size: 19,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Cerrar sesión',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
+              SizedBox(width: 10),
+              Text(
+                'Cerrar sesión',
+                style: TextStyle(color: Colors.white),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // NAVEGACIÓN MÓVIL
@@ -498,7 +456,7 @@ class _InstructorPageState extends State<InstructorPage> {
 
   Widget _buildBottomBar() {
     return BottomNavigationBar(
-      backgroundColor: sidebar,
+      backgroundColor: const Color.fromARGB(255, 130, 146, 161),
       type: BottomNavigationBarType.fixed,
       selectedItemColor: orange,
       unselectedItemColor: muted,
