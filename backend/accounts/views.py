@@ -252,7 +252,7 @@ class MiPerfilView(APIView):
                 alumno = Alumno.objects.get(usuario=user)
                 alumno.procedencia = procedencia_final or alumno.procedencia
                 alumno.save()
-            elif user.rol == 'Instructor':
+            elif rol == 'Instructor':
                 instructor = Instructor.objects.get(usuario=user)
                 # Si algún campo no viene en la petición o viene vacío, mantengo el valor actual del instructor
                 instructor.procedencia = procedencia_final or instructor.procedencia
@@ -266,7 +266,7 @@ class MiPerfilView(APIView):
                     instructor.grado_academico = grado_seleccion
 
                 instructor.save()
-            elif user.rol == 'Externo':
+            elif rol == 'Externo':
                 externo = Externo.objects.get(usuario=user)
                 
                 tipo_exp_enviada = limpiar_texto('tipo_experiencia')
