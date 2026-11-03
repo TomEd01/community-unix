@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -53,9 +53,9 @@ class GoogleLoginView(generics.CreateAPIView):
 
             # Verifico si el usuario realmente completó su registro en alguna de las tablas de rol
             tiene_perfil = (
-                Alumno.objects.filter(usuario=user).exists() or
-                Instructor.objects.filter(usuario=user).exists() or
-                Externo.objects.filter(usuario=user).exists()
+                Alumno.objects.filter(usuario=user).exclude(numero_control='').exists() or
+                Instructor.objects.filter(usuario=user).exclude(numero_control='').exists() or
+                Externo.objects.filter(usuario=user).exclude(numero_control='').exists()
             )
             # Si es nuevo o dejó el formulario a medias anteriormente, lo envío al onboarding
             necesita_onboarding = created or not tiene_perfil
@@ -97,68 +97,77 @@ class CompletarPerfilView(APIView):
         """
         user = request.user
 
-        # Resolvemos el nombre modificado
-        nuevo_nombre = safe_data.get('nombre_completo')
-        if nuevo_nombre:
-            user.nombre_completo = nuevo_nombre
-        
-        # Actualizamos el rol definitivo en su registro principal
-        user.rol = rol
-        user.save()
+        # Limpio el número de control y exijo que Alumno e Instructor envíen un ID real antes de tocar la BD
+        num_control_limpio = (safe_data.get('numero_control') or '').strip()
+        if rol in ['Alumno', 'Instructor'] and not num_control_limpio:
+            return Response(
+                {"error": "El número de control o ID es obligatorio para completar el registro."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Lógica de procedencia (aplica para alumno e instructor)
         procedencia_seleccion = safe_data.get('procedencia')
         # Si el combobox dice "Otra institución", guardamos lo que escribió en el campo extra
         if procedencia_seleccion == 'Otra institución':
-            procedencia_final = safe_data.get('nombre_institucion', 'No especificada')
+            procedencia_final = (safe_data.get('nombre_institucion') or '').strip() or 'No especificada'
         else:
             procedencia_final = procedencia_seleccion
 
         # Guardo en base de datos usando defaults para evitar asignación masiva y capturo matrículas duplicadas
         try:
-            if rol == 'Alumno':
-                Alumno.objects.update_or_create(
-                    usuario=user,
-                    defaults={
-                        'numero_control': safe_data.get('numero_control'),
-                        'procedencia': procedencia_final
-                    }
-                )
-            
-            elif rol == 'Instructor':
-                # Resuelvo la lógica dinámica para el grado académico
-                grado_seleccion = safe_data.get('grado_academico')
-                if grado_seleccion == 'Otro':
-                    grado_final = safe_data.get('especifica_grado', 'No especificado')
-                else:
-                    grado_final = grado_seleccion
-                Instructor.objects.update_or_create(
-                    usuario=user,
-                    defaults={
-                        'numero_control': safe_data.get('numero_control'),
-                        'procedencia': procedencia_final,
-                        'departamento': safe_data.get('departamento'),
-                        'especialidad': safe_data.get('especialidad'),
-                        'grado_academico': grado_final
-                    }
-                )
+            # Uso transaction.atomic() para que user.save() y el perfil de rol se guarden juntos o no se guarde nada
+            with transaction.atomic():
+                if rol == 'Alumno':
+                    Alumno.objects.update_or_create(
+                        usuario=user,
+                        defaults={
+                            'numero_control': safe_data.get('numero_control'),
+                            'procedencia': procedencia_final
+                        }
+                    )
                 
-            elif rol == 'Externo':
-                tipo_exp = safe_data.get('tipo_experiencia')
-                # Si es experiencia propia, asigno el valor por defecto
-                if tipo_exp == 'Experiencia propia':
-                    org_final = 'Independiente / Autodidacta'
+                elif rol == 'Instructor':
+                    # Resuelvo la lógica dinámica para el grado académico
+                    grado_seleccion = (safe_data.get('grado_academico') or '').strip()
+                    if grado_seleccion == 'Otro':
+                        grado_final = (safe_data.get('especifica_grado') or '').strip() or 'No especificado'
+                    else:
+                        grado_final = grado_seleccion
+
+                    Instructor.objects.update_or_create(
+                        usuario=user,
+                        defaults={
+                            'numero_control': num_control_limpio,
+                            'procedencia': procedencia_final,
+                            'departamento': (safe_data.get('departamento') or '').strip(),
+                            'especialidad': (safe_data.get('especialidad') or '').strip(),
+                            'grado_academico': grado_final
+                        }
+                    )
+                    
+                elif rol == 'Externo':
+                    tipo_exp = (safe_data.get('tipo_experiencia') or '').strip()
+                    # Si es experiencia propia, asigno el valor por defecto
+                    if tipo_exp == 'Experiencia propia':
+                        org_final = 'Independiente / Autodidacta'
+                    else:
+                        org_final = (safe_data.get('organizacion') or '').strip()
+
+                    Externo.objects.update_or_create(
+                        usuario=user,
+                        defaults={
+                            'tipo_experiencia': tipo_exp,
+                            'organizacion': org_final
+                        }
+                    )
                 else:
-                    org_final = safe_data.get('organizacion')
-                Externo.objects.update_or_create(
-                    usuario=user,
-                    defaults={
-                        'tipo_experiencia': tipo_exp,
-                        'organizacion': org_final
-                    }
-                )
-            else:
-                return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "Rol inválido"}, status=status.HTTP_400_BAD_REQUEST)
+                # Solo cuando el perfil con su ID se guardó sin errores, actualizo y guardo el Usuario principal
+                nuevo_nombre = (safe_data.get('nombre_completo') or '').strip()
+                if nuevo_nombre:
+                    user.nombre_completo = nuevo_nombre
+                user.rol = rol
+                user.save()
         except IntegrityError:
             # Capturo el error si intentan registrar un número de control que ya pertenece a otra cuenta
             return Response(
@@ -213,47 +222,70 @@ class MiPerfilView(APIView):
             return Response({"error": "Perfil detallado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         return Response(data, status=status.HTTP_200_OK)
     def patch(self, request):
-        # Recibe solo los datos que el usuario modifico y los guarda con la capa de seguridad
+        # Identifico al usuario autenticado y su rol actual desde el token JWT
         user = request.user
+        rol = user.rol.capitalize() if isinstance(user.rol, str) else user.rol
+        # Recibe solo los datos que el usuario modifico y los guarda con la capa de seguridad
         serializer = PerfilUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         safe_data = serializer.validated_data
-        # Actualizamos el nombre base si lo enviaron
-        if 'nombre_completo' in safe_data:
-            user.nombre_completo = safe_data['nombre_completo']
+
+        # Función auxiliar con la que limpio espacios en blanco antes de evaluar si el dato es válido
+        def limpiar_texto(campo):
+            valor = safe_data.get(campo)
+            return valor.strip() if isinstance(valor, str) else None
+
+        # Actualizo mi nombre_completo solo si fue enviado con texto real (sin puros espacios)
+        nuevo_nombre = limpiar_texto('nombre_completo')
+        if nuevo_nombre:
+            user.nombre_completo = nuevo_nombre
             user.save()
-        # Resolvemos procedencia dinámica (Igual que en el registro)
-        procedencia_seleccion = safe_data.get('procedencia')
-        if procedencia_seleccion == 'Otra institución':
-            procedencia_final = safe_data.get('nombre_institucion', 'No especificada')
+        # Resuelvo la procedencia solo si enviaron ese campo o el nombre de la institución en la petición
+        procedencia_seleccion = limpiar_texto('procedencia')
+        if procedencia_seleccion == 'Otra institución' or (not procedencia_seleccion and limpiar_texto('nombre_institucion')):
+            procedencia_final = limpiar_texto('nombre_institucion')
         else:
             procedencia_final = procedencia_seleccion
+        # Actualizo según el rol conservando mis datos actuales en la BD como respaldo
         try:
-            if user.rol == 'Alumno':
+            if rol == 'Alumno':
                 alumno = Alumno.objects.get(usuario=user)
-                if procedencia_seleccion:
-                    alumno.procedencia = procedencia_final
+                alumno.procedencia = procedencia_final or alumno.procedencia
                 alumno.save()
-            elif user.rol == 'Instructor':
+            elif rol == 'Instructor':
                 instructor = Instructor.objects.get(usuario=user)
-                if procedencia_seleccion:
-                    instructor.procedencia = procedencia_final
-                if 'departamento' in safe_data: instructor.departamento = safe_data['departamento']
-                if 'especialidad' in safe_data: instructor.especialidad = safe_data['especialidad']
-                
-                grado_seleccion = safe_data.get('grado_academico')
-                if grado_seleccion:
-                    instructor.grado_academico = safe_data.get('especifica_grado', 'No especificado') if grado_seleccion == 'Otro' else grado_seleccion
+                # Si algún campo no viene en la petición o viene vacío, mantengo el valor actual del instructor
+                instructor.procedencia = procedencia_final or instructor.procedencia
+                instructor.departamento = limpiar_texto('departamento') or instructor.departamento
+                instructor.especialidad = limpiar_texto('especialidad') or instructor.especialidad
+
+                grado_seleccion = limpiar_texto('grado_academico')
+                if grado_seleccion == 'Otro' or (not grado_seleccion and limpiar_texto('especifica_grado')):
+                    instructor.grado_academico = limpiar_texto('especifica_grado') or instructor.grado_academico
+                elif grado_seleccion:
+                    instructor.grado_academico = grado_seleccion
+
                 instructor.save()
-            elif user.rol == 'Externo':
+            elif rol == 'Externo':
                 externo = Externo.objects.get(usuario=user)
-                tipo_exp = safe_data.get('tipo_experiencia')
-                if tipo_exp:
-                    externo.tipo_experiencia = tipo_exp
-                    externo.organizacion = 'Independiente / Autodidacta' if tipo_exp == 'Experiencia propia' else safe_data.get('organizacion', externo.organizacion)
+                
+                tipo_exp_enviada = limpiar_texto('tipo_experiencia')
+                org_enviada = limpiar_texto('organizacion')
+                # Si me envían explícitamente 'Experiencia propia', limpio la organización por defecto
+                if tipo_exp_enviada == 'Experiencia propia':
+                    externo.tipo_experiencia = 'Experiencia propia'
+                    externo.organizacion = 'Independiente / Autodidacta'
+                # Si me envían una organización nueva (aunque no manden tipo_experiencia en el PATCH), la actualizo
+                elif org_enviada:
+                    externo.tipo_experiencia = tipo_exp_enviada or 'Trabajo en el sector'
+                    externo.organizacion = org_enviada
+                # Si solo cambiaron el tipo de experiencia sin mandar organización nueva, conservo la actual
+                elif tipo_exp_enviada:
+                    externo.tipo_experiencia = tipo_exp_enviada
+
                 externo.save()
         except (Alumno.DoesNotExist, Instructor.DoesNotExist, Externo.DoesNotExist):
-            return Response({"error": "No se pudo actualizar el perfil detallado"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No se pudo actualizar el perfil detallado"}, status=status.HTTP_404_BAD_REQUEST)
         return Response({
             "mensaje": "Perfil actualizado correctamente",
             "nombre_actualizado": user.nombre_completo
@@ -412,7 +444,7 @@ class CatalogoProfesoresView(APIView):
             if bloques:
                 catalogo.append({
                     "instructor_id": inst.id,
-                    "nombre_instructor": inst.usuario.nombre_completo,
+                    "nombre_profesor": inst.usuario.nombre_completo,
                     "email": inst.usuario.email,
                     "numero_control": inst.numero_control,
                     "departamento": inst.departamento,
