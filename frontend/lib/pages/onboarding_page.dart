@@ -68,6 +68,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   bool submitting = false;
 
+  String? registrationError;
+  bool controlNumberError = false;
+
+  final controlNumberFocus = FocusNode();
+  final registrationErrorKey = GlobalKey();
+
+  void showRegistrationError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final errorContext = registrationErrorKey.currentContext;
+      if (errorContext != null) {
+        Scrollable.ensureVisible(
+          errorContext,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.15,
+        );
+      }
+    });
+  }
+
+  void reviewControlNumber() {
+    controlNumberFocus.requestFocus();
+
+    controlNumberController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controlNumberController.text.length,
+    );
+  }
+
   // Inicio el nombre con el dato de Google, pero lo dejo editable; más abajo
   // libero todos los controladores cuando Flutter retira esta pantalla.
   @override
@@ -85,6 +115,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     otherDegreeController.dispose();
     otherInstitutionController.dispose();
     organizationController.dispose();
+    controlNumberFocus.dispose();
     super.dispose();
   }
 
@@ -101,6 +132,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void selectRole(UserRole selectedRole) {
     setState(() {
       role = selectedRole;
+      registrationError = null;
+      controlNumberError = false;
       if (role != UserRole.externo) externalExperience = null;
     });
   }
@@ -108,6 +141,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   // Coordino la validación, la creación del payload, la petición al backend
   // y la navegación que ocurre cuando el perfil queda registrado.
   Future<void> completeRegistration() async {
+    if (submitting) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
     // Valido los campos visibles antes de iniciar la petición para evitar
@@ -117,14 +151,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
     // La experiencia externa no es un campo de texto del Form, por eso
     // compruebo explícitamente que se haya elegido una de sus dos opciones.
     if (role == UserRole.externo && externalExperience == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Selecciona tu tipo de experiencia.')),
-      );
+      setState(() {
+        registrationError = 'Selecciona tu tipo de experiencia.';
+        controlNumberError = false;
+      });
+      showRegistrationError();
       return;
     }
 
     // Bloqueo el botón y muestro el estado de carga mientras espero respuesta.
-    setState(() => submitting = true);
+    setState(() {
+      submitting = true;
+      registrationError = null;
+      controlNumberError = false;
+    });
 
     try {
       // Incluyo primero los datos compartidos por todos los perfiles y uso
@@ -212,14 +252,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(mensaje),
-              backgroundColor: UnixColors.adapt(Color(0xFFFF6577)),
-            ),
-          );
+        final normalizedMessage = mensaje.toLowerCase();
+        final isControlError =
+            role != UserRole.externo &&
+            (normalizedMessage.contains('control') ||
+                normalizedMessage.contains('matrícula') ||
+                normalizedMessage.contains('matricula') ||
+                RegExp(r'\bid\b').hasMatch(normalizedMessage));
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        setState(() {
+          registrationError = mensaje;
+          controlNumberError = isControlError;
+        });
+        showRegistrationError();
 
         return;
       }
@@ -260,12 +306,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error de red: $error'),
-          backgroundColor: UnixColors.adapt(Color(0xFFFF6577)),
-        ),
-      );
+      setState(() {
+        registrationError =
+            'No se pudo conectar con el servidor. Intenta nuevamente.';
+        controlNumberError = false;
+      });
+      showRegistrationError();
     } finally {
       // Muestro los fallos de red sin perder el formulario que ya completó.
       if (mounted) setState(() => submitting = false);
@@ -278,6 +324,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return InputDecoration(
       // Defino la decoración común de los campos para que sus estados normal,
       // enfocado y con error mantengan una apariencia coherente.
+      hintText: hint,
       hintStyle: TextStyle(color: textSecondary, fontSize: 16),
       filled: true,
       fillColor: fieldColor,
@@ -430,15 +477,41 @@ class _OnboardingPageState extends State<OnboardingPage> {
     required String hint,
     required TextEditingController controller,
   }) {
+    final isControlNumber = controller == controlNumberController;
+    final hasError = isControlNumber && controlNumberError;
+    final errorColor = Theme.of(context).colorScheme.error;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         sectionLabel(label),
         TextFormField(
           controller: controller,
+          focusNode: isControlNumber ? controlNumberFocus : null,
           validator: requiredValidator,
           style: TextStyle(color: textPrimary, fontSize: 16),
-          decoration: inputDecoration(hint),
+          onChanged: isControlNumber
+              ? (_) {
+                  if (controlNumberError) {
+                    setState(() {
+                      registrationError = null;
+                      controlNumberError = false;
+                    });
+                  }
+                }
+              : null,
+          decoration: inputDecoration(hint).copyWith(
+            enabledBorder: hasError
+                ? UnderlineInputBorder(
+                    borderSide: BorderSide(color: errorColor, width: 2),
+                  )
+                : null,
+            focusedBorder: hasError
+                ? UnderlineInputBorder(
+                    borderSide: BorderSide(color: errorColor, width: 2),
+                  )
+                : null,
+          ),
         ),
       ],
     );
@@ -527,6 +600,58 @@ class _OnboardingPageState extends State<OnboardingPage> {
             Text(title, style: TextStyle(color: textPrimary, fontSize: 16)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget registrationErrorNotice() {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      key: registrationErrorKey,
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.error),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_rounded, color: colors.error, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No pudimos completar tu registro',
+                  style: TextStyle(
+                    color: colors.onErrorContainer,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  registrationError ?? '',
+                  style: TextStyle(
+                    color: colors.onErrorContainer,
+                    fontSize: 13,
+                  ),
+                ),
+                if (controlNumberError) ...[
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: reviewControlNumber,
+                    child: const Text('Revisar ID'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -717,7 +842,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             // Conservo editable el nombre recibido durante el acceso.
             textField(
-              label: 'Nombre completo (Editable)',
+              label: 'Nombre completo',
               hint: 'Tu nombre completo',
               controller: nameController,
             ),
@@ -747,6 +872,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
             SizedBox(height: 34),
             // Cambio los campos visibles de acuerdo con el perfil seleccionado.
+            if (registrationError != null) ...[
+              registrationErrorNotice(),
+              const SizedBox(height: 20),
+            ],
+
             roleFields(),
             SizedBox(height: 34),
 

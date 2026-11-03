@@ -294,8 +294,9 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
     final ocupado = _guardando || _consultando || _cargandoCatalogo;
     final resultados = _profesores
         .where(
-          (p) =>
-              '${p['nombre_profesor'] ?? ''}'.toLowerCase().contains(_busqueda),
+          (p) => '${p['nombre_instructor'] ?? ''}'.toLowerCase().contains(
+            _busqueda,
+          ),
         )
         .toList();
     // Conserva la selección aunque el alumno cambie el texto de búsqueda.
@@ -411,6 +412,67 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
             onChanged: (v) =>
                 setState(() => _busqueda = v.trim().toLowerCase()),
           ),
+          if (_busqueda.isNotEmpty &&
+              !_cargandoCatalogo &&
+              _errorCatalogo == null)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              constraints: const BoxConstraints(maxHeight: 220),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: resultados.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'No se encontraron instructores.',
+                        style: TextStyle(color: _muted),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      primary: false,
+                      padding: EdgeInsets.zero,
+                      itemCount: resultados.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, color: _border),
+                      itemBuilder: (context, index) {
+                        final profesor = resultados[index];
+                        final nombre = '${profesor['nombre_instructor'] ?? ''}';
+                        final departamento =
+                            '${profesor['departamento'] ?? ''}';
+                        return ListTile(
+                          enabled: !ocupado,
+                          leading: Icon(Icons.school_outlined, color: _orange),
+                          title: Text(
+                            nombre,
+                            style: TextStyle(color: UnixColors.text),
+                          ),
+                          subtitle: departamento.isEmpty
+                              ? null
+                              : Text(
+                                  departamento,
+                                  style: TextStyle(color: _muted),
+                                ),
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            color: _muted,
+                          ),
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            setState(() {
+                              _instructorId = '${profesor['instructor_id']}';
+                              _horarioId = null;
+                              _busqueda = '';
+                              _buscador.clear();
+                            });
+                          },
+                        );
+                      },
+                    ),
+            ),
           SizedBox(height: 12),
           if (_errorCatalogo != null) ...[
             Text(_errorCatalogo!, style: TextStyle(color: _red)),
@@ -418,7 +480,9 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
               onPressed: ocupado ? null : _cargarCatalogo,
               child: Text('Recargar profesores'),
             ),
-          ] else if (!_cargandoCatalogo && resultados.isEmpty)
+          ] else if (!_cargandoCatalogo &&
+              _busqueda.isEmpty &&
+              resultados.isEmpty)
             Text(
               _profesores.isEmpty
                   ? 'Todavía no hay profesores con horarios disponibles.'
@@ -438,7 +502,7 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
                   (p) => DropdownMenuItem(
                     value: '${p['instructor_id']}',
                     child: Text(
-                      '${p['nombre_profesor']}',
+                      '${p['nombre_instructor']}',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
