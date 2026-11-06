@@ -79,6 +79,10 @@ class UnixColors {
     0xFF080C18: Color(0xFFF8FAFC),
     0xFF050C1D: Color(0xFFF5F8FC),
     0xFF061C31: Color(0xFFFFFFFF),
+    // Fondos heredados del formulario de horarios y sus avisos.
+    0xFF102B46: Color(0xFFFFFFFF),
+    0xFF0A223A: Color(0xFFEDF4FB),
+    0xFF1B3550: Color(0xFFFFFFFF),
     0xFF0A2947: Color(0xFFFFFFFF),
     0xFF081329: Color(0xFFFFFFFF),
     0xFF123451: Color(0xFFE3F0FF),

@@ -10,16 +10,21 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Paleta ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-Color get _card => UnixColors.adapt(const Color(0xFF0A2947));
+Color get _card => UnixColors.card;
 Color get _border => UnixColors.border;
 const _orange = Color(0xFFFF8A24);
-Color get _muted => UnixColors.adapt(const Color(0xFF91A9BE));
+Color get _muted => UnixColors.muted;
 Color get _red => UnixColors.adapt(const Color(0xFFFF6577));
-Color get _sheet => UnixColors.adapt(const Color(0xFF102B46));
-Color get _field => UnixColors.adapt(const Color(0xFF0A223A));
+Color get _sheet =>
+    UnixColors.dark ? const Color(0xFF102B46) : UnixColors.surface;
+Color get _field =>
+    UnixColors.dark ? const Color(0xFF0A223A) : UnixColors.field;
+Color get _accent => UnixColors.dark ? _orange : const Color(0xFF9C4200);
+Color get _selection =>
+    UnixColors.dark ? const Color(0xFF243F57) : UnixColors.selected;
 const _green = Color(0xFF30D158);
-const _yellow = Color(0xFFFFD60A);
+Color get _yellow =>
+    UnixColors.dark ? const Color(0xFFFFD60A) : const Color(0xFF805B00);
 
 // Colores de sistema de iOS (modo oscuro) para distinguir materias y alumnos.
 const _paleta = [
@@ -65,15 +70,30 @@ String _iniciales(String nombre) {
   return (p.first.substring(0, 1) + p[1].substring(0, 1)).toUpperCase();
 }
 
-Widget _oscuro(Widget child) => CupertinoTheme(
-  data: const CupertinoThemeData(brightness: Brightness.dark),
-  child: child,
+// Cupertino debe seguir la misma preferencia que los colores de Material.
+Widget _temaCupertino(Widget child) => Builder(
+  builder: (context) {
+    UnixTheme.watch(context);
+    return CupertinoTheme(
+      data: CupertinoThemeData(
+        brightness: UnixColors.dark ? Brightness.dark : Brightness.light,
+        primaryColor: _accent,
+        scaffoldBackgroundColor: _sheet,
+        barBackgroundColor: _sheet,
+        textTheme: CupertinoTextThemeData(
+          textStyle: _t(17),
+          pickerTextStyle: _t(21),
+          dateTimePickerTextStyle: _t(21),
+        ),
+      ),
+      child: child,
+    );
+  },
 );
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Horas ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 String _dos(int v) => v.toString().padLeft(2, '0');
 
-// Mismo formato que ya espera el backend: "08:00 AM ÔÇô 09:30 AM".
+// Mismo formato que ya espera el backend: "08:00 AM – 09:30 AM".
 String _formatoHora(int minutos) {
   final h = minutos ~/ 60;
   final h12 = h % 12 == 0 ? 12 : h % 12;
@@ -126,7 +146,6 @@ _Rango? _leerRango(Object? horario) {
   return _Rango(a, b);
 }
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ P├ígina ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 class InstructorHorariosPage extends StatefulWidget {
   const InstructorHorariosPage({super.key});
 
@@ -158,13 +177,12 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     super.dispose();
   }
 
-  // ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Red ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
   Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
 
     if (token == null || token.trim().isEmpty) {
-      throw Exception('Inicia sesi├│n para consultar tus horarios.');
+      throw Exception('Inicia sesión para consultar tus horarios.');
     }
 
     return {
@@ -183,18 +201,18 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
       }
     } catch (_) {
       throw Exception(
-        'El servidor devolvi├│ una respuesta inesperada (${response.statusCode}).',
+        'El servidor devolvió una respuesta inesperada (${response.statusCode}).',
       );
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) {
-        throw Exception('Tu sesi├│n venci├│. Vuelve a ingresar.');
+        throw Exception('Tu sesión venció. Vuelve a ingresar.');
       }
 
       final mensaje = body is Map
           ? (body['error'] ?? body['detail'] ?? body.values.join('\n'))
-          : 'No se pudo completar la petici├│n (${response.statusCode}).';
+          : 'No se pudo completar la petición (${response.statusCode}).';
 
       throw Exception(mensaje.toString());
     }
@@ -239,7 +257,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
       if (body is! Map || body['bloques_horarios'] is! List) {
         throw Exception(
-          'No se encontr├│ la lista de bloques horarios en la respuesta.',
+          'No se encontró la lista de bloques horarios en la respuesta.',
         );
       }
 
@@ -306,12 +324,12 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
     final confirmar = await showCupertinoDialog<bool>(
       context: context,
-      builder: (ctx) => _oscuro(
+      builder: (ctx) => _temaCupertino(
         CupertinoAlertDialog(
           title: const Text('Eliminar horario'),
           content: Text(
-            '┬┐Eliminar ${bloque['materia']} (${bloque['horario']})?\n\n'
-            'Los alumnos vinculados tendr├ín que elegir otro horario.',
+            '¿Eliminar ${bloque['materia']} (${bloque['horario']})?\n\n'
+            'Los alumnos vinculados tendrán que elegir otro horario.',
           ),
           actions: [
             CupertinoDialogAction(
@@ -369,7 +387,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
     showCupertinoModalPopup<void>(
       context: context,
-      builder: (ctx) => _oscuro(
+      builder: (ctx) => _temaCupertino(
         CupertinoActionSheet(
           title: Text('${bloque['materia'] ?? ''}'),
           message: Text('${bloque['horario'] ?? ''}'),
@@ -392,7 +410,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     );
   }
 
-  // El backend enviado todav├¡a no devuelve XP ni historial.
+  // El backend enviado todavía no devuelve XP ni historial.
   // Este adaptador permite mostrarlos cuando se incluyan en cada alumno:
   // xp_total y actividades: [{tipo, actividad, estado}]. No inventa valores.
   Future<void> _historial(Map<String, dynamic> alumno) async {
@@ -448,7 +466,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'N.┬║ de control: ${control ?? 'No disponible'}',
+                        'N.º de control: ${control ?? 'No disponible'}',
                         style: _t(13, c: _muted),
                       ),
                     ],
@@ -460,7 +478,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
             const SizedBox(height: 16),
             if (actividades is! List)
               mensaje(
-                'El servidor todav├¡a no proporciona el historial de actividades.',
+                'El servidor todavía no proporciona el historial de actividades.',
               )
             else if (actividades.isEmpty)
               mensaje('No hay ninguna actividad activa')
@@ -548,7 +566,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     );
   }
 
-  // ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Datos derivados ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // ───────── Datos derivados ─────────
   String _idBloque(Map<String, dynamic> b) =>
       b['horario_id']?.toString() ?? '${b['materia']}|${b['horario']}';
 
@@ -589,14 +607,14 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     return lista.map((e) => e.value).toList();
   }
 
-  // ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Widgets ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // ───────── Widgets ─────────
   Widget _cabecera() {
     final totalAlumnos = _bloques.fold<int>(0, (s, b) => s + _total(b));
     final n = _bloques.length;
 
     final resumen = n == 0
-        ? 'Sin horarios todav├¡a'
-        : '$n ${n == 1 ? 'horario' : 'horarios'} ┬À '
+        ? 'Sin horarios todavía'
+        : '$n ${n == 1 ? 'horario' : 'horarios'} · '
               '$totalAlumnos ${totalAlumnos == 1 ? 'alumno' : 'alumnos'}';
 
     return Row(
@@ -689,7 +707,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
         Text('Sin horarios', style: _t(20, w: FontWeight.w700)),
         const SizedBox(height: 6),
         Text(
-          'Todav├¡a no tienes horarios de clase. '
+          'Todavía no tienes horarios de clase. '
           'Crea tu primer bloque de hora + materia.',
           textAlign: TextAlign.center,
           style: _t(15, c: _muted),
@@ -717,7 +735,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     final duracion = rango?.duracion ?? '';
     final subtitulo =
         '$total ${total == 1 ? 'alumno' : 'alumnos'}'
-        '${duracion.isEmpty ? '' : ' ┬À $duracion'}';
+        '${duracion.isEmpty ? '' : ' · $duracion'}';
 
     final cabecera = _Tap(
       onTap: buscando
@@ -736,7 +754,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
               width: 86,
               child: rango == null
                   ? Text(
-                      '${bloque['horario'] ?? 'ÔÇö'}',
+                      '${bloque['horario'] ?? '—'}',
                       style: _t(13, w: FontWeight.w600),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
@@ -849,8 +867,8 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
                 Expanded(
                   child: Text(
                     buscando
-                        ? 'No hay alumnos que coincidan con la b├║squeda.'
-                        : 'A├║n no hay alumnos vinculados a este horario.',
+                        ? 'No hay alumnos que coincidan con la búsqueda.'
+                        : 'Aún no hay alumnos vinculados a este horario.',
                     style: _t(14, c: _muted),
                   ),
                 ),
@@ -881,7 +899,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
           child: const Icon(CupertinoIcons.trash, color: Colors.white),
         ),
         // La tarjeta regresa a su sitio; el borrado real lo hace _eliminar
-        // despu├®s de que el servidor confirme.
+        // después de que el servidor confirme.
         confirmDismiss: (_) async {
           unawaited(_eliminar(bloque));
           return false;
@@ -938,7 +956,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'N.┬║ de control: ${control ?? 'No disponible'}',
+                        'N.º de control: ${control ?? 'No disponible'}',
                         style: _t(13, c: _muted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1000,7 +1018,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
               child: Text(
-                'Sin resultados para ÔÇ£${_buscador.text.trim()}ÔÇØ',
+                'Sin resultados para “${_buscador.text.trim()}”',
                 style: _t(15, c: _muted),
               ),
             ),
@@ -1013,7 +1031,6 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
   }
 }
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Hoja para crear horario ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 class _NuevoHorarioSheet extends StatefulWidget {
   const _NuevoHorarioSheet();
 
@@ -1022,7 +1039,7 @@ class _NuevoHorarioSheet extends StatefulWidget {
 }
 
 class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
-  // Los controladores viven aqu├¡, as├¡ se liberan solo cuando la hoja
+  // Los controladores viven aquí, así se liberan solo cuando la hoja
   // termina de cerrarse (evita usar un controller ya descartado).
   final TextEditingController _materia = TextEditingController();
   late int _inicio;
@@ -1052,7 +1069,7 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
 
     Navigator.pop<Map<String, String>>(context, {
       'materia': _materia.text.trim(),
-      'horario': '${_formatoHora(_inicio)} ÔÇô ${_formatoHora(_fin)}',
+      'horario': '${_formatoHora(_inicio)} – ${_formatoHora(_fin)}',
     });
   }
 
@@ -1098,12 +1115,18 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: activo ? 0.16 : 0.08),
+                    color: activo
+                        ? _selection
+                        : UnixColors.text.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Text(
                     _formatoHora(minutos),
-                    style: _t(17, c: activo ? _orange : Colors.white),
+                    style: _t(
+                      17,
+                      w: FontWeight.w600,
+                      c: activo ? _accent : UnixColors.text,
+                    ),
                   ),
                 ),
               ],
@@ -1133,21 +1156,12 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: CupertinoTheme(
-        data: const CupertinoThemeData(
-          brightness: Brightness.dark,
-          textTheme: CupertinoTextThemeData(
-            dateTimePickerTextStyle: TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-            ),
-          ),
-        ),
-        child: _Hoja(
+      child: _temaCupertino(
+        _Hoja(
           titulo: 'Nuevo horario',
           izquierda: _Tap(
             onTap: () => Navigator.pop(context),
-            child: Text('Cancelar', style: _t(17, c: _orange)),
+            child: Text('Cancelar', style: _t(17, c: _accent)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1161,7 +1175,7 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                 ),
                 child: CupertinoTextField(
                   controller: _materia,
-                  placeholder: 'Materia (Ej. Programaci├│n)',
+                  placeholder: 'Materia (Ej. Programación)',
                   placeholderStyle: _t(17, c: _muted),
                   style: _t(17),
                   cursorColor: _orange,
@@ -1193,8 +1207,9 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                       minutos: _inicio,
                       alCambiar: (v) => setState(() {
                         _inicio = v;
-                        if (_fin <= _inicio)
+                        if (_fin <= _inicio) {
                           _fin = math.min(_inicio + 60, 1439);
+                        }
                       }),
                     ),
                     Padding(
@@ -1203,7 +1218,7 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                     ),
                     _filaHora(
                       clave: 'fin',
-                      etiqueta: 'T├®rmino',
+                      etiqueta: 'Término',
                       icono: CupertinoIcons.stop_fill,
                       color: const Color(0xFFFF453A),
                       minutos: _fin,
@@ -1216,8 +1231,8 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                 padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
                 child: Text(
                   invalido
-                      ? 'La hora de t├®rmino debe ser posterior a la de inicio.'
-                      : 'Duraci├│n: ${_Rango(_inicio, _fin).duracion}',
+                      ? 'La hora de término debe ser posterior a la de inicio.'
+                      : 'Duración: ${_Rango(_inicio, _fin).duracion}',
                   style: _t(13, c: invalido ? _red : _muted),
                 ),
               ),
@@ -1235,7 +1250,6 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
   }
 }
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Piezas reutilizables ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 class _Hoja extends StatelessWidget {
   const _Hoja({
     required this.titulo,
@@ -1306,7 +1320,7 @@ class _Hoja extends StatelessWidget {
   }
 }
 
-// Respuesta t├íctil estilo iOS: se aten├║a mientras se presiona.
+// Respuesta táctil estilo iOS: se atenúa mientras se presiona.
 class _Tap extends StatefulWidget {
   const _Tap({required this.child, required this.onTap});
 
@@ -1468,6 +1482,7 @@ class _PildoraXp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1477,7 +1492,7 @@ class _PildoraXp extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(CupertinoIcons.bolt_fill, size: 12, color: _yellow),
+          Icon(CupertinoIcons.bolt_fill, size: 12, color: _yellow),
           const SizedBox(width: 3),
           Text(
             '$xp XP',
@@ -1530,6 +1545,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     final curva = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
 
     return Positioned(
@@ -1553,7 +1569,9 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B3550),
+                    color: UnixColors.dark
+                        ? const Color(0xFF1B3550)
+                        : UnixColors.surface,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: _border),
                     boxShadow: const [
@@ -1593,8 +1611,8 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
   }
 }
 
-// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ Selector de hora (rueda + flechas) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-// Permite arrastrar la rueda tambi├®n con mouse/trackpad en web y escritorio.
+// Permite arrastrar la rueda también con mouse/trackpad en web y escritorio.
+
 class _ArrastreConMouse extends MaterialScrollBehavior {
   const _ArrastreConMouse();
 
@@ -1752,6 +1770,7 @@ class _SelectorHoraState extends State<_SelectorHora> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return ScrollConfiguration(
       behavior: const _ArrastreConMouse(),
       child: Padding(
@@ -1764,12 +1783,12 @@ class _SelectorHoraState extends State<_SelectorHora> {
             Stack(
               alignment: Alignment.center,
               children: [
-                // Una sola franja de selecci├│n para las tres ruedas.
+                // Una sola franja de selección para las tres ruedas.
                 Container(
                   height: _alto,
                   width: _wHora + _wDos + _wMin + _wGap + _wPer + 12,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: _selection,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -1823,7 +1842,7 @@ class _SelectorHoraState extends State<_SelectorHora> {
   }
 }
 
-// Flecha que repite la acci├│n mientras se mantiene presionada.
+// Flecha que repite la acción mientras se mantiene presionada.
 class _Flecha extends StatefulWidget {
   const _Flecha({required this.icono, required this.alPulsar});
 
@@ -1865,6 +1884,7 @@ class _FlechaState extends State<_Flecha> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _iniciar(),
@@ -1876,10 +1896,10 @@ class _FlechaState extends State<_Flecha> {
         width: 56,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: _presionada ? 0.18 : 0.08),
+          color: UnixColors.text.withValues(alpha: _presionada ? 0.16 : 0.06),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(widget.icono, size: 20, color: _orange),
+        child: Icon(widget.icono, size: 20, color: _accent),
       ),
     );
   }

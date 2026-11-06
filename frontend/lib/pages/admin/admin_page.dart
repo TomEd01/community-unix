@@ -10,8 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart' show AccessScreen;
 import 'admin_store.dart';
 import 'admin_style.dart';
-import 'admin_inicio_page.dart';
-import 'admin_macroeventos_page.dart';
+import '../../portal/events.dart';
+import '../../portal/courses.dart';
+import '../../portal/admin_home.dart';
 import 'admin_usuarios_page.dart';
 import 'admin_folios_page.dart';
 import 'admin_perfil_page.dart';
@@ -75,10 +76,13 @@ class _AdminPageState extends State<_AdminShell> {
 
   static const labels = [
     'Inicio',
-    'Macro eventos',
+    'Eventos',
     'Usuarios',
     'Verificar folios',
     'Mi perfil',
+    'Cursos',
+    'Talleres',
+    'Exposiciones',
   ];
 
   static const icons = [
@@ -87,6 +91,9 @@ class _AdminPageState extends State<_AdminShell> {
     Icons.people_outline,
     Icons.verified_user_outlined,
     Icons.person_outline,
+    Icons.menu_book_outlined,
+    Icons.school_outlined,
+    Icons.co_present_outlined,
   ];
 
   @override
@@ -110,7 +117,7 @@ class _AdminPageState extends State<_AdminShell> {
 
   void navigate(int index) {
     // Compatibilidad con accesos antiguos al perfil, antes en índice 5.
-    final destination = index == 5 ? 4 : index;
+    final destination = index;
 
     if (!mounted || destination < 0 || destination >= labels.length) {
       return;
@@ -241,8 +248,7 @@ class _AdminPageState extends State<_AdminShell> {
                                         ),
                                         SizedBox(height: 6),
                                         Text(
-                                          'Algunas secciones contienen '
-                                          'datos de demostración.',
+                                          'Gestiona el contenido y la participación de la comunidad.',
                                           style: TextStyle(
                                             color: AdminStyle.muted,
                                             fontSize: 12,
@@ -254,13 +260,11 @@ class _AdminPageState extends State<_AdminShell> {
                                         Column(
                                           children: [
                                             for (final entry in <Widget>[
-                                              AdminInicioPage(
-                                                nombre: _nombreReal,
-                                                store: store,
+                                              AdminPortalHome(
                                                 onNavigate: navigate,
                                               ),
-                                              AdminMacroeventosPage(
-                                                store: store,
+                                              const PortalEvents(
+                                                adminMode: true,
                                               ),
                                               AdminUsuariosPage(store: store),
                                               AdminFoliosPage(store: store),
@@ -268,6 +272,17 @@ class _AdminPageState extends State<_AdminShell> {
                                                 store: store,
                                                 onLogout: logout,
                                                 loggingOut: loggingOut,
+                                              ),
+                                              const PortalCourses(
+                                                adminMode: true,
+                                              ),
+                                              const PortalEvents(
+                                                adminMode: true,
+                                                type: 'Taller',
+                                              ),
+                                              const PortalEvents(
+                                                adminMode: true,
+                                                type: 'Exposición',
                                               ),
                                             ].asMap().entries)
                                               Visibility(
@@ -447,7 +462,7 @@ class _AdminPageState extends State<_AdminShell> {
     onSubmitted: _buscarSecciones,
     style: TextStyle(color: UnixColors.text, fontSize: 13),
     decoration: InputDecoration(
-      hintText: 'Buscar secciones: usuarios, eventos o folios...',
+      hintText: 'Buscar secciones: cursos, talleres, eventos, usuarios…',
       hintStyle: TextStyle(color: AdminStyle.muted, fontSize: 12),
       prefixIcon: Icon(Icons.search_rounded, color: AdminStyle.muted, size: 20),
       isDense: true,
@@ -514,7 +529,8 @@ class _AdminPageState extends State<_AdminShell> {
             Expanded(
               child: ListView.builder(
                 itemCount: labels.length,
-                itemBuilder: (context, index) {
+                itemBuilder: (context, position) {
+                  final index = [0, 5, 6, 1, 7, 2, 3, 4][position];
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Tooltip(
@@ -569,7 +585,7 @@ class _AdminPageState extends State<_AdminShell> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final index in [3, 4])
+              for (final index in [5, 6, 7, 3, 4])
                 ListTile(
                   leading: Icon(
                     icons[index],
