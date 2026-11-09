@@ -376,3 +376,104 @@ class SuperAdminActividadesView(APIView):
             "lugar": nueva_act.lugar,
             "radio_geocerca_m": nueva_act.radio_geocerca_m,
         }, status=status.HTTP_201_CREATED)
+
+class SuperAdminActividadDetailView(APIView):
+    """
+    Vista para que los Super Administradores gestionen el detalle de una Actividad específica.
+    Permite la actualización parcial (PATCH) y la eliminación (DELETE).
+    """
+
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def patch(self, request, actividad_id):
+        """ 
+        Se actualiza parcialmente los datos de una actividad existente. 
+        Incluye validaciones críticas de negocio, como no reducir el cupo por debajo de los inscritos.
+        """
+        try:
+            actividad = Actividad.objects.annotate(
+                inscritos_actuales=Count('asistencias', distinct=True)
+            ).get(id=actividad_id)
+        except Actividad.DoesNotExist:
+            return Response({"error": "La actividad especificada no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SuperAdminActividadSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        # Validación de la regla de la interfaz: "El cupo no puede ser menor a los inscritos actuales"
+        if 'cupo_ilimitado' in safe_data and safe_data['cupo_ilimitado']:
+            actividad.cupo_maximo = None
+        elif 'cupo_maximo' in safe_data:
+            nuevo_cupo = safe_data['cupo_maximo']
+            if nuevo_cupo is not None and nuevo_cupo < actividad.inscritos_actuales:
+                return Response({
+                    "error": f"El cupo ({nuevo_cupo}) no puede ser menor a los inscritos actuales ({actividad.inscritos_actuales})."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            actividad.cupo_maximo = nuevo_cupo
+
+        if 'titulo' in safe_data:
+            actividad.titulo = safe_data['titulo'].strip()
+        if 'descripcion' in safe_data:
+            actividad.descripcion = safe_data['descripcion'].strip()
+        if 'tipo' in safe_data:
+            actividad.tipo = safe_data['tipo']
+        if 'estado' in safe_data:
+            actividad.estado = safe_data['estado']
+        if 'fecha_inicio' in safe_data:
+            actividad.fecha_inicio = safe_data['fecha_inicio']
+        if 'fecha_fin' in safe_data:
+            actividad.fecha_fin = safe_data['fecha_fin']
+        if 'puntos_xp' in safe_data:
+            actividad.puntos_xp = safe_data['puntos_xp']
+        if 'pin_asistencia' in safe_data:
+            actividad.pin_asistencia = safe_data['pin_asistencia']
+        if 'contenido_bloques' in safe_data:
+            actividad.contenido_bloques = safe_data['contenido_bloques']
+        
+        # Si se cambia el lugar, recalculamos automáticamente los parámetros de la geocerca.
+        if 'lugar' in safe_data:
+            geo = aplicar_geocerca_por_lugar(safe_data)
+            actividad.lugar = geo['lugar']
+            actividad.latitud_actividad = geo['latitud_actividad']
+            actividad.longitud_actividad = geo['longitud_actividad']
+            actividad.radio_geocerca_m = geo['radio_geocerca_m']
+
+        # Actualización de encargados (Instructor y Expositor). Permite desasignarlos enviando None.
+        if 'instructor_id' in safe_data:
+            if safe_data['instructor_id'] is None:
+                actividad.instructor = None
+            else:
+                try:
+                    actividad.instructor = Instructor.objects.get(id=safe_data['instructor_id'])
+                except Instructor.DoesNotExist:
+                    return Response({"error": "El Instructor no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'expositor_id' in safe_data:
+            if safe_data['expositor_id'] is None:
+                actividad.expositor = None
+            else:
+                try:
+                    actividad.expositor = Alumno.objects.get(id=safe_data['expositor_id'])
+                except Alumno.DoesNotExist:
+                    return Response({"error": "El Alumno Expositor no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        actividad.save()
+        return Response({
+            "mensaje": "Actividad actualizada correctamente.",
+            "actividad_id": str(actividad.id),
+            "estado": actividad.estado,
+            "cupo_ilimitado": actividad.cupo_maximo is None,
+            "cupo_maximo": actividad.cupo_maximo,
+        }, status=status.HTTP_200_OK)
+
+    # Elimino de manera permanente una actividad específica de la base de datos.
+    def delete(self, request, actividad_id):
+        try:
+            actividad = Actividad.objects.get(id=actividad_id)
+        except Actividad.DoesNotExist:
+            return Response({"error": "La actividad no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        titulo = actividad.titulo
+        actividad.delete()
+        return Response({"mensaje": f"La actividad '{titulo}' fue eliminada."}, status=status.HTTP_200_OK)
