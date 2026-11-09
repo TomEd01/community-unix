@@ -444,7 +444,7 @@ class CatalogoProfesoresView(APIView):
             if bloques:
                 catalogo.append({
                     "instructor_id": inst.id,
-                    "nombre_profesor": inst.usuario.nombre_completo,
+                    "nombre_instructor": inst.usuario.nombre_completo,
                     "email": inst.usuario.email,
                     "numero_control": inst.numero_control,
                     "departamento": inst.departamento,
