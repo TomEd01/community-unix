@@ -183,3 +183,52 @@ class SuperAdminMacroEventosView(APIView):
             "macro_evento_id": str(nuevo_evento.id),
             "subeventos_creados": subeventos_creados,
         }, status=status.HTTP_201_CREATED)
+
+class SuperAdminMacroEventoDetailView(APIView):
+    """
+    Vista para que los Super Administradores puedan actualizar (PATCH) 
+    o eliminar (DELETE) un Macro Evento específico.
+    """
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    # Actualizo parcialmente los detalles de un Macro Evento existente.
+    def patch(self, request, macro_evento_id):
+        try:
+            evento = MacroEvento.objects.get(id=macro_evento_id)
+        except MacroEvento.DoesNotExist:
+            return Response({"error": "El Macro Evento no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Valido los datos entrantes, permitiendo campos opcionales al ser una petición parcial.
+        serializer = SuperAdminMacroEventoSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        # Aplico los cambios únicamente a los campos que fueron enviados en la petición.
+        if 'titulo' in safe_data:
+            evento.titulo = safe_data['titulo'].strip()
+        if 'descripcion' in safe_data:
+            evento.descripcion = safe_data['descripcion'].strip()
+        if 'estado' in safe_data:
+            evento.estado = safe_data['estado']
+        if 'fecha_inicio' in safe_data:
+            evento.fecha_inicio = safe_data['fecha_inicio']
+        if 'fecha_fin' in safe_data:
+            evento.fecha_fin = safe_data['fecha_fin']
+
+        evento.save()
+        return Response({
+            "mensaje": "Macro evento actualizado correctamente.",
+            "macro_evento_id": str(evento.id),
+            "estado": evento.estado,
+        }, status=status.HTTP_200_OK)
+
+    # Elimino de manera permanente un Macro Evento específico de la base de datos.
+    def delete(self, request, macro_evento_id):
+        try:
+            evento = MacroEvento.objects.get(id=macro_evento_id)
+        except MacroEvento.DoesNotExist:
+            return Response({"error": "El Macro Evento no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        titulo = evento.titulo
+        evento.delete()
+        return Response({"mensaje": f"El evento '{titulo}' fue eliminado."}, status=status.HTTP_200_OK)
