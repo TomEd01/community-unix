@@ -1,14 +1,15 @@
-from django.shortcuts import render
+from django.db import transaction
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from django.db.models import Q
+from django.db.models import Q, Count
 from rest_framework.response import Response
 
 from accounts.permissions import EsSuperAdmin
 from accounts.models import Instructor, Alumno
 from .catalogos import LUGARES_ITC
-from .models import MacroEvento
+from .models import MacroEvento, Actividad
+from .serializers import SuperAdminMacroEventoSerializer
 
 def aplicar_geocerca_por_lugar(datos_limpios):
     """
@@ -97,3 +98,88 @@ class SuperAdminCatalogosEventoView(APIView):
             "instructores": instructores_data,
             "alumnos_expositores": expositores_data,
         }, status=status.HTTP_200_OK)
+
+class SuperAdminMacroEventosView(APIView):
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    def get(self, request):
+        eventos = MacroEvento.objects.select_related('creado_por').prefetch_related(
+            'actividades__instructor__usuario',
+            'actividades__expositor__usuario'
+        ).annotate(
+            total_inscritos=Count('inscritos', distinct=True)
+        ).order_by('-created_at')
+
+        resultado = []
+        for ev in eventos:
+            subeventos = [
+                {
+                    "actividad_id": str(act.id),
+                    "titulo": act.titulo,
+                    "descripcion": act.descripcion,
+                    "tipo": act.tipo,
+                    "estado": act.estado,
+                    "lugar": act.lugar,
+                    "cupo_ilimitado": act.cupo_maximo is None,
+                    "cupo_maximo": act.cupo_maximo,
+                    "puntos_xp": act.puntos_xp,
+                    "instructor": act.instructor.usuario.nombre_completo if act.instructor else None,
+                    "expositor": act.expositor.usuario.nombre_completo if act.expositor else None,
+                }
+                for act in ev.actividades.all()
+            ]
+            resultado.append({
+                "macro_evento_id": str(ev.id),
+                "titulo": ev.titulo,
+                "descripcion": ev.descripcion,
+                "estado": ev.estado,
+                "fecha_inicio": ev.fecha_inicio,
+                "fecha_fin": ev.fecha_fin,
+                "total_inscritos": ev.total_inscritos,
+                "total_subeventos": len(subeventos),
+                "subeventos": subeventos,
+            })
+
+        return Response(resultado, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = SuperAdminMacroEventoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        with transaction.atomic():
+            nuevo_evento = MacroEvento.objects.create(
+                titulo=safe_data['titulo'].strip(),
+                descripcion=safe_data.get('descripcion', '').strip(),
+                estado=safe_data.get('estado', 'borrador'),
+                fecha_inicio=safe_data.get('fecha_inicio'),
+                fecha_fin=safe_data.get('fecha_fin'),
+                creado_por=request.user,
+            )
+
+            # Si el Super Admin agregó subeventos en el modal "Añadir subevento", los creamos de una vez
+            subeventos_creados = []
+            for sub in safe_data.get('subeventos', []):
+                geo = aplicar_geocerca_por_lugar(sub)
+                cupo_final = None if sub.get('cupo_ilimitado') else sub.get('cupo_maximo', 30)
+                act = Actividad.objects.create(
+                    macro_evento=nuevo_evento,
+                    titulo=sub['titulo'].strip(),
+                    descripcion=sub.get('descripcion', '').strip(),
+                    tipo=sub.get('tipo', 'exposicion'),
+                    estado=nuevo_evento.estado,
+                    cupo_maximo=cupo_final,
+                    lugar=geo['lugar'],
+                    latitud_actividad=geo['latitud_actividad'],
+                    longitud_actividad=geo['longitud_actividad'],
+                    radio_geocerca_m=geo['radio_geocerca_m'],
+                    puntos_xp=sub.get('puntos_xp', 10),
+                    creado_por=request.user,
+                )
+                subeventos_creados.append(str(act.id))
+
+        return Response({
+            "mensaje": "Macro evento creado exitosamente.",
+            "macro_evento_id": str(nuevo_evento.id),
+            "subeventos_creados": subeventos_creados,
+        }, status=status.HTTP_201_CREATED)
