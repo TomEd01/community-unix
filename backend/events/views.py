@@ -9,7 +9,7 @@ from accounts.permissions import EsSuperAdmin
 from accounts.models import Instructor, Alumno
 from .catalogos import LUGARES_ITC
 from .models import MacroEvento, Actividad
-from .serializers import SuperAdminMacroEventoSerializer
+from .serializers import SuperAdminMacroEventoSerializer, SuperAdminActividadSerializer
 
 def aplicar_geocerca_por_lugar(datos_limpios):
     """
@@ -232,3 +232,147 @@ class SuperAdminMacroEventoDetailView(APIView):
         titulo = evento.titulo
         evento.delete()
         return Response({"mensaje": f"El evento '{titulo}' fue eliminado."}, status=status.HTTP_200_OK)
+
+class SuperAdminActividadesView(APIView):
+    """
+    Vista para que los Super Administradores gestionen las Actividades.
+    Permite listar las actividades existentes (GET) con filtros y crear nuevas (POST).
+    """
+
+    permission_classes = [IsAuthenticated, EsSuperAdmin]
+
+    """ 
+    Obtengo la lista de todas las actividades. 
+    Soporta filtrado por 'tipo' y 'estado' a través de query params.
+    """
+    def get(self, request):
+        filtro_tipo = (request.query_params.get('tipo') or '').strip().lower().replace('ó', 'o')
+        filtro_estado = (request.query_params.get('estado') or '').strip().lower()
+
+        # Optimización de base de datos: joins relacionales y conteo de inscritos/solicitudes en una sola consulta.
+        actividades_qs = Actividad.objects.select_related(
+            'macro_evento', 'instructor__usuario', 'expositor__usuario'
+        ).annotate(
+            inscritos_actuales=Count('asistencias', distinct=True),
+            solicitudes_pendientes=Count(
+                'solicitudes_expositor',
+                filter=Q(solicitudes_expositor__estado='pendiente'),
+                distinct=True
+            )
+        ).order_by('-created_at')
+
+        if filtro_tipo:
+            actividades_qs = actividades_qs.filter(tipo=filtro_tipo)
+        if filtro_estado:
+            actividades_qs = actividades_qs.filter(estado=filtro_estado)
+
+        lista = []
+        for act in actividades_qs:
+            lista.append({
+                "actividad_id": str(act.id),
+                "macro_evento_id": str(act.macro_evento_id),
+                "macro_evento_titulo": act.macro_evento.titulo if act.macro_evento else None,
+                "titulo": act.titulo,
+                "descripcion": act.descripcion,
+                "tipo": act.tipo,
+                "estado": act.estado,
+                "lugar": act.lugar,
+                "latitud_actividad": act.latitud_actividad,
+                "longitud_actividad": act.longitud_actividad,
+                "radio_geocerca_m": act.radio_geocerca_m,
+                "fecha_inicio": act.fecha_inicio,
+                "fecha_fin": act.fecha_fin,
+                "cupo_ilimitado": act.cupo_maximo is None,
+                "cupo_maximo": act.cupo_maximo,
+                "inscritos_actuales": act.inscritos_actuales,
+                "lugares_disponibles": (
+                    max(act.cupo_maximo - act.inscritos_actuales, 0)
+                    if act.cupo_maximo is not None else None
+                ),
+                "puntos_xp": act.puntos_xp,
+                "pin_asistencia": act.pin_asistencia,
+                "contenido_bloques": act.contenido_bloques,
+                "instructor": {
+                    "instructor_id": act.instructor.id,
+                    "nombre_completo": act.instructor.usuario.nombre_completo,
+                    "numero_control": act.instructor.numero_control,
+                } if act.instructor else None,
+                "expositor": {
+                    "expositor_id": act.expositor.id,
+                    "nombre_completo": act.expositor.usuario.nombre_completo,
+                    "numero_control": act.expositor.numero_control,
+                } if act.expositor else None,
+                "solicitudes_pendientes": act.solicitudes_pendientes,
+            })
+
+        return Response(lista, status=status.HTTP_200_OK)
+
+    """ 
+    Creo una nueva Actividad. Gestiona la asignación al Macro Evento, 
+    encargados (instructor/expositor), cupos y configuración de geocerca.
+    """
+    def post(self, request):
+        serializer = SuperAdminActividadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        safe_data = serializer.validated_data
+
+        # Resuelvo el Macro Evento contenedor (o uso el general si crearon un Taller/Expo suelto)
+        macro_id = safe_data.get('macro_evento_id')
+        if macro_id:
+            try:
+                macro_evento = MacroEvento.objects.get(id=macro_id)
+            except MacroEvento.DoesNotExist:
+                return Response({"error": "El Macro Evento indicado no existe."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            macro_evento = obtener_contenedor_por_defecto(request.user)
+
+        # Valido Instructor titular y Alumno Expositor si fueron seleccionados en "Encargados"
+        instructor_obj = None
+        if safe_data.get('instructor_id'):
+            try:
+                instructor_obj = Instructor.objects.get(id=safe_data['instructor_id'])
+            except Instructor.DoesNotExist:
+                return Response({"error": "El Instructor seleccionado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        expositor_obj = None
+        if safe_data.get('expositor_id'):
+            try:
+                expositor_obj = Alumno.objects.get(id=safe_data['expositor_id'])
+            except Alumno.DoesNotExist:
+                return Response({"error": "El Alumno Expositor seleccionado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Resuelvo el switch de "Cupo ilimitado" y las coordenadas del combobox "Lugar"
+        cupo_final = None if safe_data.get('cupo_ilimitado') else safe_data.get('cupo_maximo')
+        geo = aplicar_geocerca_por_lugar(safe_data)
+
+        nueva_act = Actividad.objects.create(
+            macro_evento=macro_evento,
+            titulo=safe_data['titulo'].strip(),
+            descripcion=safe_data.get('descripcion', '').strip(),
+            tipo=safe_data['tipo'],
+            estado=safe_data.get('estado', 'borrador'),
+            cupo_maximo=cupo_final,
+            fecha_inicio=safe_data.get('fecha_inicio'),
+            fecha_fin=safe_data.get('fecha_fin'),
+            lugar=geo['lugar'],
+            latitud_actividad=geo['latitud_actividad'],
+            longitud_actividad=geo['longitud_actividad'],
+            radio_geocerca_m=geo['radio_geocerca_m'],
+            instructor=instructor_obj,
+            expositor=expositor_obj,
+            puntos_xp=safe_data.get('puntos_xp', 10),
+            pin_asistencia=safe_data.get('pin_asistencia'),
+            contenido_bloques=safe_data.get('contenido_bloques', []),
+            creado_por=request.user,
+        )
+
+        return Response({
+            "mensaje": f"Actividad '{nueva_act.titulo}' creada correctamente.",
+            "actividad_id": str(nueva_act.id),
+            "tipo": nueva_act.tipo,
+            "estado": nueva_act.estado,
+            "cupo_ilimitado": nueva_act.cupo_maximo is None,
+            "cupo_maximo": nueva_act.cupo_maximo,
+            "lugar": nueva_act.lugar,
+            "radio_geocerca_m": nueva_act.radio_geocerca_m,
+        }, status=status.HTTP_201_CREATED)
