@@ -13,8 +13,14 @@ String eventDate(dynamic value) {
 
 class PortalEvents extends StatefulWidget {
   final bool adminMode;
+  final VoidCallback? onCreate;
   final String? type;
-  const PortalEvents({super.key, this.adminMode = false, this.type});
+  const PortalEvents({
+    super.key,
+    this.onCreate,
+    this.adminMode = false,
+    this.type,
+  });
   @override
   State<PortalEvents> createState() => _PortalEventsState();
 }
@@ -86,9 +92,9 @@ class _PortalEventsState extends State<PortalEvents> {
             ),
             if (widget.adminMode)
               FilledButton.icon(
-                onPressed: () => _editor(),
+                onPressed: widget.onCreate ?? () => _editor(),
                 icon: const Icon(Icons.add),
-                label: const Text('Crear evento o taller'),
+                label: Text('Crear ${(widget.type ?? 'Evento').toLowerCase()}'),
               ),
           ],
         ),
@@ -162,17 +168,19 @@ class _PortalEventsState extends State<PortalEvents> {
                   const SizedBox(height: 12),
                   Text(
                     e['cupo_ilimitado'] == true
-                  ? '${e['inscritos']} inscritos · Cupo ilimitado'
-                  : '${e['inscritos']} inscritos · ${e['disponibles']} lugares disponibles',
+                        ? '${e['inscritos']} inscritos · Cupo ilimitado'
+                        : '${e['inscritos']} inscritos · ${e['disponibles']} lugares disponibles',
                   ),
                   const SizedBox(height: 8),
                   if (e['cupo_ilimitado'] != true)
-                  LinearProgressIndicator(
-                    value: ((e['inscritos'] as num) / (e['cupo'] as num))
-                        .clamp(0, 1)
-                        .toDouble(),
-                    color: e['disponibles'] == 0 ? Colors.red : UnixColors.link,
-                  ),
+                    LinearProgressIndicator(
+                      value: ((e['inscritos'] as num) / (e['cupo'] as num))
+                          .clamp(0, 1)
+                          .toDouble(),
+                      color: e['disponibles'] == 0
+                          ? Colors.red
+                          : UnixColors.link,
+                    ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -331,9 +339,11 @@ class _EventDetailState extends State<EventDetail> {
               children: [
                 Text('📅 ${eventDate(e['fecha'])}'),
                 Text('Lugar: ${e['lugar']}'),
-                Text(e['cupo_ilimitado'] == true
-                    ? 'Cupo: ilimitado'
-                    : 'Cupo: ${e['cupo']} personas'),
+                Text(
+                  e['cupo_ilimitado'] == true
+                      ? 'Cupo: ilimitado'
+                      : 'Cupo: ${e['cupo']} personas',
+                ),
               ],
             ),
             const SizedBox(height: 22),
@@ -344,12 +354,12 @@ class _EventDetailState extends State<EventDetail> {
             ),
             const SizedBox(height: 10),
             if (e['cupo_ilimitado'] != true)
-            LinearProgressIndicator(
-              value: ((e['inscritos'] as num) / (e['cupo'] as num))
-                  .clamp(0, 1)
-                  .toDouble(),
-              color: full ? Colors.red : UnixColors.link,
-            ),
+              LinearProgressIndicator(
+                value: ((e['inscritos'] as num) / (e['cupo'] as num))
+                    .clamp(0, 1)
+                    .toDouble(),
+                color: full ? Colors.red : UnixColors.link,
+              ),
             const SizedBox(height: 20),
             if (records(e['encargados']).isNotEmpty) ...[
               const Text(
@@ -370,16 +380,20 @@ class _EventDetailState extends State<EventDetail> {
               const SizedBox(height: 16),
             ],
             if (records(e['subeventos'] ?? []).isNotEmpty) ...[
-              const Text('Subeventos',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                'Subeventos',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               for (final sub in records(e['subeventos'] ?? []))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_note_outlined),
                   title: Text('${sub['titulo']}'),
-                  subtitle: Text('${sub['descripcion']}\n'
-                    '${sub['lugar']} · Cupo: ${sub['cupo']} personas'),
+                  subtitle: Text(
+                    '${sub['descripcion']}\n'
+                    '${sub['lugar']} · Cupo: ${sub['cupo']} personas',
+                  ),
                   isThreeLine: true,
                 ),
               const SizedBox(height: 20),
@@ -718,6 +732,8 @@ class _EventEditorState extends State<EventEditor> {
   bool _loading = true, _saving = false;
   bool _unlimited = false;
   List<Map<String, dynamic>> _subevents = [];
+  final _content = <Map<String, dynamic>>[];
+  List<String> _places = [];
   String? _error;
   @override
   void initState() {
@@ -754,8 +770,13 @@ class _EventEditorState extends State<EventEditor> {
       _error = null;
     });
     try {
-      final list = records(await PortalApi.request('encargados/'));
-      if (mounted) setState(() => _instructors = list);
+      final catalog = await PortalApi.creationCatalog();
+      if (mounted) {
+        setState(() {
+          _instructors = records(catalog['encargados']);
+          _places = (catalog['lugares'] as List).cast<String>();
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
     } finally {
@@ -844,7 +865,9 @@ class _EventEditorState extends State<EventEditor> {
                   TextFormField(
                     initialValue: '${draft['cupo']}',
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Cupo del subevento'),
+                    decoration: const InputDecoration(
+                      labelText: 'Cupo del subevento',
+                    ),
                     onChanged: (v) => draft['cupo'] = int.tryParse(v.trim()),
                     validator: (v) {
                       final n = int.tryParse((v ?? '').trim());
@@ -894,23 +917,30 @@ class _EventEditorState extends State<EventEditor> {
     }
     setState(() => _saving = true);
     try {
-      await PortalApi.request(
-        widget.event == null ? 'eventos/' : 'eventos/${widget.event!['id']}/',
-        method: widget.event == null ? 'POST' : 'PATCH',
-        data: {
-          'titulo': _title.text.trim(),
-          'descripcion': _description.text.trim(),
-          'lugar': _place.text.trim(),
-          'cupo': _unlimited ? 30 : int.parse(_capacity.text.trim()),
-          'cupo_ilimitado': _unlimited,
-          'subeventos': _subevents,
-          'fecha': _date.toUtc().toIso8601String(),
-          'tipo': _type,
-          'estado': state,
-          'encargados_ids': _selected.map((i) => i['id']).toList(),
-        },
-      );
-      if (mounted) Navigator.pop(context, true);
+      final data = <String, dynamic>{
+        'titulo': _title.text.trim(),
+        'descripcion': _description.text.trim(),
+        'lugar': _place.text.trim(),
+        'cupo': _unlimited ? 30 : int.parse(_capacity.text.trim()),
+        'cupo_ilimitado': _unlimited,
+        if (_type == 'Evento') 'subeventos': _subevents,
+        if (_type == 'Curso') 'contenido_bloques': _content,
+        'fecha': _date.toUtc().toIso8601String(),
+        'tipo': _type,
+        'estado': state,
+        'encargados_ids': _selected.map((i) => i['id']).toList(),
+      };
+      final event = widget.event;
+      if (event == null) {
+        await PortalApi.createActivity(data);
+      } else {
+        await PortalApi.request(
+          'eventos/${event['id']}/',
+          method: 'PATCH',
+          data: data,
+        );
+      }
+      if (mounted) Navigator.pop(context, _type);
     } catch (e) {
       if (mounted) notice(context, errorText(e));
     } finally {
@@ -935,9 +965,7 @@ class _EventEditorState extends State<EventEditor> {
         TextFormField(
           controller: _title,
           maxLength: 160,
-          decoration: const InputDecoration(
-            labelText: 'Nombre del evento o taller',
-          ),
+          decoration: const InputDecoration(labelText: 'Nombre'),
           validator: requiredText,
         ),
         const SizedBox(height: 16),
@@ -969,10 +997,17 @@ class _EventEditorState extends State<EventEditor> {
           ],
         ),
         const SizedBox(height: 16),
-        TextFormField(
-          controller: _place,
-          maxLength: 200,
+        DropdownButtonFormField<String>(
+          key: ValueKey(_places.length),
+          initialValue: _place.text.isEmpty ? null : _place.text,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: 'Lugar o modalidad'),
+          items: <String>{..._places, if (_place.text.isNotEmpty) _place.text}
+              .map(
+                (place) => DropdownMenuItem(value: place, child: Text(place)),
+              )
+              .toList(),
+          onChanged: _loading ? null : (value) => _place.text = value ?? '',
           validator: requiredText,
         ),
         const SizedBox(height: 16),
@@ -983,8 +1018,11 @@ class _EventEditorState extends State<EventEditor> {
             'Evento',
             'Taller',
             'Exposición',
+            if (widget.event == null) 'Curso',
           ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-          onChanged: (v) => setState(() => _type = v!),
+          onChanged: widget.event != null
+              ? null
+              : (v) => setState(() => _type = v!),
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
@@ -1004,7 +1042,7 @@ class _EventEditorState extends State<EventEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Encargados del evento',
+          'Encargados',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         const SizedBox(height: 12),
@@ -1083,49 +1121,50 @@ class _EventEditorState extends State<EventEditor> {
               if (!_unlimited)
                 Row(
                   children: [
-                  IconButton(
-                    tooltip: 'Reducir cupo',
-                    onPressed: () {
-                      final n = int.tryParse(_capacity.text) ?? 1;
-                      if (n > 1) setState(() => _capacity.text = '${n - 1}');
-                    },
-                    icon: const Icon(Icons.remove_circle_outline),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _capacity,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(labelText: 'Cupo'),
-                      validator: (v) {
-                        final n = int.tryParse(v ?? '');
-                        final count = (widget.event?['inscritos'] as int?) ?? 0;
-                        return n == null || n < 1 || n > 100000
-                            ? 'De 1 a 100000'
-                            : n < count
-                            ? 'Ya hay $count inscritos'
-                            : null;
+                    IconButton(
+                      tooltip: 'Reducir cupo',
+                      onPressed: () {
+                        final n = int.tryParse(_capacity.text) ?? 1;
+                        if (n > 1) setState(() => _capacity.text = '${n - 1}');
                       },
+                      icon: const Icon(Icons.remove_circle_outline),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Aumentar cupo',
-                    onPressed: () {
-                      final n = int.tryParse(_capacity.text) ?? 0;
-                      if (n < 100000) {
-                        setState(() => _capacity.text = '${n + 1}');
-                      }
-                    },
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ],
-              ),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _capacity,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        decoration: const InputDecoration(labelText: 'Cupo'),
+                        validator: (v) {
+                          final n = int.tryParse(v ?? '');
+                          final count =
+                              (widget.event?['inscritos'] as int?) ?? 0;
+                          return n == null || n < 1 || n > 100000
+                              ? 'De 1 a 100000'
+                              : n < count
+                              ? 'Ya hay $count inscritos'
+                              : null;
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Aumentar cupo',
+                      onPressed: () {
+                        final n = int.tryParse(_capacity.text) ?? 0;
+                        if (n < 100000) {
+                          setState(() => _capacity.text = '${n + 1}');
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 10),
               muted(
                 _unlimited
                     ? 'Este evento no tendrá límite de asistentes.'
                     : '${widget.event?['inscritos'] ?? 0} inscritos. '
-                        'El cupo no puede ser menor a los inscritos actuales.',
+                          'El cupo no puede ser menor a los inscritos actuales.',
               ),
             ],
           ),
@@ -1133,7 +1172,9 @@ class _EventEditorState extends State<EventEditor> {
       ],
     );
     return PortalScaffold(
-      title: widget.event == null ? 'Crear evento' : 'Editar evento',
+      title: widget.event == null
+          ? 'Crear ${_type.toLowerCase()}'
+          : 'Editar ${_type.toLowerCase()}',
       child: Form(
         key: _key,
         child: AbsorbPointer(
@@ -1158,45 +1199,121 @@ class _EventEditorState extends State<EventEditor> {
                 ),
               ),
               const SizedBox(height: 20),
-              panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Subeventos',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    muted('Añade las actividades del evento principal. '
-                      'Cada una tiene su propio cupo.'),
-                    const SizedBox(height: 12),
-                    if (_subevents.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Todavía no has añadido subeventos.'),
-                      ),
-                    for (var i = 0; i < _subevents.length; i++)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.event_note_outlined),
-                        title: Text('${_subevents[i]['titulo']}'),
-                        subtitle: Text('${_subevents[i]['lugar']} · '
-                          'Cupo: ${_subevents[i]['cupo']} personas'),
-                        onTap: () => _editSubevent(i),
-                        trailing: IconButton(
-                          tooltip: 'Eliminar subevento',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => setState(() => _subevents.removeAt(i)),
+              if (_type == 'Evento')
+                panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Subeventos',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => _editSubevent(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Añadir subevento'),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      muted(
+                        'Añade las actividades del evento principal. '
+                        'Cada una tiene su propio cupo.',
+                      ),
+                      const SizedBox(height: 12),
+                      if (_subevents.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Todavía no has añadido subeventos.'),
+                        ),
+                      for (var i = 0; i < _subevents.length; i++)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.event_note_outlined),
+                          title: Text('${_subevents[i]['titulo']}'),
+                          subtitle: Text(
+                            '${_subevents[i]['lugar']} · '
+                            'Cupo: ${_subevents[i]['cupo']} personas',
+                          ),
+                          onTap: () => _editSubevent(i),
+                          trailing: IconButton(
+                            tooltip: 'Eliminar subevento',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () =>
+                                setState(() => _subevents.removeAt(i)),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => _editSubevent(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Añadir subevento'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 20),
+              if (_type == 'Curso')
+                panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Contenido del curso'),
+                      for (final block in _content)
+                        Padding(
+                          key: ObjectKey(block),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: TextFormField(
+                            initialValue: block['contenido'] as String,
+                            maxLines: block['tipo'] == 'enlace' ? 1 : 3,
+                            decoration: InputDecoration(
+                              labelText: block['tipo'] == 'enlace'
+                                  ? 'Enlace'
+                                  : 'Párrafo',
+                              suffixIcon: IconButton(
+                                tooltip: 'Quitar bloque',
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () =>
+                                    setState(() => _content.remove(block)),
+                              ),
+                            ),
+                            onChanged: (value) =>
+                                block['contenido'] = value.trim(),
+                            validator: (value) {
+                              final missing = requiredText(value);
+                              if (missing != null) return missing;
+                              if (block['tipo'] == 'enlace') {
+                                final uri = Uri.tryParse(value!.trim());
+                                if (uri == null ||
+                                    uri.host.isEmpty ||
+                                    !['https', 'http'].contains(uri.scheme)) {
+                                  return 'Ingresa un enlace HTTP o HTTPS válido.';
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      Wrap(
+                        spacing: 12,
+                        children: [
+                          for (final kind in ['parrafo', 'enlace'])
+                            TextButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: Text(
+                                kind == 'parrafo'
+                                    ? 'Añadir párrafo'
+                                    : 'Añadir enlace',
+                              ),
+                              onPressed: () => setState(
+                                () => _content.add({
+                                  'tipo': kind,
+                                  'contenido': '',
+                                }),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -1207,7 +1324,9 @@ class _EventEditorState extends State<EventEditor> {
                   ),
                   FilledButton(
                     onPressed: _saving ? null : _save,
-                    child: Text(_saving ? 'Guardando…' : 'Guardar evento'),
+                    child: Text(
+                      _saving ? 'Guardando…' : 'Guardar ${_type.toLowerCase()}',
+                    ),
                   ),
                 ],
               ),

@@ -22,6 +22,24 @@ class PortalApi {
     throw Exception('Conexión pendiente con Backend/ABD para esta sección.');
   }
 
+  // Adaptadores de creación. Los mapas de demostración son internos;
+  // no representan el contrato JSON de los serializers de producción.
+  static Future<Map<String, dynamic>> creationCatalog() async {
+    return {
+      'encargados': await request('encargados/'),
+      'lugares': ['Laboratorio de ejemplo', 'Auditorio de ejemplo', 'En línea'],
+    };
+  }
+
+  static Future<void> createActivity(Map<String, dynamic> data) async {
+    final course = data['tipo'] == 'Curso';
+    await request(
+      course ? 'cursos/' : 'eventos/',
+      method: 'POST',
+      data: {...data, if (course) 'publicado': data['estado'] == 'Publicado'},
+    );
+  }
+
   static Future<void> upload(int module, String name, Uint8List bytes) async {
     if (useExamples) {
       PortalExamples.addDocument(module, name);

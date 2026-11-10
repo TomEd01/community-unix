@@ -7,7 +7,8 @@ import 'video.dart';
 
 class PortalCourses extends StatefulWidget {
   final bool adminMode;
-  const PortalCourses({super.key, this.adminMode = false});
+  final VoidCallback? onCreate;
+  const PortalCourses({super.key, this.onCreate, this.adminMode = false});
   @override
   State<PortalCourses> createState() => _PortalCoursesState();
 }
@@ -77,7 +78,7 @@ class _PortalCoursesState extends State<PortalCourses> {
             ),
             if (widget.adminMode)
               FilledButton.icon(
-                onPressed: () => _edit(),
+                onPressed: widget.onCreate ?? () => _edit(),
                 icon: const Icon(Icons.add),
                 label: const Text('Crear curso'),
               ),
@@ -365,6 +366,25 @@ class _CourseDetailState extends State<CourseDetail> {
               children: [
                 heading('${_course!['titulo']}'),
                 muted('${_course!['descripcion']}'),
+                for (final block in records(
+                  _course!['contenido_bloques'] ?? [],
+                ))
+                  if (block['tipo'] == 'enlace')
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.link),
+                        onPressed: () =>
+                            openPortalLink(context, '${block['contenido']}'),
+                        label: Text('${block['contenido']}'),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text('${block['contenido']}'),
+                    ),
+
                 const SizedBox(height: 18),
                 if (_busy) const LinearProgressIndicator(),
                 if (widget.adminMode)

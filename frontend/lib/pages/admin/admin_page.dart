@@ -67,6 +67,7 @@ class _AdminPageState extends State<_AdminShell> {
   late final AdminStore store;
 
   int selected = 0;
+  int _creationRevision = 0;
   bool loggingOut = false;
   bool _loadingProfile = false;
   String _nombreReal = '';
@@ -113,6 +114,23 @@ class _AdminPageState extends State<_AdminShell> {
   void dispose() {
     store.dispose();
     super.dispose();
+  }
+
+  Future<void> _createActivity(String initialType) async {
+    final type = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => EventEditor(defaultType: initialType)),
+    );
+    if (!mounted || type == null) return;
+    final destination = switch (type) {
+      'Curso' => 5,
+      'Taller' => 6,
+      'Exposición' => 7,
+      _ => 1,
+    };
+    setState(() {
+      selected = destination;
+      _creationRevision++;
+    });
   }
 
   void navigate(int index) {
@@ -261,10 +279,19 @@ class _AdminPageState extends State<_AdminShell> {
                                           children: [
                                             for (final entry in <Widget>[
                                               AdminPortalHome(
+                                                key: ValueKey(
+                                                  'home-$_creationRevision',
+                                                ),
                                                 onNavigate: navigate,
                                               ),
-                                              const PortalEvents(
+                                              PortalEvents(
+                                                key: ValueKey(
+                                                  'Evento-$_creationRevision',
+                                                ),
+                                                onCreate: () =>
+                                                    _createActivity('Evento'),
                                                 adminMode: true,
+                                                type: 'Evento',
                                               ),
                                               AdminUsuariosPage(store: store),
                                               AdminFoliosPage(store: store),
@@ -273,14 +300,30 @@ class _AdminPageState extends State<_AdminShell> {
                                                 onLogout: logout,
                                                 loggingOut: loggingOut,
                                               ),
-                                              const PortalCourses(
+                                              PortalCourses(
+                                                key: ValueKey(
+                                                  'courses-$_creationRevision',
+                                                ),
+                                                onCreate: () =>
+                                                    _createActivity('Curso'),
                                                 adminMode: true,
                                               ),
-                                              const PortalEvents(
+                                              PortalEvents(
+                                                key: ValueKey(
+                                                  'Taller-$_creationRevision',
+                                                ),
+                                                onCreate: () =>
+                                                    _createActivity('Taller'),
                                                 adminMode: true,
                                                 type: 'Taller',
                                               ),
-                                              const PortalEvents(
+                                              PortalEvents(
+                                                key: ValueKey(
+                                                  'Exposición-$_creationRevision',
+                                                ),
+                                                onCreate: () => _createActivity(
+                                                  'Exposición',
+                                                ),
                                                 adminMode: true,
                                                 type: 'Exposición',
                                               ),
