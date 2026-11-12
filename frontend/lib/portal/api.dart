@@ -27,7 +27,7 @@ class PortalApi {
   static Future<Map<String, dynamic>> creationCatalog() async {
     return {
       'encargados': await request('encargados/'),
-      'lugares': ['Laboratorio de ejemplo', 'Auditorio de ejemplo', 'En línea'],
+      'lugares': ['Laboratorio de Sistemas', 'Biblioteca', 'Cecilio Chi', 'Domo', 'Aula Magna', 'Esplanada de la Facultad', 'En linea'],
     };
   }
 

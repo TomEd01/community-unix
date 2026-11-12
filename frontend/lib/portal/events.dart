@@ -723,6 +723,14 @@ class EventEditor extends StatefulWidget {
 }
 
 class _EventEditorState extends State<EventEditor> {
+  static const _online = 'En línea';
+
+  static String _normalizePlace(String value) {
+    final place = value.trim();
+    return place.toLowerCase().replaceAll('í', 'i') == 'en linea'
+        ? _online
+        : place;
+  }
   final _key = GlobalKey<FormState>();
   late final TextEditingController _title, _description, _place, _capacity;
   final _search = TextEditingController();
@@ -743,7 +751,9 @@ class _EventEditorState extends State<EventEditor> {
     _subevents = records(e?['subeventos'] ?? []);
     _title = TextEditingController(text: e?['titulo'] ?? '');
     _description = TextEditingController(text: e?['descripcion'] ?? '');
-    _place = TextEditingController(text: e?['lugar'] ?? '');
+    _place = TextEditingController(
+      text: _normalizePlace(e?['lugar'] ?? ''),
+    );
     _capacity = TextEditingController(text: '${e?['cupo'] ?? 30}');
     _date = e == null
         ? DateTime.now().add(const Duration(days: 1))
@@ -920,7 +930,7 @@ class _EventEditorState extends State<EventEditor> {
       final data = <String, dynamic>{
         'titulo': _title.text.trim(),
         'descripcion': _description.text.trim(),
-        'lugar': _place.text.trim(),
+        'lugar': _type == 'Curso' ? _online : _normalizePlace(_place.text),
         'cupo': _unlimited ? 30 : int.parse(_capacity.text.trim()),
         'cupo_ilimitado': _unlimited,
         if (_type == 'Evento') 'subeventos': _subevents,
@@ -998,20 +1008,6 @@ class _EventEditorState extends State<EventEditor> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          key: ValueKey(_places.length),
-          initialValue: _place.text.isEmpty ? null : _place.text,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Lugar o modalidad'),
-          items: <String>{..._places, if (_place.text.isNotEmpty) _place.text}
-              .map(
-                (place) => DropdownMenuItem(value: place, child: Text(place)),
-              )
-              .toList(),
-          onChanged: _loading ? null : (value) => _place.text = value ?? '',
-          validator: requiredText,
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
           initialValue: _type,
           decoration: const InputDecoration(labelText: 'Tipo de actividad'),
           items: [
@@ -1022,8 +1018,34 @@ class _EventEditorState extends State<EventEditor> {
           ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
           onChanged: widget.event != null
               ? null
-              : (v) => setState(() => _type = v!),
+              : (value) {
+                  if (value == null) return;
+                  setState(() => _type = value);
+                },
         ),
+        const SizedBox(height: 16),
+        if (_type == 'Curso')
+          const InputDecorator(
+            decoration: InputDecoration(labelText: 'Lugar o modalidad'),
+            child: Text(_online),
+          )
+        else
+          DropdownButtonFormField<String>(
+            key: ValueKey((_places.length, _type)),
+            initialValue: _place.text.isEmpty ? null : _place.text,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Lugar o modalidad'),
+            items: <String>{
+              ..._places.map(_normalizePlace).where((place) => place.isNotEmpty),
+              if (_place.text.isNotEmpty) _place.text,
+            }.map((place) => DropdownMenuItem(
+              value: place,
+              child: Text(place),
+            )).toList(),
+            onChanged: _loading ? null : (value) => _place.text = value ?? '',
+            validator: requiredText,
+          ),
+        const SizedBox(height: 16),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: _state,
