@@ -91,6 +91,7 @@ Widget _temaCupertino(Widget child) => Builder(
   },
 );
 
+// ───────────────────────── Horas ─────────────────────────
 String _dos(int v) => v.toString().padLeft(2, '0');
 
 // Mismo formato que ya espera el backend: "08:00 AM – 09:30 AM".
@@ -146,6 +147,7 @@ _Rango? _leerRango(Object? horario) {
   return _Rango(a, b);
 }
 
+// ───────────────────────── Página ─────────────────────────
 class InstructorHorariosPage extends StatefulWidget {
   const InstructorHorariosPage({super.key});
 
@@ -177,6 +179,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     super.dispose();
   }
 
+  // ───────── Red ─────────
   Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -1031,6 +1034,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
   }
 }
 
+// ───────────────────────── Hoja para crear horario ─────────────────────────
 class _NuevoHorarioSheet extends StatefulWidget {
   const _NuevoHorarioSheet();
 
@@ -1250,6 +1254,7 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
   }
 }
 
+// ───────────────────────── Piezas reutilizables ─────────────────────────
 class _Hoja extends StatelessWidget {
   const _Hoja({
     required this.titulo,
@@ -1611,8 +1616,8 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
   }
 }
 
+// ───────────────────────── Selector de hora (rueda + flechas) ─────────────────────────
 // Permite arrastrar la rueda también con mouse/trackpad en web y escritorio.
-
 class _ArrastreConMouse extends MaterialScrollBehavior {
   const _ArrastreConMouse();
 
