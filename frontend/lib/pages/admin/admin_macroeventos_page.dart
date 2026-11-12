@@ -103,7 +103,8 @@ class _AdminMacroeventosPageState extends State<AdminMacroeventosPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              '${macro.date} · ${macro.activities.length} actividades',
+              '${macro.date} · ${macro.activities.length} subeventos · '
+              '${macro.isUnlimited ? 'Cupo ilimitado' : 'Cupo: ${macro.capacity} personas'}',
               style: TextStyle(color: AdminStyle.muted),
             ),
             childrenPadding: EdgeInsets.all(12),
@@ -188,7 +189,7 @@ class _AdminMacroeventosPageState extends State<AdminMacroeventosPage> {
                 child: TextButton.icon(
                   onPressed: () => createActivity(macro),
                   icon: Icon(Icons.add),
-                  label: Text('Agregar actividad'),
+                  label: Text('Añadir subevento'),
                 ),
               ),
             ],
@@ -215,29 +216,45 @@ class _AdminMacroeventosPageState extends State<AdminMacroeventosPage> {
   }
 
   Future<void> createMacro() async {
-    final value = await showDialog<List<String>>(
-      context: context,
-      builder: (_) => _CreateForm(macro: true),
-    );
-    if (value != null && mounted) {
-      widget.store.addMacro(value[0], value[1]);
-      setState(() {
-        query = '';
-        filter = null;
-      });
-      adminMessage(context, 'Macro evento creado en esta demostración.');
-    }
-  }
+  final value = await showDialog<List<String>>(
+    context: context,
+    builder: (_) => const _CreateForm(macro: true),
+  );
+
+  if (value == null || !mounted) return;
+
+  widget.store.addMacro(
+    value[0],
+    value[1],
+    capacity: value[2].isEmpty ? null : int.parse(value[2]),
+  );
+
+  setState(() {
+    query = '';
+    filter = null;
+  });
+
+  adminMessage(context, 'Evento principal creado en esta demostración.');
+}
 
   Future<void> createActivity(MacroEvent macro) async {
     final value = await showDialog<List<String>>(
       context: context,
-      builder: (_) => _CreateForm(macro: false),
+      builder: (_) => const _CreateForm(macro: false),
     );
-    if (value != null && mounted) {
-      widget.store.addActivity(macro, value[0], value[1]);
-      setState(() => filter = null);
-    }
+
+    if (value == null || !mounted) return;
+
+    widget.store.addActivity(
+      macro,
+      value[0],
+      value[1],
+      capacity: int.parse(value[2]),
+    );
+
+    setState(() => filter = null);
+
+    adminMessage(context, 'Subevento creado en esta demostración.');
   }
 }
 
@@ -249,28 +266,44 @@ Color statusColor(ActivityStatus s) => switch (s) {
 
 class _CreateForm extends StatefulWidget {
   const _CreateForm({required this.macro});
+
   final bool macro;
+
   @override
   State<_CreateForm> createState() => _CreateFormState();
 }
 
 class _CreateFormState extends State<_CreateForm> {
   final form = GlobalKey<FormState>();
+
   final title = TextEditingController();
   final dates = TextEditingController();
+  final capacity = TextEditingController(text: '30');
+
   String type = 'Exposición';
+  bool unlimited = true;
+
   @override
   void dispose() {
     title.dispose();
     dates.dispose();
+    capacity.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
+
+    // Solo el evento principal puede tener cupo ilimitado.
+    final isUnlimited = widget.macro && unlimited;
+
     return AlertDialog(
-      title: Text(widget.macro ? 'Crear macro evento' : 'Agregar actividad'),
+      title: Text(
+        widget.macro
+            ? 'Crear evento principal'
+            : 'Agregar subevento',
+      ),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
@@ -278,38 +311,114 @@ class _CreateFormState extends State<_CreateForm> {
             key: form,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextFormField(
                   controller: title,
                   maxLength: 100,
-                  decoration: InputDecoration(labelText: 'Nombre'),
-                  validator: (v) =>
-                      (v ?? '').trim().isEmpty ? 'Escribe un nombre.' : null,
+                  decoration: InputDecoration(
+                    labelText: 'Nombre',
+                    hintText: widget.macro
+                        ? 'Semana de Ingeniería'
+                        : 'Fibra óptica',
+                  ),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Escribe un nombre.';
+                    }
+                    return null;
+                  },
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
+
+                // El principal solicita fechas.
+                // El subevento solicita el tipo de actividad.
                 if (widget.macro)
                   TextFormField(
                     controller: dates,
-                    decoration: InputDecoration(
-                      labelText: 'Fechas (ej. 26–30 OCT 2026)',
+                    decoration: const InputDecoration(
+                      labelText: 'Fechas',
+                      hintText: 'Ej. 9–13 NOV 2026',
                     ),
-                    validator: (v) =>
-                        (v ?? '').trim().isEmpty ? 'Indica las fechas.' : null,
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Indica las fechas.';
+                      }
+                      return null;
+                    },
                   )
                 else
                   DropdownButtonFormField<String>(
                     initialValue: type,
-                    decoration: InputDecoration(labelText: 'Tipo'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de subevento',
+                    ),
                     items: ['Curso', 'Exposición', 'Taller']
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item,
+                            child: Text(item),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (v) => setState(() => type = v ?? type),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => type = value);
+                    },
                   ),
-                SizedBox(height: 14),
+
+                const SizedBox(height: 20),
+                const Text(
+                  'Límite de asistentes',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+
+                // Este interruptor aparece solo en el principal.
+                if (widget.macro)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Cupo ilimitado'),
+                    subtitle: const Text(
+                      'Desactívalo para indicar un máximo.',
+                    ),
+                    value: unlimited,
+                    onChanged: (value) {
+                      setState(() => unlimited = value);
+                    },
+                  ),
+
+                // El campo aparece si hay un límite.
+                if (!isUnlimited)
+                  TextFormField(
+                    controller: capacity,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Cupo máximo',
+                      hintText: 'Ej. 30',
+                      prefixIcon: Icon(Icons.groups_outlined),
+                    ),
+                    validator: (value) {
+                      final number = int.tryParse(
+                        (value ?? '').trim(),
+                      );
+
+                      if (number == null || number < 1) {
+                        return 'Ingresa un número entero mayor a cero.';
+                      }
+
+                      return null;
+                    },
+                  ),
+
+                const SizedBox(height: 14),
                 Text(
                   widget.macro
-                      ? 'Contendrá cursos, exposiciones y talleres.'
-                      : 'Se creará en estado Reclutando.',
+                      ? 'Después podrás añadir varios subeventos, '
+                          'cada uno con su propio cupo.'
+                      : 'Este subevento se creará en estado Reclutando. '
+                          'Podrás editar su fecha, horario y lugar '
+                          'desde su detalle.',
                   style: TextStyle(color: AdminStyle.muted),
                 ),
               ],
@@ -320,17 +429,19 @@ class _CreateFormState extends State<_CreateForm> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancelar'),
+          child: const Text('Cancelar'),
         ),
         FilledButton(
           onPressed: () {
-            if (form.currentState!.validate())
-              Navigator.pop(context, [
-                title.text.trim(),
-                widget.macro ? dates.text.trim() : type,
-              ]);
+            if (!form.currentState!.validate()) return;
+
+            Navigator.pop<List<String>>(context, [
+              title.text.trim(),
+              widget.macro ? dates.text.trim() : type,
+              isUnlimited ? '' : capacity.text.trim(),
+            ]);
           },
-          child: Text('Crear'),
+          child: const Text('Crear'),
         ),
       ],
     );

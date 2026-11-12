@@ -10,16 +10,21 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ───────────────────────── Paleta ─────────────────────────
-Color get _card => UnixColors.adapt(const Color(0xFF0A2947));
+Color get _card => UnixColors.card;
 Color get _border => UnixColors.border;
 const _orange = Color(0xFFFF8A24);
-Color get _muted => UnixColors.adapt(const Color(0xFF91A9BE));
+Color get _muted => UnixColors.muted;
 Color get _red => UnixColors.adapt(const Color(0xFFFF6577));
-Color get _sheet => UnixColors.adapt(const Color(0xFF102B46));
-Color get _field => UnixColors.adapt(const Color(0xFF0A223A));
+Color get _sheet =>
+    UnixColors.dark ? const Color(0xFF102B46) : UnixColors.surface;
+Color get _field =>
+    UnixColors.dark ? const Color(0xFF0A223A) : UnixColors.field;
+Color get _accent => UnixColors.dark ? _orange : const Color(0xFF9C4200);
+Color get _selection =>
+    UnixColors.dark ? const Color(0xFF243F57) : UnixColors.selected;
 const _green = Color(0xFF30D158);
-const _yellow = Color(0xFFFFD60A);
+Color get _yellow =>
+    UnixColors.dark ? const Color(0xFFFFD60A) : const Color(0xFF805B00);
 
 // Colores de sistema de iOS (modo oscuro) para distinguir materias y alumnos.
 const _paleta = [
@@ -65,9 +70,25 @@ String _iniciales(String nombre) {
   return (p.first.substring(0, 1) + p[1].substring(0, 1)).toUpperCase();
 }
 
-Widget _oscuro(Widget child) => CupertinoTheme(
-  data: const CupertinoThemeData(brightness: Brightness.dark),
-  child: child,
+// Cupertino debe seguir la misma preferencia que los colores de Material.
+Widget _temaCupertino(Widget child) => Builder(
+  builder: (context) {
+    UnixTheme.watch(context);
+    return CupertinoTheme(
+      data: CupertinoThemeData(
+        brightness: UnixColors.dark ? Brightness.dark : Brightness.light,
+        primaryColor: _accent,
+        scaffoldBackgroundColor: _sheet,
+        barBackgroundColor: _sheet,
+        textTheme: CupertinoTextThemeData(
+          textStyle: _t(17),
+          pickerTextStyle: _t(21),
+          dateTimePickerTextStyle: _t(21),
+        ),
+      ),
+      child: child,
+    );
+  },
 );
 
 // ───────────────────────── Horas ─────────────────────────
@@ -306,7 +327,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
     final confirmar = await showCupertinoDialog<bool>(
       context: context,
-      builder: (ctx) => _oscuro(
+      builder: (ctx) => _temaCupertino(
         CupertinoAlertDialog(
           title: const Text('Eliminar horario'),
           content: Text(
@@ -369,7 +390,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
     showCupertinoModalPopup<void>(
       context: context,
-      builder: (ctx) => _oscuro(
+      builder: (ctx) => _temaCupertino(
         CupertinoActionSheet(
           title: Text('${bloque['materia'] ?? ''}'),
           message: Text('${bloque['horario'] ?? ''}'),
@@ -1098,12 +1119,18 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: activo ? 0.16 : 0.08),
+                    color: activo
+                        ? _selection
+                        : UnixColors.text.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Text(
                     _formatoHora(minutos),
-                    style: _t(17, c: activo ? _orange : Colors.white),
+                    style: _t(
+                      17,
+                      w: FontWeight.w600,
+                      c: activo ? _accent : UnixColors.text,
+                    ),
                   ),
                 ),
               ],
@@ -1133,21 +1160,12 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: CupertinoTheme(
-        data: const CupertinoThemeData(
-          brightness: Brightness.dark,
-          textTheme: CupertinoTextThemeData(
-            dateTimePickerTextStyle: TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-            ),
-          ),
-        ),
-        child: _Hoja(
+      child: _temaCupertino(
+        _Hoja(
           titulo: 'Nuevo horario',
           izquierda: _Tap(
             onTap: () => Navigator.pop(context),
-            child: Text('Cancelar', style: _t(17, c: _orange)),
+            child: Text('Cancelar', style: _t(17, c: _accent)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1193,8 +1211,9 @@ class _NuevoHorarioSheetState extends State<_NuevoHorarioSheet> {
                       minutos: _inicio,
                       alCambiar: (v) => setState(() {
                         _inicio = v;
-                        if (_fin <= _inicio)
+                        if (_fin <= _inicio) {
                           _fin = math.min(_inicio + 60, 1439);
+                        }
                       }),
                     ),
                     Padding(
@@ -1468,6 +1487,7 @@ class _PildoraXp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1477,7 +1497,7 @@ class _PildoraXp extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(CupertinoIcons.bolt_fill, size: 12, color: _yellow),
+          Icon(CupertinoIcons.bolt_fill, size: 12, color: _yellow),
           const SizedBox(width: 3),
           Text(
             '$xp XP',
@@ -1530,6 +1550,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     final curva = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
 
     return Positioned(
@@ -1553,7 +1574,9 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B3550),
+                    color: UnixColors.dark
+                        ? const Color(0xFF1B3550)
+                        : UnixColors.surface,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: _border),
                     boxShadow: const [
@@ -1752,6 +1775,7 @@ class _SelectorHoraState extends State<_SelectorHora> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return ScrollConfiguration(
       behavior: const _ArrastreConMouse(),
       child: Padding(
@@ -1769,7 +1793,7 @@ class _SelectorHoraState extends State<_SelectorHora> {
                   height: _alto,
                   width: _wHora + _wDos + _wMin + _wGap + _wPer + 12,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: _selection,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -1865,6 +1889,7 @@ class _FlechaState extends State<_Flecha> {
 
   @override
   Widget build(BuildContext context) {
+    UnixTheme.watch(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _iniciar(),
@@ -1876,10 +1901,10 @@ class _FlechaState extends State<_Flecha> {
         width: 56,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: _presionada ? 0.18 : 0.08),
+          color: UnixColors.text.withValues(alpha: _presionada ? 0.16 : 0.06),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(widget.icono, size: 20, color: _orange),
+        child: Icon(widget.icono, size: 20, color: _accent),
       ),
     );
   }

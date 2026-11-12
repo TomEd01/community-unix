@@ -53,11 +53,24 @@ class EventActivity {
 }
 
 class MacroEvent {
-  MacroEvent(this.id, this.title, this.date, this.activities);
+  MacroEvent(
+    this.id,
+    this.title,
+    this.date,
+    this.activities, {
+    this.capacity,
+  });
+
   final String id;
   final String title;
   final String date;
   final List<EventActivity> activities;
+
+  // null significa que el evento no tiene límite de cupo.
+  // Un número indica el máximo de asistentes.
+  int? capacity;
+
+  bool get isUnlimited => capacity == null;
 }
 
 class DemoFolio {
@@ -182,27 +195,48 @@ class AdminStore extends ChangeNotifier {
   int count(ActivityStatus status) =>
       activities.where((a) => a.status == status).length;
   int get enrolled => activities.fold(0, (sum, a) => sum + a.enrolled);
-  void addMacro(String title, String date) {
+  void addMacro(
+    String title,
+    String date, {
+    int? capacity,
+  }) {
+    if (capacity != null && capacity < 1) {
+      throw StateError('El cupo debe ser mayor a cero.');
+    }
+
     _macros.add(
       MacroEvent(
         'macro-${DateTime.now().microsecondsSinceEpoch}',
         title,
         date,
         [],
+        capacity: capacity,
       ),
     );
+
     notifyListeners();
   }
 
-  void addActivity(MacroEvent macro, String title, String type) {
+  void addActivity(
+    MacroEvent macro,
+    String title,
+    String type, {
+    int capacity = 30,
+  }) {
+    if (capacity < 1) {
+      throw StateError('El cupo del subevento debe ser mayor a cero.');
+    }
+
     macro.activities.add(
       EventActivity(
         id: 'act-${DateTime.now().microsecondsSinceEpoch}',
         title: title,
         type: type,
         status: ActivityStatus.recruiting,
+        capacity: capacity,
       ),
     );
+
     notifyListeners();
   }
 

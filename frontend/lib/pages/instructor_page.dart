@@ -8,7 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'widgets/unix_account_bar.dart';
-import 'alumno/alumno_eventos_page.dart';
+import '../portal/events.dart';
+import '../portal/courses.dart';
 import 'instructor/instructor_perfil_page.dart';
 import 'instructor/instructor_horarios_page.dart';
 import 'instructor/instructor_actividades_page.dart';
@@ -524,19 +525,10 @@ class _InstructorPageState extends State<InstructorPage> {
   Widget _buildCurrentPage() {
     switch (_selected) {
       case 1:
-        return _buildCourses();
+        return const PortalCourses();
 
       case 2:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(alignment: Alignment.centerLeft, child: _requestButton()),
-            SizedBox(height: 18),
-            AlumnoEventosPage(),
-            SizedBox(height: 18),
-            _buildRequestsPanel(),
-          ],
-        );
+        return const PortalEvents();
 
       case 3:
         return InstructorHorariosPage();
@@ -889,31 +881,6 @@ class _InstructorPageState extends State<InstructorPage> {
             ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRequestsPanel() {
-    return _panel(
-      title: 'Mis solicitudes locales',
-      child: _requests.isEmpty
-          ? _empty('Todavía no has registrado solicitudes en esta pantalla.')
-          : Column(
-              children: [
-                for (final request in _requests)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.pending_actions, color: orange),
-                    title: Text(
-                      request,
-                      style: TextStyle(color: UnixColors.text),
-                    ),
-                    subtitle: Text(
-                      'Borrador local · No enviado al servidor',
-                      style: TextStyle(color: muted),
-                    ),
-                  ),
-              ],
-            ),
     );
   }
 

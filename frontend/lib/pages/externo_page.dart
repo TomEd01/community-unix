@@ -1,3 +1,6 @@
+import '../portal/dashboard.dart';
+import '../portal/courses.dart';
+import '../portal/events.dart';
 import '../theme/unix_role_brand.dart';
 import '../theme/unix_theme.dart';
 import 'dart:convert';
@@ -9,9 +12,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'externo/externo_comunidad_page.dart';
-import 'externo/externo_cursos_page.dart';
-import 'externo/externo_eventos_page.dart';
-import 'externo/externo_inicio_page.dart';
 import 'externo/externo_perfil_page.dart';
 
 import '../main.dart';
@@ -49,6 +49,7 @@ class _ExternoPageState extends State<ExternoPage> {
     _NavItem(icon: Icons.event_rounded, label: 'Eventos'),
     _NavItem(icon: Icons.groups_rounded, label: 'Comunidad'),
     _NavItem(icon: Icons.person_rounded, label: 'Mi perfil'),
+    _NavItem(icon: Icons.co_present_outlined, label: 'Exposiciones'),
   ];
 
   @override
@@ -327,15 +328,16 @@ class _ExternoPageState extends State<ExternoPage> {
               child: ListView.separated(
                 padding: EdgeInsets.symmetric(horizontal: 13),
                 itemCount: _items.length,
-                separatorBuilder: (_, __) => SizedBox(height: 5),
+                separatorBuilder: (_, _) => SizedBox(height: 5),
                 itemBuilder: (context, index) {
-                  final item = _items[index];
-                  final selected = _selectedIndex == index;
+                  final navIndex = [0, 1, 5, 2, 3, 4][index];
+                  final item = _items[navIndex];
+                  final selected = _selectedIndex == navIndex;
 
                   return Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => _selectPage(index),
+                      onTap: () => _selectPage(navIndex),
                       borderRadius: BorderRadius.circular(11),
                       child: AnimatedContainer(
                         duration: Duration(milliseconds: 180),
@@ -457,25 +459,6 @@ class _ExternoPageState extends State<ExternoPage> {
       ),
     );
   }
-
-  Widget _buildGlobalSearch() => Container(
-    height: 42,
-    decoration: BoxDecoration(
-      color: _background,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: _border),
-    ),
-    child: TextField(
-      style: TextStyle(color: UnixColors.text, fontSize: 13),
-      decoration: InputDecoration(
-        hintText: 'Buscar cursos, eventos o comunidad...',
-        hintStyle: TextStyle(color: _muted, fontSize: 12),
-        prefixIcon: Icon(Icons.search_rounded, color: _muted, size: 20),
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(vertical: 12),
-      ),
-    ),
-  );
 
   Widget _buildAccountMenu() {
     return PopupMenuButton<String>(
@@ -609,6 +592,10 @@ class _ExternoPageState extends State<ExternoPage> {
             icon: Icon(Icons.person_rounded),
             label: 'Perfil',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.co_present_outlined),
+            label: 'Exposiciones',
+          ),
         ],
       ),
     );
@@ -617,17 +604,28 @@ class _ExternoPageState extends State<ExternoPage> {
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
       case 0:
-        return ExternoInicioPage(nombre: _nombre, search: _buildGlobalSearch());
+        return PortalDashboard(nombre: _nombre, alumno: false);
       case 1:
-        return ExternoCursosPage();
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: PortalCourses(),
+        );
       case 2:
-        return ExternoEventosPage();
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: PortalEvents(),
+        );
       case 3:
         return ExternoComunidadPage();
+      case 5:
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: PortalEvents(type: 'Exposición'),
+        );
       case 4:
         return ExternoPerfilPage();
       default:
-        return ExternoInicioPage(nombre: _nombre, search: _buildGlobalSearch());
+        return PortalDashboard(nombre: _nombre, alumno: false);
     }
   }
 }
