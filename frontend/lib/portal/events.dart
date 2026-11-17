@@ -780,13 +780,38 @@ class _EventEditorState extends State<EventEditor> {
       _error = null;
     });
     try {
-      final catalog = await PortalApi.creationCatalog();
-      if (mounted) {
-        setState(() {
-          _instructors = records(catalog['encargados']);
-          _places = (catalog['lugares'] as List).cast<String>();
-        });
-      }
+      final catalog = Map<String, dynamic>.from(
+        await PortalApi.request(
+          '/superadmin/eventos/catalogos/',
+          method: 'GET',
+        ) as Map,
+      );
+
+      final places = records(catalog['lugares_itc'])
+          .map((item) => item['nombre'] as String)
+          .toList();
+
+      final instructors = records(catalog['instructores']);
+      final exhibitors = records(catalog['alumnos_expositores']);
+
+      if (!mounted) return;
+      setState(() {
+        _places = places;
+        _instructors = [
+          for (final item in instructors)
+            {
+              ...item,
+              'id': 'instructor:${item['instructor_id']}',
+              'nombre': item['nombre_completo'],
+            },
+          for (final item in exhibitors)
+            {
+              ...item,
+              'id': 'expositor:${item['expositor_id']}',
+              'nombre': item['nombre_completo'],
+            },
+        ];
+      });
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
     } finally {
@@ -826,6 +851,10 @@ class _EventEditorState extends State<EventEditor> {
 
   // Edita una copia: cancelar el diálogo no cambia los datos originales.
   Future<void> _editSubevent([int? index]) async {
+    if (_loading || _error != null || _places.isEmpty) {
+      notice(context, 'El catálogo de lugares todavía no está disponible.');
+      return;
+    }
     final previous = index == null ? null : _subevents[index];
     final draft = <String, dynamic>{
       ...?previous,
@@ -833,6 +862,11 @@ class _EventEditorState extends State<EventEditor> {
       'descripcion': previous?['descripcion'] ?? '',
       'lugar': previous?['lugar'] ?? _place.text.trim(),
       'cupo': previous?['cupo'] ?? 30,
+    };
+    final initialPlace = (draft['lugar'] as String).trim();
+    final places = <String>{
+      ..._places.where((place) => place.trim().isNotEmpty),
+      if (initialPlace.isNotEmpty) initialPlace,
     };
     final formKey = GlobalKey<FormState>();
     final result = await showDialog<Map<String, dynamic>>(
@@ -865,11 +899,19 @@ class _EventEditorState extends State<EventEditor> {
                     onChanged: (v) => draft['descripcion'] = v.trim(),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: '${draft['lugar']}',
+                  DropdownButtonFormField<String>(
+                    initialValue: initialPlace.isEmpty ? null : initialPlace,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Lugar'),
+                    items: [
+                      for (final place in places)
+                        DropdownMenuItem<String>(
+                          value: place,
+                          child: Text(place),
+                        ),
+                    ],
                     validator: requiredText,
-                    onChanged: (v) => draft['lugar'] = v.trim(),
+                    onChanged: (value) => draft['lugar'] = value ?? '',
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
