@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/unix_theme.dart';
-import '../pages/alumno/alumno_vinculo_profesor.dart';
+//import '../pages/alumno/alumno_vinculo_profesor.dart';
 import 'api.dart';
 import 'ui.dart';
 import 'courses.dart';
@@ -15,12 +15,18 @@ class PortalDashboard extends StatefulWidget {
 }
 
 class _PortalDashboardState extends State<PortalDashboard> {
+  static const bool _modoMantenimiento = true;
+
   Map<String, dynamic>? _data;
   String? _error;
+
   @override
   void initState() {
     super.initState();
-    _load();
+
+    if (!widget.alumno || !_modoMantenimiento) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -47,6 +53,85 @@ class _PortalDashboardState extends State<PortalDashboard> {
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
+    if (widget.alumno && _modoMantenimiento) {
+    final nombre = widget.nombre.trim();
+
+    final primero = nombre.isEmpty
+        ? ''
+        : nombre.split(RegExp(r'\s+')).first;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            primero.isEmpty ? '¡Hola!' : '¡Hola, $primero!',
+            style: TextStyle(
+              color: UnixColors.text,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 80),
+
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 550),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.construction_rounded,
+                    size: 100,
+                    color: Color(0xFFFF8A24),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  Text(
+                    '¡Estamos preparando algo increíble para ti!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: UnixColors.text,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    'Estamos trabajando en nuevas actividades '
+                    'y experiencias para que sigas aprendiendo y '
+                    'creciendo tus conocimientos.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: UnixColors.text,
+                      fontSize: 16,
+                      height: 1.6,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  const Text(
+                    '¡Muy pronto tendremos novedades!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFFFF8A24),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
     final raw = '${_data?['nombre'] ?? widget.nombre}'.trim();
     final first = raw.isEmpty ? '' : raw.split(RegExp(r'\s+')).first;
     final d = _data;
@@ -172,10 +257,10 @@ class _PortalDashboardState extends State<PortalDashboard> {
                   },
                 ),
               ],
-              if (widget.alumno) ...[
+             /* if (widget.alumno) ...[
                 const SizedBox(height: 24),
                 const AlumnoVinculoProfesor(),
-              ],
+              ],*/
             ],
           ),
         ),

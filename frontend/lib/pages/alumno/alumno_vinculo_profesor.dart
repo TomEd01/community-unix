@@ -379,6 +379,7 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
                 ],
               ),
             ),
+            /*
           ] else if (activo) ...[
             SizedBox(height: 12),
             Text(
@@ -400,8 +401,11 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
               'Aún no estás vinculado con ningún profesor.',
               style: TextStyle(color: _muted),
             ),
+          ],*/
           ],
           SizedBox(height: 18),
+
+
           TextField(
             controller: _buscador,
             enabled: !_guardando,
@@ -560,19 +564,96 @@ class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
                 icon: Icon(Icons.link),
                 label: Text(activo ? 'Cambiar de grupo' : 'Vincularme'),
               ),
-              if (activo || eliminado)
+            ],
+          ),
+                    const SizedBox(height: 24),
+
+        const Divider(),
+
+        const SizedBox(height: 20),
+
+        Text(
+          'Clases vinculadas',
+          style: TextStyle(
+            color: UnixColors.text,
+            fontSize: 23,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        if (activo && !eliminado)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_vinculo!['materia']}',
+                  style: TextStyle(
+                    color: UnixColors.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Text(
+                  'Profesor: ${_vinculo!['nombre_profesor']}',
+                  style: TextStyle(color: _muted),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'Horario: ${_vinculo!['horario']}',
+                  style: TextStyle(color: _muted),
+                ),
+
+                const SizedBox(height: 12),
+
+                Text(
+                  'Vinculación activa',
+                  style: TextStyle(color: _green),
+                ),
+
+                const SizedBox(height: 16),
+
                 OutlinedButton.icon(
                   onPressed: ocupado || _errorVinculo != null
                       ? null
                       : _desvincular,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _red,
-                    side: BorderSide(color: _red),
+                  icon: Icon(Icons.link_off, color: _red),
+                  label: Text(
+                    'Desvincularme',
+                    style: TextStyle(color: _red),
                   ),
-                  icon: Icon(Icons.link_off),
-                  label: Text('Desvincularme'),
                 ),
-            ],
+              ],
+            ),
+          )
+        else if (eliminado)
+          OutlinedButton.icon(
+            onPressed: ocupado || _errorVinculo != null ? null : _desvincular,
+            style: OutlinedButton.styleFrom(foregroundColor: _red),
+            icon: Icon(Icons.link_off),
+            label: Text('Desvincularme del grupo anterior'),
+          )
+        else if (_errorVinculo != null)
+          Text('No se pudo comprobar la vinculación.', style: TextStyle(color: _red))
+        else if (_vinculo == null)
+          Text('Consultando clases...', style: TextStyle(color: _muted))
+        else
+          Text(
+            'Todavía no tienes clases vinculadas.',
+            style: TextStyle(color: _muted),
           ),
         ],
       ),
