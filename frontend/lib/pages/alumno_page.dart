@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'alumno/alumno_comunidad_page.dart';
 import 'alumno/alumno_perfil_page.dart';
-
+import 'alumno/alumno_vinculo_profesor.dart';
 import '../main.dart';
 
 class AlumnoPage extends StatefulWidget {
@@ -48,6 +48,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
     _NavItem(icon: Icons.groups_rounded, label: 'Comunidad'),
     _NavItem(icon: Icons.person_rounded, label: 'Mi perfil'),
     _NavItem(icon: Icons.co_present_outlined, label: 'Exposiciones'),
+    _NavItem(icon: Icons.school_rounded, label: 'Mis clases'),
   ];
 
   @override
@@ -323,10 +324,18 @@ class _AlumnoPageState extends State<AlumnoPage> {
             Expanded(
               child: ListView.separated(
                 padding: EdgeInsets.symmetric(horizontal: 13),
-                itemCount: _items.length,
+                itemCount: 3,
                 separatorBuilder: (_, _) => SizedBox(height: 5),
                 itemBuilder: (context, index) {
-                  final navIndex = [0, 1, 5, 2, 3, 4][index];
+                  // Menú original:
+                  // final navIndex = [0, 1, 5, 2, 3, 4][index];
+
+                  final navIndex = [0, 6, 4][index];
+                  //los comenbtarios de abajo son del menu original, que se cambio para que el menu lateral tenga solo 3 opciones, Inicio, Mis clases y Mi perfil
+                 // itemCount: _items.length,
+                 //separatorBuilder: (_, _) => SizedBox(height: 5),
+                 //itemBuilder: (context, index) {
+                 //final navIndex = [0, 1, 5, 2, 3, 4][index];
                   final item = _items[navIndex];
                   final selected = _selectedIndex == navIndex;
 
@@ -553,44 +562,34 @@ class _AlumnoPageState extends State<AlumnoPage> {
   }
 
   Widget _buildBottomNavigation() {
+    const visibleIndexes = [0, 6, 4];
+
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: _border)),
       ),
       child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
+        currentIndex: visibleIndexes.contains(_selectedIndex)
+            ? visibleIndexes.indexOf(_selectedIndex)
+            : 0,
         type: BottomNavigationBarType.fixed,
         backgroundColor: _sidebar,
         selectedItemColor: _orange,
         unselectedItemColor: _muted,
-        selectedFontSize: 10,
-        unselectedFontSize: 9,
         showUnselectedLabels: true,
-        onTap: _selectPage,
-        items: [
+        onTap: (index) => _selectPage(visibleIndexes[index]),
+        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_rounded),
             label: 'Inicio',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_rounded),
-            label: 'Cursos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_rounded),
-            label: 'Eventos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.groups_rounded),
-            label: 'Comunidad',
+            icon: Icon(Icons.school_rounded),
+            label: 'Mis clases',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_rounded),
             label: 'Perfil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.co_present_outlined),
-            label: 'Exposiciones',
           ),
         ],
       ),
@@ -620,6 +619,12 @@ class _AlumnoPageState extends State<AlumnoPage> {
         );
       case 4:
         return AlumnoPerfilPage();
+
+      case 6:
+      return const SingleChildScrollView(
+        padding: EdgeInsets.all(24),
+        child: AlumnoVinculoProfesor(),
+      );
       default:
         return PortalDashboard(nombre: _nombre, alumno: true);
     }
