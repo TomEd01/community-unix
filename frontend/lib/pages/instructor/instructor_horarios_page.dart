@@ -100,15 +100,6 @@ String _formatoHora(int minutos) {
   final h12 = h % 12 == 0 ? 12 : h % 12;
   return '${_dos(h12)}:${_dos(minutos % 60)} ${h < 12 ? 'AM' : 'PM'}';
 }
-
-String _horaCorta(int minutos) {
-  final h = minutos ~/ 60;
-  final h12 = h % 12 == 0 ? 12 : h % 12;
-  return '$h12:${_dos(minutos % 60)}';
-}
-
-String _periodo(int minutos) => (minutos ~/ 60) < 12 ? 'AM' : 'PM';
-
 class _Rango {
   const _Rango(this.inicio, this.fin);
 
@@ -166,6 +157,7 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
   bool _guardando = false;
   String? _error;
   String _busqueda = '';
+  String? _bloqueSeleccionadoId;
 
   @override
   void initState() {
@@ -270,7 +262,13 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
 
       if (!mounted) return;
 
-      setState(() => _bloques = bloques);
+      setState(() {
+        _bloques = bloques;
+        if (_bloqueSeleccionadoId != null &&
+            !bloques.any((b) => _idBloque(b) == _bloqueSeleccionadoId)) {
+          _bloqueSeleccionadoId = null;
+        }
+      });
     } catch (error) {
       if (!mounted) return;
 
@@ -579,18 +577,33 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
         (todos is List ? todos.length : 0);
   }
 
+  bool _coincideMateria(Map<String, dynamic> bloque) {
+    if (_busqueda.isEmpty) return false;
+
+    final materia = '${bloque['materia'] ?? ''}'.toLowerCase();
+    final horario = '${bloque['horario'] ?? ''}'.toLowerCase();
+
+    return materia.contains(_busqueda) || horario.contains(_busqueda);
+  }
+
   List<Map<String, dynamic>> _alumnosDe(Map<String, dynamic> bloque) {
-    return (bloque['alumnos'] as List? ?? [])
+    final todos = (bloque['alumnos'] as List? ?? [])
         .whereType<Map>()
         .map((a) => Map<String, dynamic>.from(a))
-        .where(
-          (a) =>
-              _busqueda.isEmpty ||
-              '${a['nombre_completo']} ${a['numero_control']} ${a['email']}'
-                  .toLowerCase()
-                  .contains(_busqueda),
-        )
         .toList();
+
+    // Si coincide la materia u horario, se muestran todos sus alumnos.
+    // Si coincide un alumno, se filtra la lista por sus datos.
+    if (_busqueda.isEmpty || _coincideMateria(bloque)) return todos;
+
+    return todos.where((a) {
+      final datos =
+          '${a['nombre_completo'] ?? ''} '
+                  '${a['numero_control'] ?? ''} '
+                  '${a['email'] ?? ''}'
+              .toLowerCase();
+      return datos.contains(_busqueda);
+    }).toList();
   }
 
   // Ordena por hora de inicio, como un calendario.
@@ -623,13 +636,9 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Mis horarios', style: _t(30, w: FontWeight.w700, ls: -0.6)),
-              const SizedBox(height: 2),
-              Text(resumen, style: _t(14, c: _muted)),
-            ],
+          child: Text(
+            resumen,
+            style: _t(14, w: FontWeight.w500, c: _muted),
           ),
         ),
         _BotonRedondo(
@@ -647,9 +656,186 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     );
   }
 
+  List<Map<String, dynamic>> _bloquesDelResumen() {
+    final seleccionado = _bloqueSeleccionadoId;
+    if (seleccionado == null) return _bloques;
+
+    final bloque = _bloques.where((b) => _idBloque(b) == seleccionado);
+    return bloque.isEmpty ? _bloques : [bloque.first];
+  }
+
+  int _minutosProgramados(List<Map<String, dynamic>> bloques) {
+    return bloques.fold<int>(0, (total, bloque) {
+      final rango = _leerRango(bloque['horario']);
+      if (rango == null || rango.fin <= rango.inicio) return total;
+      return total + rango.fin - rango.inicio;
+    });
+  }
+
+  String _duracionProgramada(List<Map<String, dynamic>> bloques) {
+    final minutos = _minutosProgramados(bloques);
+    if (minutos == 0) return '—';
+    final horas = minutos ~/ 60;
+    final resto = minutos % 60;
+    if (horas == 0) return '$resto min';
+    if (resto == 0) return '$horas h';
+    return '$horas h $resto min';
+  }
+
+  Widget _tarjetaResumen({
+    required IconData icono,
+    required String valor,
+    required String etiqueta,
+    required Color color,
+    required bool compacta,
+  }) {
+    return Expanded(
+      child: Container(
+        constraints: BoxConstraints(minHeight: compacta ? 78 : 72),
+        padding: EdgeInsets.symmetric(
+          horizontal: compacta ? 8 : 12,
+          vertical: compacta ? 8 : 10,
+        ),
+        decoration: BoxDecoration(
+          color: _field,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _border.withValues(alpha: 0.8)),
+        ),
+        child: Row(
+          children: [
+            Icon(icono, color: color, size: compacta ? 18 : 20),
+            SizedBox(width: compacta ? 6 : 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      valor,
+                      maxLines: 1,
+                      style: _t(compacta ? 17 : 19, w: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    etiqueta,
+                    maxLines: compacta ? 2 : 1,
+                    softWrap: true,
+                    overflow: TextOverflow.clip,
+                    style: _t(compacta ? 10 : 11, c: _muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _alumnosUnicos(List<Map<String, dynamic>> bloques) {
+    final identificadores = <String>{};
+    for (final bloque in bloques) {
+      final alumnos = bloque['alumnos'];
+      if (alumnos is! List) continue;
+      for (final alumno in alumnos.whereType<Map>()) {
+        final control = '${alumno['numero_control'] ?? ''}'.trim();
+        final email = '${alumno['email'] ?? ''}'.trim().toLowerCase();
+        final nombre = '${alumno['nombre_completo'] ?? ''}'
+            .trim()
+            .toLowerCase();
+        final identificador = control.isNotEmpty
+            ? 'control:$control'
+            : email.isNotEmpty
+            ? 'email:$email'
+            : 'nombre:$nombre';
+        if (identificador != 'nombre:') identificadores.add(identificador);
+      }
+    }
+    return identificadores.length;
+  }
+
+  Widget _resumenTarjetas() {
+    final bloques = _bloquesDelResumen();
+    final seleccionado = _bloqueSeleccionadoId != null && bloques.length == 1;
+    final totalAlumnos = _alumnosUnicos(bloques);
+    final titulo = seleccionado
+        ? 'Resumen de ${bloques.first['materia'] ?? 'la clase'}'
+        : 'Resumen general';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compacta = constraints.maxWidth < 430;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      titulo,
+                      style: _t(13, w: FontWeight.w600, c: _muted),
+                    ),
+                  ),
+                  if (seleccionado)
+                    _Tap(
+                      onTap: () => setState(() => _bloqueSeleccionadoId = null),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 3,
+                        ),
+                        child: Text(
+                          'Ver todas',
+                          style: _t(12, w: FontWeight.w600, c: _accent),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                _tarjetaResumen(
+                  icono: CupertinoIcons.calendar,
+                  valor: '${bloques.length}',
+                  etiqueta: 'Horarios',
+                  color: const Color(0xFF459BFF),
+                  compacta: compacta,
+                ),
+                const SizedBox(width: 8),
+                _tarjetaResumen(
+                  icono: CupertinoIcons.person_2_fill,
+                  valor: '$totalAlumnos',
+                  etiqueta: 'Alumnos',
+                  color: const Color(0xFF30BFA5),
+                  compacta: compacta,
+                ),
+                const SizedBox(width: 8),
+                _tarjetaResumen(
+                  icono: CupertinoIcons.clock_fill,
+                  valor: _duracionProgramada(bloques),
+                  etiqueta: 'Duración total',
+                  color: _orange,
+                  compacta: compacta,
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _campoBusqueda() => CupertinoSearchTextField(
     controller: _buscador,
-    placeholder: 'Buscar alumnos',
+    placeholder: 'Buscar materia o alumno...',
     style: _t(16),
     placeholderStyle: _t(16, c: _muted),
     itemColor: _muted,
@@ -725,6 +911,60 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     ),
   );
 
+  Widget _vistaSinResultados() => Container(
+    margin: const EdgeInsets.only(top: 16),
+    padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+    decoration: BoxDecoration(
+      color: _card,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: _border),
+    ),
+    child: Column(
+      children: [
+        Icon(CupertinoIcons.search, color: _muted, size: 36),
+        const SizedBox(height: 12),
+        Text('No encontramos coincidencias', style: _t(17, w: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(
+          'No hay materias ni alumnos que coincidan con “${_buscador.text.trim()}”.',
+          textAlign: TextAlign.center,
+          style: _t(14, c: _muted),
+        ),
+        const SizedBox(height: 16),
+        _Pildora(
+          texto: 'Limpiar búsqueda',
+          icono: CupertinoIcons.xmark,
+          relleno: false,
+          onTap: () {
+            _buscador.clear();
+            setState(() => _busqueda = '');
+          },
+        ),
+      ],
+    ),
+  );
+
+  IconData _iconoMateria(String materia) {
+    final nombre = materia.toLowerCase();
+    if (nombre.contains('red') || nombre.contains('network')) {
+      return Icons.hub_rounded;
+    }
+    if (nombre.contains('unix') ||
+        nombre.contains('linux') ||
+        nombre.contains('sistema')) {
+      return Icons.terminal_rounded;
+    }
+    if (nombre.contains('program') ||
+        nombre.contains('código') ||
+        nombre.contains('codigo')) {
+      return Icons.code_rounded;
+    }
+    if (nombre.contains('base') || nombre.contains('datos')) {
+      return Icons.storage_rounded;
+    }
+    return Icons.menu_book_rounded;
+  }
+
   Widget _bloque(Map<String, dynamic> bloque) {
     final id = _idBloque(bloque);
     final rango = _leerRango(bloque['horario']);
@@ -734,110 +974,151 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     final total = _total(bloque);
     final buscando = _busqueda.isNotEmpty;
     final abierto = buscando || _abiertos.contains(id);
-
+    final seleccionado = _bloqueSeleccionadoId == id;
     final duracion = rango?.duracion ?? '';
-    final subtitulo =
-        '$total ${total == 1 ? 'alumno' : 'alumnos'}'
-        '${duracion.isEmpty ? '' : ' · $duracion'}';
+    final horario = '${bloque['horario'] ?? 'Horario no disponible'}';
 
-    final cabecera = _Tap(
+    final tarjeta = _Tap(
       onTap: buscando
           ? null
           : () {
               HapticFeedback.selectionClick();
               setState(() {
+                _bloqueSeleccionadoId = _bloqueSeleccionadoId == id ? null : id;
                 if (!_abiertos.remove(id)) _abiertos.add(id);
               });
             },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        padding: const EdgeInsets.all(16),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 86,
-              child: rango == null
-                  ? Text(
-                      '${bloque['horario'] ?? '—'}',
-                      style: _t(13, w: FontWeight.w600),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: _horaCorta(rango.inicio),
-                                style: _t(21, w: FontWeight.w700, ls: -0.4),
-                              ),
-                              TextSpan(
-                                text: ' ${_periodo(rango.inicio)}',
-                                style: _t(11, w: FontWeight.w600, c: _muted),
-                              ),
-                            ],
-                          ),
-                          maxLines: 1,
-                          softWrap: false,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_horaCorta(rango.fin)} ${_periodo(rango.fin)}',
-                          style: _t(13, c: _muted),
-                        ),
-                      ],
-                    ),
-            ),
-            Container(
-              width: 4,
-              height: 42,
-              margin: const EdgeInsets.symmetric(horizontal: 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: seleccionado ? 64 : 58,
+              height: seleccionado ? 64 : 58,
               decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
+                color: color.withValues(
+                  alpha: seleccionado
+                      ? (UnixColors.dark ? 0.32 : 0.18)
+                      : (UnixColors.dark ? 0.22 : 0.12),
+                ),
+                borderRadius: BorderRadius.circular(seleccionado ? 19 : 17),
+                border: Border.all(
+                  color: color.withValues(alpha: seleccionado ? 0.55 : 0.22),
+                  width: seleccionado ? 1.5 : 1,
+                ),
+              ),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                scale: seleccionado ? 1.08 : 1,
+                child: Icon(
+                  _iconoMateria(materia),
+                  size: seleccionado ? 31 : 29,
+                  color: color,
+                ),
               ),
             ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    materia,
-                    style: _t(17, w: FontWeight.w600, ls: -0.3),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
                   Row(
                     children: [
-                      Icon(
-                        CupertinoIcons.person_2_fill,
-                        size: 14,
-                        color: color,
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
+                      Expanded(
                         child: Text(
-                          subtitulo,
+                          materia,
+                          style: _t(
+                            18,
+                            w: FontWeight.w700,
+                            c: seleccionado ? color : UnixColors.text,
+                            ls: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: seleccionado
+                            ? Container(
+                                key: const ValueKey('clase-seleccionada'),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'Seleccionada',
+                                  style: _t(10, w: FontWeight.w700, c: color),
+                                ),
+                              )
+                            : const SizedBox(
+                                key: ValueKey('clase-no-seleccionada'),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(CupertinoIcons.clock, size: 13, color: _muted),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          horario,
                           style: _t(13, c: _muted),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.person_2_fill,
+                        size: 13,
+                        color: color,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$total ${total == 1 ? 'alumno' : 'alumnos'}',
+                        style: _t(12, w: FontWeight.w600, c: _muted),
+                      ),
+                      if (duracion.isNotEmpty) ...[
+                        const SizedBox(width: 9),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: _muted.withValues(alpha: 0.65),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Text(duracion, style: _t(12, c: _muted)),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
+            const SizedBox(width: 4),
             _Tap(
               onTap: _guardando ? null : () => _acciones(bloque),
               child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  CupertinoIcons.ellipsis_circle,
-                  size: 24,
-                  color: _muted,
-                ),
+                padding: const EdgeInsets.all(7),
+                child: Icon(Icons.more_horiz_rounded, size: 24, color: _muted),
               ),
             ),
             AnimatedRotation(
@@ -846,11 +1127,10 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
               curve: Curves.easeOutCubic,
               child: Icon(
                 CupertinoIcons.chevron_right,
-                size: 18,
+                size: 17,
                 color: _muted,
               ),
             ),
-            const SizedBox(width: 4),
           ],
         ),
       ),
@@ -859,13 +1139,13 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     final cuerpo = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(height: 0.5, color: _border),
+        Container(height: 1, color: _border.withValues(alpha: 0.75)),
         if (alumnos.isEmpty)
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
             child: Row(
               children: [
-                Icon(CupertinoIcons.person_2, color: _muted, size: 20),
+                Icon(CupertinoIcons.person_2, color: _muted, size: 19),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -897,27 +1177,45 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
           padding: const EdgeInsets.only(right: 26),
           decoration: BoxDecoration(
             color: const Color(0xFFFF453A),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(21),
           ),
           child: const Icon(CupertinoIcons.trash, color: Colors.white),
         ),
-        // La tarjeta regresa a su sitio; el borrado real lo hace _eliminar
-        // después de que el servidor confirme.
+        // El gesto solo solicita la confirmación; el servidor realiza el borrado.
         confirmDismiss: (_) async {
           unawaited(_eliminar(bloque));
           return false;
         },
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _border),
+            color: seleccionado
+                ? color.withValues(alpha: UnixColors.dark ? 0.10 : 0.045)
+                : _card,
+            borderRadius: BorderRadius.circular(seleccionado ? 23 : 21),
+            border: Border.all(
+              color: seleccionado ? color.withValues(alpha: 0.72) : _border,
+              width: seleccionado ? 1.6 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(
+                  alpha: seleccionado
+                      ? (UnixColors.dark ? 0.19 : 0.12)
+                      : (UnixColors.dark ? 0.07 : 0.045),
+                ),
+                blurRadius: seleccionado ? 22 : 16,
+                spreadRadius: seleccionado ? 1 : 0,
+                offset: Offset(0, seleccionado ? 7 : 5),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              cabecera,
+              tarjeta,
               AnimatedSize(
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
@@ -995,14 +1293,19 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
     final ordenados = _ordenados();
     final visibles = _busqueda.isEmpty
         ? ordenados
-        : ordenados.where((b) => _alumnosDe(b).isNotEmpty).toList();
+        : ordenados
+              .where((b) => _coincideMateria(b) || _alumnosDe(b).isNotEmpty)
+              .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _cabecera(),
-        if (_bloques.isNotEmpty && _error == null) ...[
-          const SizedBox(height: 16),
+        if (_error != null && _bloques.isNotEmpty) _vistaError(),
+        if (_bloques.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _resumenTarjetas(),
+          const SizedBox(height: 14),
           _campoBusqueda(),
         ],
         if (_cargando && _bloques.isEmpty)
@@ -1012,20 +1315,12 @@ class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
               child: CupertinoActivityIndicator(radius: 14, color: _muted),
             ),
           )
-        else if (_error != null)
+        else if (_error != null && _bloques.isEmpty)
           _vistaError()
         else if (_bloques.isEmpty)
           _vistaVacia()
         else if (visibles.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Center(
-              child: Text(
-                'Sin resultados para “${_buscador.text.trim()}”',
-                style: _t(15, c: _muted),
-              ),
-            ),
-          )
+          _vistaSinResultados()
         else
           ...visibles.map(_bloque),
         const SizedBox(height: 8),
