@@ -8,11 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'widgets/unix_account_bar.dart';
-import '../portal/events.dart';
-import '../portal/courses.dart';
 import 'instructor/instructor_perfil_page.dart';
 import 'instructor/instructor_horarios_page.dart';
-import 'instructor/instructor_actividades_page.dart';
 import '../main.dart';
 
 class InstructorPage extends StatefulWidget {
@@ -36,7 +33,6 @@ class _InstructorPageState extends State<InstructorPage> {
   int _selected = 0;
   int _profileVersion = 0;
 
-  String _query = '';
   String _primerNombre = 'profesor';
   String _nombreCompleto = '';
   String _numeroControl = '';
@@ -44,57 +40,9 @@ class _InstructorPageState extends State<InstructorPage> {
   bool _loggingOut = false;
   bool _loadingName = false;
 
-  final _searchController = TextEditingController();
-  final List<String> _requests = [];
+  static const _labels = ['Mis clases', 'Mi perfil'];
 
-  static const _labels = [
-    'Inicio',
-    'Mis cursos',
-    'Eventos',
-    'Mis Horarios de Clase',
-    'Mi perfil',
-    'Mis Actividades a Cargo',
-  ];
-
-  static const _icons = [
-    Icons.home_rounded,
-    Icons.menu_book_rounded,
-    Icons.event_rounded,
-    Icons.schedule_rounded,
-    Icons.person_rounded,
-    Icons.assignment_ind_outlined,
-  ];
-
-  final List<_Course> _courses = [
-    _Course(
-      title: 'Comandos básicos de Linux',
-      description:
-          'Introducción a la terminal, archivos y comandos fundamentales.',
-      modules: 6,
-      icon: Icons.terminal_rounded,
-      students: ['Ana Torres', 'Luis Pérez', 'María López', 'José García'],
-      materials: ['Guía de comandos.pdf', 'Permisos y archivos.pdf'],
-    ),
-    _Course(
-      title: 'Fundamentos de programación',
-      description:
-          'Variables, condicionales, ciclos y funciones mediante ejemplos.',
-      modules: 4,
-      icon: Icons.code_rounded,
-      students: ['Sofía Hernández', 'Carlos Ruiz', 'Elena Díaz'],
-      materials: ['Introducción a Python.pdf'],
-    ),
-  ];
-
-  List<_Course> get _filteredCourses {
-    return _courses
-        .where((course) => course.title.toLowerCase().contains(_query))
-        .toList();
-  }
-
-  int get _studentCount {
-    return _courses.fold(0, (total, course) => total + course.students.length);
-  }
+  static const _icons = [Icons.menu_book_rounded, Icons.person_rounded];
 
   @override
   void initState() {
@@ -104,7 +52,6 @@ class _InstructorPageState extends State<InstructorPage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -179,12 +126,10 @@ class _InstructorPageState extends State<InstructorPage> {
 
     setState(() {
       _selected = index;
-      _query = '';
-      _searchController.clear();
     });
 
     // Recarga el saludo al volver al inicio o salir del perfil.
-    if (index == 0 || previous == 4) {
+    if (index == 0 || previous == 1) {
       _cargarNombre();
     }
   }
@@ -229,28 +174,8 @@ class _InstructorPageState extends State<InstructorPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  if (_selected != 2) ...[
-                                    _buildHeading(mobile),
-                                    SizedBox(height: 12),
-                                    if (_selected != 4 &&
-                                        _selected != 3 &&
-                                        _selected != 5) ...[
-                                      Text(
-                                        'Vista de demostración · '
-                                        'Datos de ejemplo',
-                                        style: TextStyle(
-                                          color: muted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      SizedBox(height: 20),
-                                    ],
-                                    SizedBox(height: 20),
-                                  ],
-                                  if (_selected == 0 || _selected == 1) ...[
-                                    _buildSearch(),
-                                    const SizedBox(height: 20),
-                                  ],
+                                  _buildHeading(mobile),
+                                  SizedBox(height: 20),
                                   _buildCurrentPage(),
                                 ],
                               ),
@@ -359,9 +284,9 @@ class _InstructorPageState extends State<InstructorPage> {
       nombre: _nombreCompleto.isEmpty ? _primerNombre : _nombreCompleto,
       rol: 'Instructor',
       identificador: _numeroControl,
-      onProfile: () => _navigate(4),
-      onNotifications: _showRequests,
-      notificationsTooltip: 'Solicitudes locales',
+      onProfile: () => _navigate(1),
+      onNotifications: () => _message('No hay notificaciones disponibles.'),
+      notificationsTooltip: 'Notificaciones',
       accountMenu: PopupMenuButton<String>(
         tooltip: 'Opciones de cuenta',
         enabled: !_loggingOut,
@@ -370,7 +295,7 @@ class _InstructorPageState extends State<InstructorPage> {
         onSelected: (value) {
           switch (value) {
             case 'profile':
-              _navigate(4);
+              _navigate(1);
               break;
 
             case 'refresh':
@@ -417,103 +342,119 @@ class _InstructorPageState extends State<InstructorPage> {
   // ============================================================
 
   Widget _buildBottomBar() {
-    return BottomNavigationBar(
-      backgroundColor: Color.fromARGB(255, 130, 146, 161),
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: orange,
-      unselectedItemColor: muted,
-      currentIndex: _selected <= 2 ? _selected : 3,
-      onTap: (index) {
-        if (index == 3) {
-          _showMore();
-        } else {
-          _navigate(index);
-        }
-      },
-      items: [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_rounded),
-          label: 'Inicio',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.menu_book_rounded),
-          label: 'Cursos',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.event_rounded),
-          label: 'Eventos',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.more_horiz_rounded),
-          label: 'Más',
-        ),
-      ],
-    );
-  }
-
-  Future<void> _showMore() async {
-    final selectedIndex = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: sidebar,
-      builder: (sheetContext) {
-        UnixTheme.watch(sheetContext);
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Container(
+      decoration: BoxDecoration(
+        color: UnixColors.surface,
+        border: Border(top: BorderSide(color: border.withValues(alpha: 0.75))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: UnixColors.dark ? 0.16 : 0.035,
+            ),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 5),
+          child: Row(
             children: [
-              for (final index in [3, 5, 4])
-                ListTile(
-                  leading: Icon(_icons[index], color: blue),
-                  title: Text(
-                    _labels[index],
-                    style: TextStyle(color: UnixColors.text),
-                  ),
-                  onTap: () => Navigator.pop(sheetContext, index),
+              Expanded(
+                child: _bottomBarItem(
+                  index: 0,
+                  icon: Icons.auto_stories_rounded,
+                  label: 'Mis clases',
                 ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _bottomBarItem(
+                  index: 1,
+                  icon: Icons.account_circle_rounded,
+                  label: 'Mi perfil',
+                ),
+              ),
             ],
           ),
-        );
-      },
-    );
-
-    if (!mounted || selectedIndex == null) return;
-    _navigate(selectedIndex);
-  }
-
-  Widget _buildHeading(bool mobile) {
-    return Text(
-      _selected == 0 ? '¡Hola, $_primerNombre!' : _labels[_selected],
-      style: TextStyle(
-        color: UnixColors.text,
-        fontSize: mobile ? 28 : 34,
-        fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
 
-  Widget _buildSearch() {
-    return TextField(
-      controller: _searchController,
-      onChanged: (value) {
-        setState(() => _query = value.trim().toLowerCase());
-      },
-      style: TextStyle(color: UnixColors.text),
-      decoration: InputDecoration(
-        hintText: _selected == 3
-            ? 'Buscar alumnos o cursos...'
-            : 'Buscar cursos...',
-        hintStyle: TextStyle(color: muted),
-        prefixIcon: Icon(Icons.search, color: muted),
-        filled: true,
-        fillColor: sidebar,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: border),
+  Widget _bottomBarItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final active = _selected == index;
+    final activeColor = UnixColors.dark ? orange : const Color(0xFFE87516);
+
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigate(index),
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+            decoration: BoxDecoration(
+              color: active
+                  ? activeColor.withValues(alpha: UnixColors.dark ? 0.16 : 0.09)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  width: 42,
+                  height: 29,
+                  decoration: BoxDecoration(
+                    color: active ? activeColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 21,
+                    color: active ? Colors.white : UnixColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 180),
+                  style: TextStyle(
+                    color: active ? activeColor : UnixColors.muted,
+                    fontSize: 11.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                  ),
+                  child: Text(label),
+                ),
+              ],
+            ),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: border),
-        ),
+      ),
+    );
+  }
+
+  Widget _buildHeading(bool mobile) {
+    return Text(
+      _selected == 0 ? 'Mis clases' : _labels[_selected],
+      style: TextStyle(
+        color: UnixColors.text,
+        fontSize: mobile ? 28 : 34,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
@@ -523,530 +464,11 @@ class _InstructorPageState extends State<InstructorPage> {
   // ============================================================
 
   Widget _buildCurrentPage() {
-    switch (_selected) {
-      case 1:
-        return const PortalCourses();
-
-      case 2:
-        return const PortalEvents();
-
-      case 3:
-        return InstructorHorariosPage();
-
-      case 5:
-        return InstructorActividadesPage();
-
-      case 4:
-        return InstructorPerfilPage(key: ValueKey(_profileVersion));
-
-      default:
-        return _buildDashboard();
+    if (_selected == 1) {
+      return InstructorPerfilPage(key: ValueKey(_profileVersion));
     }
-  }
 
-  // ============================================================
-  // INICIO
-  // ============================================================
-
-  Widget _buildDashboard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Consulta tus cursos y acompaña a tus alumnos.',
-          style: TextStyle(color: muted),
-        ),
-        SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            UnixTheme.watch(context);
-            final columns = constraints.maxWidth < 650 ? 1 : 3;
-            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _stat(
-                  width,
-                  Icons.menu_book,
-                  '${_courses.length}',
-                  'Cursos activos',
-                  1,
-                ),
-                _stat(width, Icons.event, '1', 'Próximo evento', 2),
-                _stat(width, Icons.groups, '$_studentCount', 'Alumnos', 3),
-              ],
-            );
-          },
-        ),
-        SizedBox(height: 18),
-        _requestButton(),
-        SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            UnixTheme.watch(context);
-            if (constraints.maxWidth < 950) {
-              return Column(
-                children: [
-                  _buildCourses(),
-                  SizedBox(height: 18),
-                  _buildEvents(),
-                  SizedBox(height: 18),
-                  _buildActivity(),
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 7, child: _buildCourses()),
-                SizedBox(width: 18),
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    children: [
-                      _buildEvents(),
-                      SizedBox(height: 18),
-                      _buildActivity(),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        SizedBox(height: 18),
-        _buildStudentsPreview(),
-      ],
-    );
-  }
-
-  Widget _stat(
-    double width,
-    IconData icon,
-    String value,
-    String label,
-    int destination,
-  ) {
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: border),
-        ),
-        child: InkWell(
-          onTap: () => _navigate(destination),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Icon(icon, color: blue, size: 27),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        value,
-                        style: TextStyle(
-                          color: UnixColors.text,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(label, style: TextStyle(color: muted, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // SOLICITAR ASIGNACIÓN
-  // ============================================================
-
-  Widget _requestButton() {
-    return FilledButton.icon(
-      onPressed: _requestEvent,
-      style: FilledButton.styleFrom(
-        backgroundColor: orange,
-        foregroundColor: UnixColors.onOrange,
-        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      icon: Icon(Icons.event_available_rounded),
-      label: Text(
-        'Solicitar asignación de evento',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CURSOS
-  // ============================================================
-
-  Widget _buildCourses() {
-    final courses = _filteredCourses;
-
-    return _panel(
-      title: 'Mis cursos',
-      action: _selected == 0 ? () => _navigate(1) : null,
-      child: courses.isEmpty
-          ? _empty('No se encontraron cursos.')
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                UnixTheme.watch(context);
-                final twoColumns = constraints.maxWidth >= 600;
-                final width = twoColumns
-                    ? (constraints.maxWidth - 14) / 2
-                    : constraints.maxWidth;
-
-                return Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
-                  children: [
-                    for (final course in courses)
-                      SizedBox(width: width, child: _courseCard(course)),
-                  ],
-                );
-              },
-            ),
-    );
-  }
-
-  Widget _courseCard(_Course course) {
-    return Container(
-      padding: EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: sidebar,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(course.icon, color: blue, size: 38),
-          SizedBox(height: 12),
-          Text(
-            course.title,
-            style: TextStyle(
-              color: UnixColors.text,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '${course.students.length} alumnos · '
-            '${course.modules} módulos',
-            style: TextStyle(color: blue, fontSize: 12),
-          ),
-          SizedBox(height: 8),
-          Text(
-            course.description,
-            style: TextStyle(color: muted, fontSize: 12, height: 1.5),
-          ),
-          SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: () => _showReport(course),
-              style: FilledButton.styleFrom(
-                backgroundColor: orange,
-                foregroundColor: UnixColors.onOrange,
-              ),
-              icon: Icon(Icons.description_outlined, size: 18),
-              label: Text('Ver reporte'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // EVENTOS Y ACTIVIDAD DEL INICIO
-  // ============================================================
-
-  Widget _buildEvents() {
-    return _panel(
-      title: 'Próximos eventos',
-      action: _selected == 0 ? () => _navigate(2) : null,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '24\nOCT',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: orange, fontWeight: FontWeight.w800),
-          ),
-        ),
-        title: Text(
-          'Taller de Linux',
-          style: TextStyle(color: UnixColors.text, fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          '16:00 · En línea\nEvento de ejemplo',
-          style: TextStyle(color: muted, fontSize: 12),
-        ),
-        trailing: Icon(Icons.chevron_right, color: blue),
-        onTap: () => _showDetails(
-          'Taller de Linux',
-          'Evento de ejemplo\n\n'
-              '24 de octubre de 2026\n'
-              '16:00 a 18:00 · Hora de Cancún\n'
-              'Modalidad: en línea\n\n'
-              'Introducción a comandos, archivos y permisos.\n'
-              'El enlace real debe proporcionarlo el backend.',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActivity() {
-    return _panel(
-      title: 'Actividad reciente',
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.description, color: blue),
-            title: Text(
-              'Material publicado',
-              style: TextStyle(color: UnixColors.text, fontSize: 13),
-            ),
-            subtitle: Text(
-              'Guía de comandos · Ejemplo',
-              style: TextStyle(color: muted, fontSize: 12),
-            ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.person_add, color: blue),
-            title: Text(
-              'Nuevo alumno inscrito',
-              style: TextStyle(color: UnixColors.text, fontSize: 13),
-            ),
-            subtitle: Text(
-              'Ana Torres · Ejemplo',
-              style: TextStyle(color: muted, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ALUMNOS
-  // ============================================================
-
-  Widget _buildStudentsPreview() {
-    return _panel(
-      title: 'Alumnos por curso',
-      action: () => _navigate(3),
-      child: Column(
-        children: [
-          for (final course in _filteredCourses)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(course.icon, color: blue),
-              title: Text(
-                course.title,
-                style: TextStyle(color: UnixColors.text),
-              ),
-              subtitle: Text(
-                '${course.students.length} alumnos de ejemplo',
-                style: TextStyle(color: muted),
-              ),
-              trailing: Icon(Icons.chevron_right, color: blue),
-              onTap: () => _showReport(course),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _requestEvent() async {
-    final formKey = GlobalKey<FormState>();
-    final eventController = TextEditingController();
-    final reasonController = TextEditingController();
-
-    try {
-      final result = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          UnixTheme.watch(dialogContext);
-          return AlertDialog(
-            backgroundColor: card,
-            title: Text(
-              'Solicitar asignación de evento',
-              style: TextStyle(color: UnixColors.text),
-            ),
-            content: SizedBox(
-              width: 430,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Indica el evento y tu motivo para participar. '
-                        'La solicitud se guardará como borrador local.',
-                        style: TextStyle(color: muted),
-                      ),
-                      SizedBox(height: 18),
-                      TextFormField(
-                        controller: eventController,
-                        style: TextStyle(color: UnixColors.text),
-                        decoration: InputDecoration(
-                          labelText: 'Nombre del evento',
-                          labelStyle: TextStyle(color: muted),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Escribe el nombre del evento.';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: 14),
-                      TextFormField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        style: TextStyle(color: UnixColors.text),
-                        decoration: InputDecoration(
-                          labelText: 'Motivo de la solicitud',
-                          labelStyle: TextStyle(color: muted),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Escribe el motivo.';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text('Cancelar'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: orange,
-                  foregroundColor: UnixColors.onOrange,
-                ),
-                onPressed: () {
-                  if (!(formKey.currentState?.validate() ?? false)) {
-                    return;
-                  }
-
-                  Navigator.pop(
-                    dialogContext,
-                    '${eventController.text.trim()}\n'
-                    '${reasonController.text.trim()}',
-                  );
-                },
-                child: Text('Guardar borrador'),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (!mounted || result == null) return;
-
-      setState(() => _requests.add(result));
-
-      _message(
-        'Borrador guardado en esta pantalla. '
-        'No se ha enviado al servidor.',
-      );
-    } finally {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        eventController.dispose();
-        reasonController.dispose();
-      });
-    }
-  }
-
-  // ============================================================
-  // REPORTES Y DIÁLOGOS
-  // ============================================================
-
-  void _showReport(_Course course) {
-    _showDetails(
-      'Reporte: ${course.title}',
-      'DATOS DE EJEMPLO\n\n'
-          'Alumnos inscritos: ${course.students.length}\n'
-          'Módulos: ${course.modules}\n'
-          'Materiales: ${course.materials.length}\n\n'
-          'ALUMNOS\n'
-          '${course.students.map((name) => '• $name').join('\n')}\n\n'
-          'El avance y las estadísticas reales requieren '
-          'conectar el backend.',
-    );
-  }
-
-  void _showRequests() {
-    _showDetails(
-      'Solicitudes locales',
-      _requests.isEmpty
-          ? 'No hay solicitudes guardadas en esta pantalla.'
-          : '${_requests.join('\n\n')}\n\n'
-                'Estos borradores no se han enviado al servidor.',
-    );
-  }
-
-  Future<void> _showDetails(String title, String description) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        UnixTheme.watch(dialogContext);
-        return AlertDialog(
-          backgroundColor: card,
-          title: Text(title, style: TextStyle(color: UnixColors.text)),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Text(
-                description,
-                style: TextStyle(color: muted, height: 1.6),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Cerrar'),
-            ),
-          ],
-        );
-      },
-    );
+    return const InstructorHorariosPage();
   }
 
   // ============================================================
@@ -1125,70 +547,4 @@ class _InstructorPageState extends State<InstructorPage> {
   // COMPONENTES
   // ============================================================
 
-  Widget _empty(String text) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 20),
-      child: Text(text, style: TextStyle(color: muted)),
-    );
-  }
-
-  Widget _panel({
-    required String title,
-    required Widget child,
-    VoidCallback? action,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: UnixColors.text,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (action != null)
-                TextButton(
-                  onPressed: action,
-                  child: Text('Ver todos', style: TextStyle(color: blue)),
-                ),
-            ],
-          ),
-          SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _Course {
-  final String title;
-  final String description;
-  final int modules;
-  final IconData icon;
-  final List<String> students;
-  final List<String> materials;
-
-  const _Course({
-    required this.title,
-    required this.description,
-    required this.modules,
-    required this.icon,
-    required this.students,
-    required this.materials,
-  });
 }
