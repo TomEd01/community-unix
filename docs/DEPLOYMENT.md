@@ -67,6 +67,13 @@ database only when the volume is empty. Changing these values later does not
 change existing PostgreSQL users, passwords, or databases; update PostgreSQL
 explicitly and coordinate credential changes with the application.
 
+The two `accounts` 0002 migration branches both introduce
+`accounts_instructor.procedencia`. They share the column when it is a
+non-null `varchar(100)`, and report incompatible or missing columns rather
+than silently repairing schema drift. Back up the database before migrations.
+If a migration reports schema drift, inspect the migration history and column
+definition before deciding how to reconcile it; do not blindly fake migrations.
+
 To start only the database and restore a **trusted plain SQL backup** into a
 new database, from a checkout or release on the host:
 
