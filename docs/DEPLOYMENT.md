@@ -100,6 +100,46 @@ known-hosts entry; the workflow enforces host-key verification. Database and
 Django secrets stay in the host's `.env`, not in the repository or the SSH
 command.
 
+If deployment fails with `Host key verification failed`, check that
+`SSH_HOST`, `SSH_PORT`, and `SSH_KNOWN_HOSTS` in the **production**
+environment refer to the same server. A changed host key can indicate an
+attack; investigate and verify it independently rather than disabling strict
+checking or automatically trusting a scanned key.
+
+For example, obtain the expected ED25519 fingerprint through a trusted server
+console or administrator. On the server, run:
+
+```sh
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+From a trusted local machine, replace the example host and port below with the
+exact values configured for the workflow:
+
+```sh
+HOST=example.com
+PORT=22
+candidate=$(mktemp)
+ssh-keyscan -p "$PORT" -t ed25519 "$HOST" > "$candidate"
+ssh-keygen -lf "$candidate"
+```
+
+Compare the fingerprint with the independently obtained fingerprint. If they
+differ, stop and investigate the host or network before updating the secret.
+The entry must use the exact `SSH_HOST` value; for a non-default port, OpenSSH
+expects `[host]:port`. Check the entry locally:
+
+```sh
+lookup="$HOST"
+if [ "$PORT" != 22 ]; then lookup="[$HOST]:$PORT"; fi
+ssh-keygen -F "$lookup" -f "$candidate"
+```
+
+Only if the fingerprint matches and the lookup succeeds, copy the complete
+entry from `"$candidate"` into the production environment's `SSH_KNOWN_HOSTS`
+secret, replacing the stale or mismatched entry. Remove the local file with
+`rm -f "$candidate"`, then rerun the deployment.
+
 On pushes to `main`, or manual workflow dispatch, the workflow transfers the
 selected commit into `~/community-unix/releases/<commit>`, builds both images
 on the host, runs migrations and `collectstatic`, and starts the services with
