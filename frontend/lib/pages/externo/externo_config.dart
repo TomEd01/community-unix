@@ -1,6 +1,8 @@
-// Misma ruta que tus páginas de alumno. Cambia aquí la dirección si es necesario.
+import '../../backend_config.dart';
+
+// Misma ruta que tus páginas de alumno.
 class ExternoConfig {
-  static const perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const perfilUrl = '$backendUrl/api/auth/perfil/me/';
 }
 
 // No se reutiliza numero_control como identificador del externo.

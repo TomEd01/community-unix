@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -20,7 +21,7 @@ class InstructorPerfilPage extends StatefulWidget {
 class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
   // Coloca la URL completa de tu backend.
   // Usa la misma URL del login y cambia google/ por perfil/me/.
-  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   static Color get _background => UnixColors.adapt(Color(0xFF031426));
   static Color get _card => UnixColors.adapt(Color(0xFF0A2947));

@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -27,7 +28,7 @@ class AdminPerfilPage extends StatefulWidget {
 
 class _AdminPerfilPageState extends State<AdminPerfilPage> {
   // Es la misma dirección que utilizas en las otras páginas.
-  static const String perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();

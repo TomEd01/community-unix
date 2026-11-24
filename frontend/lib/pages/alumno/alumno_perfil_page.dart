@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -18,7 +19,7 @@ class AlumnoPerfilPage extends StatefulWidget {
 }
 
 class _AlumnoPerfilPageState extends State<AlumnoPerfilPage> {
-  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   static Color get _bg => UnixColors.adapt(Color(0xFF031426));
   static Color get _card => UnixColors.adapt(Color(0xFF0A2947));

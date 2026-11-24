@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -14,7 +15,7 @@ class AlumnoVinculoProfesor extends StatefulWidget {
 
 class _AlumnoVinculoProfesorState extends State<AlumnoVinculoProfesor>
     with WidgetsBindingObserver {
-  static const _base = 'http://127.0.0.1:8000/api/auth/alumno';
+  static const _base = '$backendUrl/api/auth/alumno';
   static Color get _card => UnixColors.adapt(Color(0xFF0A2947));
   static Color get _border => UnixColors.border;
   static const _orange = Color(0xFFFF8A24);
