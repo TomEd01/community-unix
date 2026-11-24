@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -21,7 +22,7 @@ class AdminUsuariosPage extends StatefulWidget {
 
 class _AdminUsuariosPageState extends State<AdminUsuariosPage> {
   // Dirección del backend.
-  static const String _baseUrl = 'http://127.0.0.1:8000/api/auth/superadmin';
+  static const String _baseUrl = '$backendUrl/api/auth/superadmin';
 
   final TextEditingController _busquedaController = TextEditingController();
 

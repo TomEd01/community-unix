@@ -17,9 +17,10 @@ import 'pages/externo_page.dart';
 import 'pages/admin/admin_page.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'backend_config.dart';
 
 // Se consulta el perfil del servidor para no reutilizar un rol antiguo.
-const String authBaseUrl = 'http://127.0.0.1:8000/api/auth';
+const String authBaseUrl = '$backendUrl/api/auth';
 
 String resolverRol(Map<String, dynamic> data) {
   final rol =

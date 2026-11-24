@@ -1,3 +1,4 @@
+import '../backend_config.dart';
 import '../portal/dashboard.dart';
 import '../portal/courses.dart';
 import '../portal/events.dart';
@@ -24,7 +25,7 @@ class AlumnoPage extends StatefulWidget {
 }
 
 class _AlumnoPageState extends State<AlumnoPage> {
-  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   static Color get _background => UnixColors.adapt(Color(0xFF031426));
   static Color get _sidebar => UnixColors.adapt(Color(0xFF061C31));

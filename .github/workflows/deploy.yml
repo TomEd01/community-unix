@@ -1,0 +1,61 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Build and deploy on host
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          git archive "$GITHUB_SHA" | ssh -i ~/.ssh/id_ed25519 \
+            -o StrictHostKeyChecking=yes -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "set -eu
+             release=\"\$HOME/community-unix/releases/$GITHUB_SHA\"
+             mkdir -p \"\$release\"
+             tar -xf - -C \"\$release\"
+             cd \"\$release\"
+             docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix build
+             docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix run --rm backend python manage.py migrate --noinput
+             docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix run --rm backend python manage.py collectstatic --noinput
+             docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix up -d --wait --wait-timeout 120
+             attempts=0
+             until docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix exec -T nginx sh -c 'cert=/etc/letsencrypt/live/community-unix/fullchain.pem; test -s \"\$cert\" && openssl x509 -in \"\$cert\" -noout -checkend 0 && echo | openssl s_client -connect 127.0.0.1:443 -servername \"\$DOMAIN\" 2>/dev/null | openssl x509 -noout -checkhost \"\$DOMAIN\" | grep -q \"does match certificate\" && wget -q --no-check-certificate -O /dev/null https://127.0.0.1/healthz'; do
+               attempts=\$((attempts + 1))
+               if [ \"\$attempts\" -ge 30 ]; then
+                 docker compose --env-file \"\$HOME/community-unix/.env\" -p community-unix logs --tail=100 nginx certbot
+                 echo 'HTTPS did not become ready; check the domain, DNS, firewall and certificate logs' >&2
+                 exit 1
+               fi
+               sleep 10
+             done"

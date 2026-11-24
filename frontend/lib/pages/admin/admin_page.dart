@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_role_brand.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:convert';
@@ -73,7 +74,7 @@ class _AdminPageState extends State<_AdminShell> {
   String _nombreReal = '';
   String _idReal = '';
   String? _profileError;
-  static const _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const _perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   static const labels = [
     'Inicio',
