@@ -201,7 +201,7 @@ class _PortalEventsState extends State<PortalEvents> {
                         },
                         child: const Text('Ver evento'),
                       ),
-                      if (widget.adminMode) ...[
+                      if (widget.adminMode && e['tipo'] != 'Evento') ...[
                         OutlinedButton.icon(
                           onPressed: () => _editor(e),
                           icon: const Icon(Icons.edit_outlined),
@@ -432,7 +432,7 @@ class _EventDetailState extends State<EventDetail> {
                     icon: const Icon(Icons.mic_none),
                     label: const Text('Quiero ser Expositor'),
                   ),
-                if (widget.adminMode)
+                if (widget.adminMode && e['tipo'] != 'Evento')
                   OutlinedButton.icon(
                     onPressed: () => Navigator.push(
                       context,
@@ -958,9 +958,50 @@ class _EventEditorState extends State<EventEditor> {
     });
   }
 
-  Future<void> _save({bool draft = false}) async {
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar ${_type.toLowerCase()}'),
+        content: Text(
+          '¿Seguro que deseas eliminar \"${_title.text.trim()}\"? '
+          'Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted || widget.event == null) return;
+    setState(() => _saving = true);
+    try {
+      await PortalApi.request(
+        'eventos/${widget.event!['id']}/',
+        method: 'DELETE',
+      );
+      if (mounted) Navigator.pop(context, '__deleted__');
+    } catch (e) {
+      if (mounted) notice(context, errorText(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _save() async {
     if (_saving || !_key.currentState!.validate()) return;
-    final state = draft ? 'Borrador' : _state;
+    final state = _state;
     if (state != 'Borrador' &&
         state != 'Finalizado' &&
         !_date.isAfter(DateTime.now())) {
@@ -1382,10 +1423,15 @@ class _EventEditorState extends State<EventEditor> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  OutlinedButton(
-                    onPressed: _saving ? null : () => _save(draft: true),
-                    child: const Text('Guardar borrador'),
-                  ),
+                  if (widget.event != null)
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _confirmDelete,
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      label: const Text(
+                        'Eliminar',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: Text(

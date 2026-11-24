@@ -40,19 +40,28 @@ class _PortalCoursesState extends State<PortalCourses> {
   }
 
   Future<void> _edit([Map<String, dynamic>? course]) async {
-    final data = await courseForm(context, course);
-    if (data == null || !mounted) return;
-    try {
+  final data = await courseForm(context, course);
+  if (data == null || !mounted) return;
+
+  try {
+    if (data['__delete__'] == true) {
+      await PortalApi.request(
+        'cursos/${course!['id']}/',
+        method: 'DELETE',
+      );
+    } else {
       await PortalApi.request(
         course == null ? 'cursos/' : 'cursos/${course['id']}/',
         method: course == null ? 'POST' : 'PATCH',
         data: data,
       );
-      if (mounted) await _load();
-    } catch (e) {
-      if (mounted) notice(context, errorText(e));
     }
+
+    if (mounted) await _load();
+  } catch (e) {
+    if (mounted) notice(context, errorText(e));
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +194,15 @@ class _CourseForm extends StatefulWidget {
 class _CourseFormState extends State<_CourseForm> {
   final _key = GlobalKey<FormState>();
   late final TextEditingController _title, _description;
-  late bool _published;
+  late String _state;
+
+  static const _states = [
+    'Borrador',
+    'Reclutando',
+    'Publicado',
+    'Finalizado',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -193,7 +210,11 @@ class _CourseFormState extends State<_CourseForm> {
     _description = TextEditingController(
       text: widget.course?['descripcion'] ?? '',
     );
-    _published = widget.course?['publicado'] == true;
+
+    final currentState = widget.course?['estado'];
+    _state = _states.contains(currentState)
+        ? currentState
+        : (widget.course?['publicado'] == true ? 'Publicado' : 'Borrador');
   }
 
   @override
@@ -203,9 +224,41 @@ class _CourseFormState extends State<_CourseForm> {
     super.dispose();
   }
 
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar curso'),
+        content: Text(
+          '¿Seguro que deseas eliminar "${_title.text.trim()}"? '
+          'Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      Navigator.pop(context, {'__delete__': true});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
+
     return AlertDialog(
       title: Text(
         widget.course == null ? 'Crear curso' : 'Información del curso',
@@ -230,12 +283,23 @@ class _CourseFormState extends State<_CourseForm> {
                   maxLines: 4,
                   decoration: const InputDecoration(labelText: 'Descripción'),
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Publicado'),
-                  subtitle: const Text('Visible para los usuarios'),
-                  value: _published,
-                  onChanged: (v) => setState(() => _published = v),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: _state,
+                  decoration: const InputDecoration(labelText: 'Estado'),
+                  items: _states
+                      .map(
+                        (state) => DropdownMenuItem(
+                          value: state,
+                          child: Text(state),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _state = value);
+                    }
+                  },
                 ),
               ],
             ),
@@ -243,6 +307,15 @@ class _CourseFormState extends State<_CourseForm> {
         ),
       ),
       actions: [
+        if (widget.course != null)
+          TextButton.icon(
+            onPressed: _confirmDelete,
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            label: const Text(
+              'Eliminar curso',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
@@ -253,7 +326,8 @@ class _CourseFormState extends State<_CourseForm> {
               Navigator.pop(context, {
                 'titulo': _title.text.trim(),
                 'descripcion': _description.text.trim(),
-                'publicado': _published,
+                'estado': _state,
+                'publicado': _state == 'Publicado',
               });
             }
           },
