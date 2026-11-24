@@ -45,7 +45,7 @@ class PortalApi {
       throw Exception('Inicia sesión como Super Admin para cargar el catálogo.');
     }
 
-    final url = Uri.parse(_backendUrl).resolve(_catalogPath);
+    final url = Uri.base.resolve(_backendUrl).resolve(_catalogPath);
     final http.Response response;
     try {
       response = await http.get(

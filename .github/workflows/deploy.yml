@@ -27,9 +27,9 @@ jobs:
         run: |
           set -eu
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_rsa ~/.ssh/known_hosts
 
       - name: Build and deploy on host
         env:
@@ -38,8 +38,9 @@ jobs:
           SSH_PORT: ${{ vars.SSH_PORT || '22' }}
         run: |
           set -euo pipefail
-          git archive "$GITHUB_SHA" | ssh -i ~/.ssh/id_ed25519 \
-            -o StrictHostKeyChecking=yes -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+          git archive "$GITHUB_SHA" | ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=rsa-sha2-512,rsa-sha2-256 \
+            -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
             "set -eu
              release=\"\$HOME/community-unix/releases/$GITHUB_SHA\"
              mkdir -p \"\$release\"
