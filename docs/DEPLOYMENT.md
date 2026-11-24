@@ -67,6 +67,13 @@ database only when the volume is empty. Changing these values later does not
 change existing PostgreSQL users, passwords, or databases; update PostgreSQL
 explicitly and coordinate credential changes with the application.
 
+The two `accounts` 0002 migration branches both introduce
+`accounts_instructor.procedencia`. They share the column when it is a
+non-null `varchar(100)`, and report incompatible or missing columns rather
+than silently repairing schema drift. Back up the database before migrations.
+If a migration reports schema drift, inspect the migration history and column
+definition before deciding how to reconcile it; do not blindly fake migrations.
+
 To start only the database and restore a **trusted plain SQL backup** into a
 new database, from a checkout or release on the host:
 
@@ -92,13 +99,27 @@ Create a GitHub **production** environment and configure these secrets:
 | `SSH_HOST` | Remote hostname or IP |
 | `SSH_USER` | Deployment account |
 | `SSH_PRIVATE_KEY` | Private key authorized on the host |
-| `SSH_KNOWN_HOSTS` | Verified OpenSSH known-hosts entry for the host and port |
+| `SSH_KNOWN_HOSTS` | Verified RSA OpenSSH known-hosts entry for the host and port |
 
-Optionally set the environment variable `SSH_PORT` (default `22`). Obtain and
-verify the server's host-key fingerprint out of band before adding its
-known-hosts entry; the workflow enforces host-key verification. Database and
-Django secrets stay in the host's `.env`, not in the repository or the SSH
-command.
+Optionally set the environment variable `SSH_PORT` (default `22`). Retrieve a
+candidate RSA host-key entry using the exact hostname or IP in `SSH_HOST` and
+the configured port:
+
+```sh
+ssh-keyscan -p 22 -t rsa YOUR_SSH_HOST > server-known-hosts
+ssh-keygen -lf server-known-hosts
+```
+
+Replace `22` if using a different port. Compare the fingerprint with the
+server's RSA host-key fingerprint obtained through a trusted channel, for
+example by running `ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub` on the server
+via a trusted console. `ssh-keyscan` does not verify the key. Once verified,
+copy the complete entry from `server-known-hosts` into `SSH_KNOWN_HOSTS`.
+The server must support RSA host-key signatures using SHA-2; the workflow does
+not enable legacy SHA-1 signatures. The host key is separate from the client
+private key in `SSH_PRIVATE_KEY`, which must be authorized on the host.
+Database and Django secrets stay in the host's `.env`, not in the repository
+or the SSH command.
 
 On pushes to `main`, or manual workflow dispatch, the workflow transfers the
 selected commit into `~/community-unix/releases/<commit>`, builds both images

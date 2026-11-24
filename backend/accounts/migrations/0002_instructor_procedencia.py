@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+from accounts.migration_operations import AddSharedInstructorProcedencia
+
 
 class Migration(migrations.Migration):
 
@@ -10,9 +12,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        AddSharedInstructorProcedencia(
             model_name='instructor',
             name='procedencia',
             field=models.CharField(default='itc', max_length=100),
+            other_migration='0002_remove_externo_procedencia_externo_tipo_experiencia_and_more',
         ),
     ]
