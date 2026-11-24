@@ -1,0 +1,114 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME in the deployment environment}
+      POSTGRES_USER: ${DB_USER:?Set DB_USER in the deployment environment}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the deployment environment}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: backend.production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the deployment environment}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in the deployment environment}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
+      DB_NAME: ${DB_NAME:?Set DB_NAME in the deployment environment}
+      DB_USER: ${DB_USER:?Set DB_USER in the deployment environment}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the deployment environment}
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_SSLMODE: disable
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in the deployment environment}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - django_static:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  frontend:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    volumes:
+      - django_static:/var/www/django-static:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in the deployment environment}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:v3.3.0
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in the deployment environment}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:?Set CERTBOT_EMAIL in the deployment environment}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while :; do
+          if certbot certonly --webroot --webroot-path /var/www/certbot \
+              --non-interactive --agree-tos --keep-until-expiring \
+              --cert-name community-unix --email "$$CERTBOT_EMAIL" -d "$$DOMAIN"; then
+            sleep 12h
+          else
+            echo "Certificate issuance or renewal failed; retrying in one hour" >&2
+            sleep 1h
+          fi
+        done
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      nginx:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  django_static:
+  postgres_data:
+  letsencrypt:
+  certbot_webroot:

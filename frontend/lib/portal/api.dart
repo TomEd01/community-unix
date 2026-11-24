@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'demo_data.dart';
+import '../backend_config.dart';
 
 /// Conecta el catálogo de eventos con Django y conserva las rutas de ejemplo.
 /// Login, perfiles, usuarios y vínculo con profesor conservan sus servicios originales.
@@ -16,7 +17,7 @@ class PortalApi {
 
   static const _backendUrl = String.fromEnvironment(
     'PORTAL_BACKEND_URL',
-    defaultValue: 'http://127.0.0.1:8000',
+    defaultValue: backendUrl,
   );
   static const _catalogPath = '/superadmin/eventos/catalogos/';
 

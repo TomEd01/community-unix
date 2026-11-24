@@ -1,3 +1,4 @@
+import '../../backend_config.dart';
 import '../../theme/unix_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -147,7 +148,7 @@ class InstructorHorariosPage extends StatefulWidget {
 }
 
 class _InstructorHorariosPageState extends State<InstructorHorariosPage> {
-  static const _url = 'http://127.0.0.1:8000/api/auth/instructor/horarios/';
+  static const _url = '$backendUrl/api/auth/instructor/horarios/';
 
   List<Map<String, dynamic>> _bloques = [];
   final Set<String> _abiertos = {};

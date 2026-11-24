@@ -1,3 +1,4 @@
+import '../backend_config.dart';
 import '../theme/unix_role_brand.dart';
 import '../theme/unix_theme.dart';
 import 'dart:convert';
@@ -20,7 +21,7 @@ class InstructorPage extends StatefulWidget {
 }
 
 class _InstructorPageState extends State<InstructorPage> {
-  static const String _perfilUrl = 'http://127.0.0.1:8000/api/auth/perfil/me/';
+  static const String _perfilUrl = '$backendUrl/api/auth/perfil/me/';
 
   static Color get bg => UnixColors.adapt(Color(0xFF031426));
   static Color get sidebar => UnixColors.adapt(Color(0xFF061C31));
