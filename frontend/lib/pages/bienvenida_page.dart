@@ -241,9 +241,8 @@ class BienvenidaPage extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    'https://images.unsplash.com/photo-1562774053-701939374585'
-                    '?auto=format&fit=crop&w=1200&q=85',
+                  Image.asset(
+                    'assets/assetsimagesitc_cancun.png',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return DecoratedBox(

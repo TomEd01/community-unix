@@ -16,8 +16,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from events.views import (
+    SuperAdminCatalogosEventoView,
+    SuperAdminMacroEventosView,
+    SuperAdminMacroEventoDetailView,
+    SuperAdminActividadesView,
+    SuperAdminActividadDetailView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
+
+    # CRUD de Super Admin para Eventos, Actividades y Catálogos
+    path('superadmin/eventos/catalogos/', SuperAdminCatalogosEventoView.as_view(), name='superadmin-eventos-catalogos'),
+    path('superadmin/macro-eventos/', SuperAdminMacroEventosView.as_view(), name='superadmin-macro-eventos'),
+    path('superadmin/macro-eventos/<uuid:macro_evento_id>/', SuperAdminMacroEventoDetailView.as_view(), name='superadmin-macro-evento-detail'),
+    path('superadmin/actividades/', SuperAdminActividadesView.as_view(), name='superadmin-actividades'),
+    path('superadmin/actividades/<uuid:actividad_id>/', SuperAdminActividadDetailView.as_view(), name='superadmin-actividad-detail'),
 ]

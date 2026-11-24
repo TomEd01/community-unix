@@ -64,6 +64,16 @@ Los alumnos exponen y asisten, y el sistema automatiza la asistencia (Geocerca) 
 
 <br>**_Nota:_** Si un profesor quiere participar en los eventos para ganar XP (como si fuera alumno), no usará su cuenta de Maestro. Deberá crearse una cuenta independiente con rol "Externo". Esto protege el dashboard del maestro para que sea exclusivamente administrativo.
 
+## Documentos Descargables
+<a href="nix-.docx" download="Punto de vista.docx">Descargar Documento Puntos De Vista</a>
+
+<a href="Comunidad Unix .docx" download="Propuesta del equipo.docx">Descargar Documento Propuesta del Equipo</a>
+
+### Usar los enlaces en caso de que no funcionen los anteriores
+
+[Descargar Puntos De Vista](nix-.docx) <br>
+[Descargar Propuesta del Equipo](nix-.docx)
+
 ## 6. Fuera del Alcance (Fase 1 - NO PROGRAMAR)
 *   Foros de discusión de la comunidad.
 *   Motor de ejecución/validación de código (ej. evaluar scripts de Python).
