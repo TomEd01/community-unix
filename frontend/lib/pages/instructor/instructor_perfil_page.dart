@@ -78,7 +78,8 @@ class _InstructorPerfilPageState extends State<InstructorPerfilPage> {
     String metodo, {
     Map<String, dynamic>? datos,
   }) async {
-    final uri = Uri.tryParse(_perfilUrl.trim());
+    final parsed = Uri.tryParse(_perfilUrl.trim());
+    final uri = parsed == null ? null : (parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed));
 
     if (uri == null ||
         !uri.hasAuthority ||

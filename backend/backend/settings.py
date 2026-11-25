@@ -26,9 +26,9 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -163,10 +163,10 @@ AUTH_USER_MODEL = 'accounts.Usuario'
 GOOGLE_CLIENT_ID= os.getenv('GOOGLE_CLIENT_ID')
 
 # NO USAR True en producción. Solo permitimos los puertos de desarrollo local
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:50243",
-    "http://127.0.0.1:50243",
-]
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:50243,http://127.0.0.1:50243'
+).split(',')
 # Permitimos que Flutter envíe el Header de Authorization con el JWT
 CORS_ALLOW_HEADERS = [
     'accept',
