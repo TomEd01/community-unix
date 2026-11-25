@@ -76,7 +76,7 @@ class _PortalCoursesState extends State<PortalCourses> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        portalDataNotice(),
+        if (!widget.adminMode) portalDataNotice(),
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           spacing: 16,

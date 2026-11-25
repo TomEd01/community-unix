@@ -77,7 +77,7 @@ class _PortalEventsState extends State<PortalEvents> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        portalDataNotice(),
+        if (!widget.adminMode) portalDataNotice(),
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           spacing: 16,
