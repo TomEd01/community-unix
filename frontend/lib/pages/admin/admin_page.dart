@@ -84,7 +84,7 @@ class _AdminPageState extends State<_AdminShell> {
     'Mi perfil',
     'Cursos',
     'Talleres',
-    'Exposiciones',
+    'Foros',
   ];
 
   static const icons = [
@@ -256,26 +256,28 @@ class _AdminPageState extends State<_AdminShell> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          selected == 0
-                                              ? 'Panel de administración'
-                                              : labels[selected],
-                                          style: TextStyle(
-                                            fontSize: mobile ? 25 : 30,
-                                            fontWeight: FontWeight.bold,
+                                        if (![1, 5, 6, 7].contains(selected)) ...[
+                                          Text(
+                                            selected == 0
+                                                ? 'Panel de administración'
+                                                : labels[selected],
+                                            style: TextStyle(
+                                              fontSize: mobile ? 25 : 30,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(height: 6),
-                                        Text(
-                                          'Gestiona el contenido y la participación de la comunidad.',
-                                          style: TextStyle(
-                                            color: AdminStyle.muted,
-                                            fontSize: 12,
+                                          SizedBox(height: 6),
+                                          Text(
+                                            'Gestiona el contenido y la participación de la comunidad.',
+                                            style: TextStyle(
+                                              color: AdminStyle.muted,
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(height: 18),
-                                        _buildSectionSearch(),
-                                        SizedBox(height: 20),
+                                          SizedBox(height: 18),
+                                          _buildSectionSearch(),
+                                          SizedBox(height: 20),
+                                        ],
                                         Column(
                                           children: [
                                             for (final entry in <Widget>[
