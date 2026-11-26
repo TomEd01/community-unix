@@ -227,6 +227,11 @@ class PortalExamples {
         return _copy(courses);
       }
       final c = _find(courses, int.parse(p[1]));
+
+      if (p.length == 2 && method == 'DELETE') {
+        courses.remove(c);
+        return null;
+      }
       if (p.length == 3 && p[2] == 'modulos') {
         final video = '${d['video_url'] ?? ''}';
         if (video.isNotEmpty && _embed(video).isEmpty) {
@@ -293,6 +298,13 @@ class PortalExamples {
         return _copy(events);
       }
       final e = _find(events, int.parse(p[1]));
+
+      if (p.length == 2 && method == 'DELETE') {
+        events.remove(e);
+        applications.remove(e['id']);
+        return null;
+      }
+
       if (p.length == 2) {
         if (method == 'PATCH') {
           final unlimited =

@@ -84,7 +84,7 @@ class _AdminPageState extends State<_AdminShell> {
     'Mi perfil',
     'Cursos',
     'Talleres',
-    'Exposiciones',
+    'Foros',
   ];
 
   static const icons = [
