@@ -6,6 +6,7 @@ import '../theme/unix_role_brand.dart';
 import '../theme/unix_theme.dart';
 import 'dart:convert';
 
+
 import 'package:flutter/material.dart';
 import 'package:blobatar/flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -16,6 +17,7 @@ import 'alumno/alumno_comunidad_page.dart';
 import 'alumno/alumno_perfil_page.dart';
 import 'alumno/alumno_vinculo_profesor.dart';
 import '../main.dart';
+import 'widgets/unix_notifications.dart';
 
 class AlumnoPage extends StatefulWidget {
   const AlumnoPage({super.key});
@@ -40,17 +42,19 @@ class _AlumnoPageState extends State<AlumnoPage> {
   String? _profileError;
 
   bool _loadingProfile = false;
+  bool _esSuperAdmin = false;
   bool _loggingOut = false;
 
   final List<_NavItem> _items = [
-    _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
-    _NavItem(icon: Icons.menu_book_rounded, label: 'Cursos'),
-    _NavItem(icon: Icons.event_rounded, label: 'Eventos'),
-    _NavItem(icon: Icons.groups_rounded, label: 'Comunidad'),
-    _NavItem(icon: Icons.person_rounded, label: 'Mi perfil'),
-    _NavItem(icon: Icons.co_present_outlined, label: 'Exposiciones'),
-    _NavItem(icon: Icons.school_rounded, label: 'Mis clases'),
-  ];
+  _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
+  _NavItem(icon: Icons.menu_book_rounded, label: 'Cursos'),
+  _NavItem(icon: Icons.event_rounded, label: 'Eventos'),
+  _NavItem(icon: Icons.groups_rounded, label: 'Comunidad'),
+  _NavItem(icon: Icons.person_rounded, label: 'Mi perfil'),
+  _NavItem(icon: Icons.co_present_outlined, label: 'Foros'),
+  _NavItem(icon: Icons.school_rounded, label: 'Mis clases'),
+  _NavItem(icon: Icons.construction_rounded, label: 'Talleres'),
+];
 
   @override
   void initState() {
@@ -112,12 +116,14 @@ class _AlumnoPageState extends State<AlumnoPage> {
       setState(() {
         _nombre = nombre.isEmpty ? 'Alumno' : nombre;
         _numeroControl = id;
+        _esSuperAdmin = decoded['es_superadmin'] == true;
       });
     } catch (error) {
       if (!mounted) return;
 
       setState(() {
         _profileError = error.toString().replaceFirst('Exception: ', '');
+        _esSuperAdmin = false;
       });
     } finally {
       if (mounted) {
@@ -325,18 +331,20 @@ class _AlumnoPageState extends State<AlumnoPage> {
             Expanded(
               child: ListView.separated(
                 padding: EdgeInsets.symmetric(horizontal: 13),
-                itemCount: 3,
+                //itemCount: 3,    //descomentar para ocultar las opciones del menu lateral, que son 3, Inicio, Mis clases y Mi perfil
+                itemCount: _items.length,
                 separatorBuilder: (_, _) => SizedBox(height: 5),
                 itemBuilder: (context, index) {
                   // Menú original:
                   // final navIndex = [0, 1, 5, 2, 3, 4][index];
 
-                  final navIndex = [0, 6, 4][index];
+                  //final navIndex = [0, 6, 4][index];
                   //los comenbtarios de abajo son del menu original, que se cambio para que el menu lateral tenga solo 3 opciones, Inicio, Mis clases y Mi perfil
-                 // itemCount: _items.length,
+                 
                  //separatorBuilder: (_, _) => SizedBox(height: 5),
                  //itemBuilder: (context, index) {
                  //final navIndex = [0, 1, 5, 2, 3, 4][index];
+                 final navIndex = [0, 1, 7, 2, 5, 6, 3, 4][index];
                   final item = _items[navIndex];
                   final selected = _selectedIndex == navIndex;
 
@@ -445,11 +453,8 @@ class _AlumnoPageState extends State<AlumnoPage> {
           SizedBox(width: 12),
           UnixThemeToggle(compact: MediaQuery.sizeOf(context).width < 1250),
           SizedBox(width: 8),
-          IconButton(
-            tooltip: 'Notificaciones',
-            onPressed: () {},
-            icon: Icon(Icons.notifications_none_rounded, color: _muted),
-          ),
+          const UnixNotifications(showExamples: false), // Muestra notificaciones de ejemplo en la barra superior.
+          //const UnixNotifications(), // Muestra notificaciones reales en la barra superior.
           SizedBox(width: 8),
           Container(width: 1, height: 28, color: _border),
           SizedBox(width: 12),
@@ -477,15 +482,60 @@ class _AlumnoPageState extends State<AlumnoPage> {
           case 'profile':
             _selectPage(4);
             break;
+
           case 'refresh':
             await _loadProfile();
             break;
+
+          case 'cambiar_rol':
+            await _loadProfile();
+
+            if (!mounted || !_esSuperAdmin || _loadingProfile) {
+              break;
+            }
+
+            final pantalla = pantallaParaRol('superadmin');
+
+            if (pantalla != null) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => pantalla,
+                ),
+              );
+            }
+
+            break;
+
           case 'logout':
             await _logout();
             break;
         }
       },
       itemBuilder: (_) => [
+        if (_esSuperAdmin && !_loadingProfile)
+          PopupMenuItem<String>(
+            value: 'cambiar_rol',
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: Colors.orange,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Super Admin'),
+                ),
+                IgnorePointer(
+                  child: Switch(
+                    value: false,
+                    activeColor: Colors.orange,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ],
+            ),
+          ),
         PopupMenuItem<String>(
           value: 'profile',
           child: Text('Mi perfil', style: TextStyle(color: UnixColors.text)),
@@ -563,7 +613,7 @@ class _AlumnoPageState extends State<AlumnoPage> {
   }
 
   Widget _buildBottomNavigation() {
-    const visibleIndexes = [0, 6, 4];
+    const visibleIndexes = [0, 1, 7, 2, 5, 6, 3, 4];
 
     return Container(
       decoration: BoxDecoration(
@@ -600,34 +650,61 @@ class _AlumnoPageState extends State<AlumnoPage> {
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
       case 0:
-        return PortalDashboard(nombre: _nombre, alumno: true);
+        return PortalDashboard(
+          nombre: _nombre,
+          alumno: true,
+        );
+
       case 1:
         return const SingleChildScrollView(
           padding: EdgeInsets.all(24),
-          child: PortalCourses(),
+          child: PortalCourses(adminMode: false),
         );
+
       case 2:
         return const SingleChildScrollView(
           padding: EdgeInsets.all(24),
-          child: PortalEvents(),
+          child: PortalEvents(
+            adminMode: false,
+            type: 'Evento',
+          ),
         );
+
       case 3:
         return AlumnoComunidadPage();
-      case 5:
-        return const SingleChildScrollView(
-          padding: EdgeInsets.all(24),
-          child: PortalEvents(type: 'Exposición'),
-        );
+
       case 4:
         return AlumnoPerfilPage();
 
+      case 5:
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: PortalEvents(
+            adminMode: false,
+            type: 'Exposición',
+          ),
+        );
+
       case 6:
-      return const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: AlumnoVinculoProfesor(),
-      );
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: AlumnoVinculoProfesor(),
+        );
+
+      case 7:
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: PortalEvents(
+            adminMode: false,
+            type: 'Taller',
+          ),
+        );
+
       default:
-        return PortalDashboard(nombre: _nombre, alumno: true);
+        return PortalDashboard(
+          nombre: _nombre,
+          alumno: true,
+        );
     }
   }
 }

@@ -15,25 +15,65 @@ class PortalEvents extends StatefulWidget {
   final bool adminMode;
   final VoidCallback? onCreate;
   final String? type;
+
   const PortalEvents({
     super.key,
     this.onCreate,
     this.adminMode = false,
     this.type,
   });
+
   @override
   State<PortalEvents> createState() => _PortalEventsState();
 }
 
 class _PortalEventsState extends State<PortalEvents> {
   List<Map<String, dynamic>> _events = [];
-  String _query = '', _state = 'Todos';
+  String _query = '';
+  String _state = 'Todos';
+  String _sort = 'Fecha (más reciente)';
   bool _loading = true;
   String? _error;
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _background => _isDark ? const Color(0xFF06172B) : const Color(0xFFF4F7FB);
+  Color get _cardBackground => _isDark ? const Color(0xFF0D2743) : Colors.white;
+  Color get _borderColor => _isDark ? const Color(0xFF315779) : const Color(0xFFD2DDE8);
+  Color get _textColor => _isDark ? Colors.white : const Color(0xFF172B43);
+  Color get _muted => _isDark ? const Color(0xFFB3C5D9) : const Color(0xFF60758B);
+  static const Color _orange = Color(0xFFFF941F);
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  int _number(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('$value') ?? 0;
+  }
+
+  DateTime? _date(dynamic value) {
+    return DateTime.tryParse('$value')?.toLocal();
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
+    return months[month - 1];
   }
 
   Future<void> _load() async {
@@ -41,13 +81,20 @@ class _PortalEventsState extends State<PortalEvents> {
       _loading = true;
       _error = null;
     });
+
     try {
       final data = records(await PortalApi.request('eventos/'));
-      if (mounted) setState(() => _events = data);
+      if (mounted) {
+        setState(() => _events = data);
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = errorText(e));
+      if (mounted) {
+        setState(() => _error = errorText(e));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -59,27 +106,377 @@ class _PortalEventsState extends State<PortalEvents> {
             EventEditor(event: event, defaultType: widget.type ?? 'Evento'),
       ),
     );
-    if (mounted) _load();
+
+    if (mounted) await _load();
+  }
+
+  List<Map<String, dynamic>> get _visibleEvents {
+    final items = _events.where((event) {
+      final status = '${event['estado']}';
+      final title = '${event['titulo']}'.toLowerCase();
+
+      return (widget.adminMode || status != 'Borrador') &&
+          (widget.type == null || event['tipo'] == widget.type) &&
+          (_state == 'Todos' || status == _state) &&
+          title.contains(_query);
+    }).toList();
+
+    items.sort((a, b) {
+      final dateA = _date(a['fecha']);
+      final dateB = _date(b['fecha']);
+
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+
+      return _sort == 'Fecha (más reciente)'
+          ? dateB.compareTo(dateA)
+          : dateA.compareTo(dateB);
+    });
+
+    return items;
+  }
+
+  Widget _statCard({
+    required String title,
+    required int value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 25),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: _textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '$value',
+                  style: TextStyle(
+                    color: _textColor,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: _muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metadata(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: _muted, size: 17),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(color: _textColor, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _eventCard(Map<String, dynamic> event) {
+    final title = '${event['titulo'] ?? 'Taller'}';
+    final status = '${event['estado'] ?? 'Sin estado'}';
+    final description = '${event['descripcion'] ?? ''}';
+    final enrolled = _number(event['inscritos']);
+    final capacity = _number(event['cupo']);
+    final available = _number(event['disponibles']);
+    final unlimited = event['cupo_ilimitado'] == true;
+    final date = _date(event['fecha']);
+
+    final progress = unlimited || capacity <= 0
+        ? 0.0
+        : (enrolled / capacity).clamp(0.0, 1.0).toDouble();
+
+    final statusColor = switch (status) {
+      'Publicado' => const Color(0xFF28B77A),
+      'Reclutando' => _orange,
+      'Finalizado' => const Color(0xFF8798AC),
+      'Borrador' => const Color(0xFF8798AC),
+      _ => UnixColors.link,
+    };
+
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: _textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (description.trim().isNotEmpty) ...[
+          const SizedBox(height: 7),
+          Text(
+            description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _textColor, fontSize: 14),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 18,
+          runSpacing: 9,
+          children: [
+            if (date != null)
+              _metadata(
+                Icons.calendar_today_outlined,
+                '${date.day.toString().padLeft(2, '0')} '
+                '${_monthName(date.month)} ${date.year}',
+              ),
+            if (date != null)
+              _metadata(
+                Icons.access_time,
+                '${date.hour.toString().padLeft(2, '0')}:'
+                '${date.minute.toString().padLeft(2, '0')}',
+              ),
+            if ('${event['lugar'] ?? ''}'.trim().isNotEmpty)
+              _metadata(Icons.location_on_outlined, '${event['lugar']}'),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _orange,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EventDetail(
+                      id: _number(event['id']),
+                      adminMode: widget.adminMode,
+                    ),
+                  ),
+                );
+
+                if (mounted) await _load();
+              },
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              label: Text(
+                'Ver ${event['tipo'] == 'Taller' ? 'taller' : 'evento'}',
+              ),
+            ),
+            if (widget.adminMode)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _orange,
+                  side: const BorderSide(color: _orange),
+                ),
+                onPressed: () => _editor(event),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Editar'),
+              ),
+            if (widget.adminMode)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _textColor,
+                  side: BorderSide(color: _borderColor),
+                ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EventApplications(event: event),
+                    ),
+                  );
+
+                  if (mounted) await _load();
+                },
+                icon: const Icon(Icons.people_outline, size: 18),
+                label: const Text('Solicitudes'),
+              ),
+          ],
+        ),
+      ],
+    );
+
+    final enrollment = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          unlimited ? '$enrolled inscritos' : '$enrolled / $capacity inscritos',
+          style: TextStyle(
+            color: _textColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (!unlimited)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(
+              minHeight: 10,
+              value: progress,
+              backgroundColor: const Color(0xFF344D6B),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress >= 1 ? Colors.redAccent : const Color(0xFF52E5B0),
+              ),
+            ),
+          ),
+        const SizedBox(height: 10),
+        Text(
+          unlimited ? 'Cupo ilimitado' : '$available lugares disponibles',
+          style: TextStyle(color: _muted, fontSize: 13),
+        ),
+        if (!unlimited) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${(progress * 100).round()}% ocupado',
+            style: TextStyle(color: _muted, fontSize: 12),
+          ),
+        ],
+      ],
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _cardBackground,
+        border: Border.all(color: _borderColor),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 700;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF163B60),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.school_outlined,
+                  color: Color(0xFF55B8FF),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          details,
+                          const SizedBox(height: 18),
+                          enrollment,
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 3, child: details),
+                          const SizedBox(width: 24),
+                          Expanded(flex: 2, child: enrollment),
+                        ],
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
-    final items = _events
-        .where(
-          (e) =>
-              (widget.adminMode || e['estado'] != 'Borrador') &&
-              (widget.type == null || e['tipo'] == widget.type) &&
-              (_state == 'Todos' || e['estado'] == _state) &&
-              '${e['titulo']}'.toLowerCase().contains(_query),
-        )
-        .toList();
+
+    final items = _visibleEvents;
+    final events = _events.where(
+      (event) => widget.type == null || event['tipo'] == widget.type,
+    );
+
+    final total = events.length;
+    final published = events.where((e) => e['estado'] == 'Publicado').length;
+    final recruiting = events.where((e) => e['estado'] == 'Reclutando').length;
+    final enrolled = events.fold<int>(
+      0,
+      (sum, event) => sum + _number(event['inscritos']),
+    );
+
+    final filters = [
+      'Todos',
+      if (widget.adminMode) 'Borrador',
+      'Reclutando',
+      'Publicado',
+      'Finalizado',
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         portalDataNotice(),
         Wrap(
           alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 16,
           runSpacing: 12,
           children: [
@@ -92,35 +489,169 @@ class _PortalEventsState extends State<PortalEvents> {
             ),
             if (widget.adminMode)
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _orange,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: widget.onCreate ?? () => _editor(),
                 icon: const Icon(Icons.add),
                 label: Text('Crear ${(widget.type ?? 'Evento').toLowerCase()}'),
               ),
           ],
         ),
-        TextField(
-          onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-          decoration: const InputDecoration(
-            hintText: 'Buscar por nombre',
-            prefixIcon: Icon(Icons.search),
-          ),
+        const SizedBox(height: 18),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 1050
+                ? 4
+                : constraints.maxWidth >= 650
+                ? 2
+                : 1;
+
+            const spacing = 12.0;
+            final cardWidth =
+                (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                SizedBox(
+                  width: cardWidth,
+                  child: _statCard(
+                    title: 'Total de talleres',
+                    value: total,
+                    subtitle: 'Registrados en el sistema',
+                    icon: Icons.school_outlined,
+                    color: const Color(0xFF55B8FF),
+                  ),
+                ),
+                SizedBox(
+                  width: cardWidth,
+                  child: _statCard(
+                    title: 'Publicados',
+                    value: published,
+                    subtitle: 'Disponibles para inscripción',
+                    icon: Icons.check_circle_outline,
+                    color: const Color(0xFF52D6A1),
+                  ),
+                ),
+                SizedBox(
+                  width: cardWidth,
+                  child: _statCard(
+                    title: 'Reclutando',
+                    value: recruiting,
+                    subtitle: 'Solicitudes abiertas',
+                    icon: Icons.people_outline,
+                    color: _orange,
+                  ),
+                ),
+                SizedBox(
+                  width: cardWidth,
+                  child: _statCard(
+                    title: 'Inscritos',
+                    value: enrolled,
+                    subtitle: 'En todos los talleres',
+                    icon: Icons.group_outlined,
+                    color: const Color(0xFFB49AFF),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 760;
+
+            final search = TextField(
+              onChanged: (value) {
+                setState(() => _query = value.trim().toLowerCase());
+              },
+              style: TextStyle(color: _textColor),
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre del taller...',
+                hintStyle: TextStyle(color: _muted),
+                prefixIcon: Icon(Icons.search, color: _muted),
+                filled: true,
+                fillColor: _background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: BorderSide(color: _borderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: BorderSide(color: _borderColor),
+                ),
+              ),
+            );
+
+            final sort = Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: _background,
+                border: Border.all(color: _borderColor),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _sort,
+                  dropdownColor: _cardBackground,
+                  style: TextStyle(color: _textColor),
+                  iconEnabledColor: _muted,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Fecha (más reciente)',
+                      child: Text('Fecha (más reciente)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Fecha (más antigua)',
+                      child: Text('Fecha (más antigua)'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _sort = value);
+                  },
+                ),
+              ),
+            );
+
+            return compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [search, const SizedBox(height: 10), sort],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: search),
+                      const SizedBox(width: 12),
+                      sort,
+                    ],
+                  );
+          },
+        ),
+        const SizedBox(height: 14),
         Wrap(
-          spacing: 8,
+          spacing: 10,
           runSpacing: 8,
           children: [
-            for (final s in [
-              'Todos',
-              if (widget.adminMode) 'Borrador',
-              'Reclutando',
-              'Publicado',
-              'Finalizado',
-            ])
+            for (final status in filters)
               ChoiceChip(
-                label: Text(s),
-                selected: _state == s,
-                onSelected: (_) => setState(() => _state = s),
+                label: Text(
+                  status == 'Todos'
+                      ? '$status (${_events.length})'
+                      : '$status (${_events.where((e) => e['estado'] == status).length})',
+                ),
+                selected: _state == status,
+                selectedColor: _orange,
+                backgroundColor: _isDark ? _background : Colors.white,
+                labelStyle: TextStyle(
+                  color: _state == status ? Colors.black : _textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                side: BorderSide(color: _borderColor),
+                onSelected: (_) => setState(() => _state = status),
               ),
           ],
         ),
@@ -129,101 +660,7 @@ class _PortalEventsState extends State<PortalEvents> {
         if (_error != null) errorPanel(_error!, _load),
         if (!_loading && _error == null && items.isEmpty)
           emptyPanel('No hay actividades que coincidan con los filtros.'),
-        for (final e in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        e['tipo'] == 'Exposición'
-                            ? Icons.co_present_outlined
-                            : Icons.event_outlined,
-                        color: UnixColors.link,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '${e['titulo']}',
-                          style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      badge('${e['estado']}'),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  muted('${e['tipo']} · ${eventDate(e['fecha'])}'),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${e['descripcion']}',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    e['cupo_ilimitado'] == true
-                        ? '${e['inscritos']} inscritos · Cupo ilimitado'
-                        : '${e['inscritos']} inscritos · ${e['disponibles']} lugares disponibles',
-                  ),
-                  const SizedBox(height: 8),
-                  if (e['cupo_ilimitado'] != true)
-                    LinearProgressIndicator(
-                      value: ((e['inscritos'] as num) / (e['cupo'] as num))
-                          .clamp(0, 1)
-                          .toDouble(),
-                      color: e['disponibles'] == 0
-                          ? Colors.red
-                          : UnixColors.link,
-                    ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      FilledButton(
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EventDetail(
-                                id: e['id'],
-                                adminMode: widget.adminMode,
-                              ),
-                            ),
-                          );
-                          if (mounted) _load();
-                        },
-                        child: const Text('Ver evento'),
-                      ),
-                      if (widget.adminMode) ...[
-                        OutlinedButton.icon(
-                          onPressed: () => _editor(e),
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Editar'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EventApplications(event: e),
-                            ),
-                          ),
-                          icon: const Icon(Icons.people_outline),
-                          label: const Text('Solicitudes'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+        for (final event in items) _eventCard(event),
       ],
     );
   }
@@ -232,26 +669,45 @@ class _PortalEventsState extends State<PortalEvents> {
 class EventDetail extends StatefulWidget {
   final int id;
   final bool adminMode;
+
   const EventDetail({super.key, required this.id, this.adminMode = false});
+
   @override
   State<EventDetail> createState() => _EventDetailState();
 }
 
 class _EventDetailState extends State<EventDetail> {
   Map<String, dynamic>? _event;
+
   String? _error;
+
   bool _busy = false;
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
+  // TIPO DE ACTIVIDAD
+
+  String _activityLabel(dynamic type) {
+    return switch (type.toString().trim().toLowerCase()) {
+      'taller' => 'taller',
+      'exposición' || 'exposicion' || 'foro' => 'foro',
+      'curso' => 'curso',
+      _ => 'evento',
+    };
+  }
+
+  // CARGAR INFORMACIÓN
+
   Future<void> _load() async {
     try {
       final data = Map<String, dynamic>.from(
         await PortalApi.request('eventos/${widget.id}/'),
       );
+
       if (mounted) {
         setState(() {
           _event = data;
@@ -259,201 +715,405 @@ class _EventDetailState extends State<EventDetail> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = errorText(e));
+      if (mounted) {
+        setState(() => _error = errorText(e));
+      }
     }
   }
 
+  // REGISTRAR O CANCELAR ASISTENCIA
+
   Future<void> _attend() async {
-    if (_busy) return;
+    if (widget.adminMode || _busy || _event == null) return;
+
     setState(() => _busy = true);
+
     try {
       await PortalApi.request(
         'eventos/${widget.id}/asistencia/',
         method: _event!['inscrito'] == true ? 'DELETE' : 'POST',
       );
-      await _load();
+
+      if (mounted) await _load();
     } catch (e) {
-      if (mounted) notice(context, errorText(e));
-      await _load();
+      if (mounted) {
+        notice(context, errorText(e));
+        await _load();
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
+  // ENVIAR SOLICITUD
+
   Future<void> _apply() async {
+    if (widget.adminMode || _busy || _event == null) return;
+
     final data = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => const ApplicationDialog(),
     );
-    if (data == null || !mounted || _busy) return;
+
+    if (data == null || !mounted || _busy || widget.adminMode) {
+      return;
+    }
+
     setState(() => _busy = true);
+
     try {
       await PortalApi.request(
         'eventos/${widget.id}/solicitudes/',
         method: 'POST',
         data: data,
       );
-      await _load();
-      if (mounted) notice(context, 'Tu solicitud está pendiente de revisión.');
+
+      if (mounted) {
+        await _load();
+      }
+
+      if (mounted) {
+        notice(context, 'Tu solicitud está pendiente de revisión.');
+      }
     } catch (e) {
-      if (mounted) notice(context, errorText(e));
-      await _load();
+      if (mounted) {
+        notice(context, errorText(e));
+        await _load();
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
+
+  // ELIMINAR ACTIVIDAD
+
+  Future<void> _deleteActivity() async {
+    if (_busy || _event == null || !widget.adminMode) {
+      return;
+    }
+
+    final event = _event!;
+    final tipo = _activityLabel(event['tipo']);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $tipo'),
+
+        content: Text(
+          '¿Seguro que deseas eliminar el $tipo '
+          '"${event['titulo']}"? '
+          'Esta acción no se puede deshacer.',
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+
+            child: const Text('Cancelar'),
+          ),
+
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+
+            onPressed: () => Navigator.pop(dialogContext, true),
+
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted || _busy) {
+      return;
+    }
+
+    setState(() => _busy = true);
+
+    try {
+      await PortalApi.request('eventos/${event['id']}/', method: 'DELETE');
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (mounted) {
+        notice(context, errorText(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  // DISEÑO DE LA VENTANA
 
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
+
     final e = _event;
+
     if (e == null || _error != null) {
       return PortalScaffold(
-        title: 'Evento',
+        title: 'Actividad',
+
         child: _error != null
             ? errorPanel(_error!, _load)
             : const Center(child: CircularProgressIndicator()),
       );
     }
+
+    final tipo = _activityLabel(e['tipo']);
+
     final date = DateTime.parse(e['fecha']).toLocal();
+
     final open =
         ['Reclutando', 'Publicado'].contains(e['estado']) &&
         date.isAfter(DateTime.now());
+
     final full = e['cupo_ilimitado'] != true && e['disponibles'] == 0;
+
     final attended = e['inscrito'] == true;
+
+    final isAdmin = widget.adminMode;
+
     return PortalScaffold(
-      title: '${e['tipo']}',
+      title: tipo[0].toUpperCase() + tipo.substring(1),
+
       child: panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+
           children: [
+            // NOMBRE Y ESTADO
+
             Wrap(
               alignment: WrapAlignment.spaceBetween,
+
               children: [heading('${e['titulo']}'), badge('${e['estado']}')],
             ),
+
             Text('${e['descripcion']}'),
+
             const SizedBox(height: 24),
+
+            // INFORMACIÓN GENERAL
             Wrap(
               spacing: 24,
               runSpacing: 14,
+
               children: [
                 Text('📅 ${eventDate(e['fecha'])}'),
+
                 Text('Lugar: ${e['lugar']}'),
+
                 Text(
                   e['cupo_ilimitado'] == true
                       ? 'Cupo: ilimitado'
                       : 'Cupo: ${e['cupo']} personas',
                 ),
+
+                if (e['puntos_xp'] != null)
+                  Text('Experiencia: ${e['puntos_xp']} XP'),
               ],
             ),
+
             const SizedBox(height: 22),
+
+            // INSCRITOS
             Text(
               e['cupo_ilimitado'] == true
                   ? '${e['inscritos']} inscritos · Cupo ilimitado'
-                  : '${e['inscritos']} inscritos · ${e['disponibles']} lugares disponibles',
+                  : '${e['inscritos']} inscritos · '
+                        '${e['disponibles']} lugares disponibles',
             ),
+
             const SizedBox(height: 10),
+
             if (e['cupo_ilimitado'] != true)
               LinearProgressIndicator(
                 value: ((e['inscritos'] as num) / (e['cupo'] as num))
                     .clamp(0, 1)
                     .toDouble(),
+
                 color: full ? Colors.red : UnixColors.link,
               ),
+
             const SizedBox(height: 20),
-            if (records(e['encargados']).isNotEmpty) ...[
+
+            // ENCARGADOS
+            if (records(e['encargados'] ?? []).isNotEmpty) ...[
               const Text(
                 'Encargados',
+
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
+
               const SizedBox(height: 8),
+
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
+
                 children: [
-                  for (final i in records(e['encargados']))
+                  for (final i in records(e['encargados'] ?? []))
                     Chip(
                       avatar: const Icon(Icons.person_outline, size: 18),
+
                       label: Text('${i['nombre']}'),
                     ),
                 ],
               ),
+
               const SizedBox(height: 16),
             ],
+
+            // SUBEVENTOS
             if (records(e['subeventos'] ?? []).isNotEmpty) ...[
               const Text(
                 'Subeventos',
+
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
+
               const SizedBox(height: 12),
+
               for (final sub in records(e['subeventos'] ?? []))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+
                   leading: const Icon(Icons.event_note_outlined),
+
                   title: Text('${sub['titulo']}'),
+
                   subtitle: Text(
-                    '${sub['descripcion']}\n'
-                    '${sub['lugar']} · Cupo: ${sub['cupo']} personas',
+                    '${sub['descripcion'] ?? ''}\n'
+                    '${sub['lugar']} · '
+                    'Cupo: ${sub['cupo'] ?? sub['cupo_maximo'] ?? 30} personas',
                   ),
+
                   isThreeLine: true,
                 ),
+
               const SizedBox(height: 20),
             ],
+
             if (_busy) const LinearProgressIndicator(),
+
+            // BOTONES SEGÚN EL ROL
             Wrap(
               spacing: 12,
               runSpacing: 12,
+
               children: [
-                FilledButton.icon(
-                  onPressed: _busy || (!attended && (!open || full))
-                      ? null
-                      : _attend,
-                  icon: Icon(
-                    attended
-                        ? Icons.event_busy
-                        : full
-                        ? Icons.lock_outline
-                        : Icons.event_available,
-                  ),
-                  label: Text(
-                    attended
-                        ? 'Cancelar asistencia'
-                        : !open
-                        ? 'Inscripciones cerradas'
-                        : full
-                        ? 'Agotado'
-                        : 'Asistir',
-                  ),
-                ),
-                if (e['estado'] == 'Reclutando' &&
-                    date.isAfter(DateTime.now()) &&
-                    e['solicitud'] == null)
+                // BOTONES EXCLUSIVOS DEL SUPER ADMIN
+
+                if (isAdmin) ...[
                   OutlinedButton.icon(
-                    onPressed: _busy ? null : _apply,
-                    icon: const Icon(Icons.mic_none),
-                    label: const Text('Quiero ser Expositor'),
-                  ),
-                if (widget.adminMode)
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EventApplications(event: e),
-                      ),
-                    ),
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            await Navigator.push(
+                              context,
+
+                              MaterialPageRoute(
+                                builder: (_) => EventApplications(event: e),
+                              ),
+                            );
+
+                            if (mounted) await _load();
+                          },
+
                     icon: const Icon(Icons.people_outline),
+
                     label: const Text('Revisar solicitudes'),
                   ),
+
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+
+                      side: const BorderSide(color: Colors.red),
+                    ),
+
+                    onPressed: _busy ? null : _deleteActivity,
+
+                    icon: const Icon(Icons.delete_outline),
+
+                    label: const Text('Eliminar'),
+                  ),
+                ]
+                // BOTONES EXCLUSIVOS DE PARTICIPANTES
+                else ...[
+                  FilledButton.icon(
+                    onPressed: _busy || (!attended && (!open || full))
+                        ? null
+                        : _attend,
+
+                    icon: Icon(
+                      attended
+                          ? Icons.event_busy
+                          : full
+                          ? Icons.lock_outline
+                          : Icons.event_available,
+                    ),
+
+                    label: Text(
+                      attended
+                          ? 'Cancelar asistencia'
+                          : !open
+                          ? 'Inscripciones cerradas'
+                          : full
+                          ? 'Agotado'
+                          : 'Asistir',
+                    ),
+                  ),
+
+                  if (e['solicitud'] == null &&
+                      (e['tipo'] == 'Exposición' ||
+                          e['tipo'] == 'Foro' ||
+                          (e['estado'] == 'Reclutando' &&
+                              date.isAfter(DateTime.now()))))
+                    OutlinedButton.icon(
+                      onPressed: _busy ||
+                              e['estado'] != 'Reclutando' ||
+                              !date.isAfter(DateTime.now())
+                          ? null
+                          : _apply,
+
+                      icon: const Icon(Icons.mic_none),
+
+                      label: const Text('Quiero ser Expositor'),
+                    ),
+                ],
               ],
             ),
-            if (e['solicitud'] != null)
+
+            if (!isAdmin && e['solicitud'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 14),
-                child: Text('Solicitud de expositor: ${e['solicitud']}'),
+
+                child: Text(
+                  'Solicitud de expositor: '
+                  '${e['solicitud']}',
+                ),
               ),
+
             if (full)
               Padding(
                 padding: const EdgeInsets.only(top: 14),
-                child: muted('El evento alcanzó su límite de asistentes.'),
+
+                child: muted('El $tipo alcanzó su límite de asistentes.'),
               ),
           ],
         ),
@@ -717,7 +1377,9 @@ class _EventApplicationsState extends State<EventApplications> {
 class EventEditor extends StatefulWidget {
   final Map<String, dynamic>? event;
   final String defaultType;
+
   const EventEditor({super.key, this.event, this.defaultType = 'Evento'});
+
   @override
   State<EventEditor> createState() => _EventEditorState();
 }
@@ -727,40 +1389,72 @@ class _EventEditorState extends State<EventEditor> {
 
   static String _normalizePlace(String value) {
     final place = value.trim();
+
     return place.toLowerCase().replaceAll('í', 'i') == 'en linea'
         ? _online
         : place;
   }
+
   final _key = GlobalKey<FormState>();
-  late final TextEditingController _title, _description, _place, _capacity;
+
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _place;
+  late final TextEditingController _capacity;
+  late final TextEditingController _xp;
+
   final _search = TextEditingController();
+
   late DateTime _date;
   late String _state, _type;
-  List<Map<String, dynamic>> _instructors = [], _selected = [];
-  bool _loading = true, _saving = false;
-  bool _unlimited = false;
+
+  String get _typeLabel => _type == 'Exposición' ? 'foro' : _type.toLowerCase();
+
+  List<Map<String, dynamic>> _instructors = [];
+  List<Map<String, dynamic>> _selected = [];
   List<Map<String, dynamic>> _subevents = [];
+
   final _content = <Map<String, dynamic>>[];
+
   List<String> _places = [];
+
+  bool _loading = true;
+  bool _saving = false;
+  bool _unlimited = false;
+
   String? _error;
+
   @override
   void initState() {
     super.initState();
+
     final e = widget.event;
+
     _unlimited = e?['cupo_ilimitado'] == true;
+
     _subevents = records(e?['subeventos'] ?? []);
+
     _title = TextEditingController(text: e?['titulo'] ?? '');
+
     _description = TextEditingController(text: e?['descripcion'] ?? '');
-    _place = TextEditingController(
-      text: _normalizePlace(e?['lugar'] ?? ''),
-    );
+
+    _place = TextEditingController(text: _normalizePlace(e?['lugar'] ?? ''));
+
     _capacity = TextEditingController(text: '${e?['cupo'] ?? 30}');
+
+    _xp = TextEditingController(text: '${e?['puntos_xp'] ?? 10}');
+
     _date = e == null
         ? DateTime.now().add(const Duration(days: 1))
         : DateTime.parse(e['fecha']).toLocal();
+
     _state = e?['estado'] ?? 'Borrador';
     _type = e?['tipo'] ?? widget.defaultType;
-    _selected = e == null ? [] : records(e['encargados']);
+
+    _selected = records(e?['encargados'] ?? []);
+
+    _content.addAll(records(e?['contenido_bloques'] ?? []));
+
     _load();
   }
 
@@ -770,33 +1464,38 @@ class _EventEditorState extends State<EventEditor> {
     _description.dispose();
     _place.dispose();
     _capacity.dispose();
+    _xp.dispose();
     _search.dispose();
+
     super.dispose();
   }
+
+  // CARGAR CATÁLOGOS
 
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
       final catalog = Map<String, dynamic>.from(
-        await PortalApi.request(
-          '/superadmin/eventos/catalogos/',
-          method: 'GET',
-        ) as Map,
+        await PortalApi.request('/superadmin/eventos/catalogos/', method: 'GET')
+            as Map,
       );
 
-      final places = records(catalog['lugares_itc'])
-          .map((item) => item['nombre'] as String)
-          .toList();
+      final places = records(
+        catalog['lugares_itc'],
+      ).map((item) => item['nombre'] as String).toList();
 
       final instructors = records(catalog['instructores']);
       final exhibitors = records(catalog['alumnos_expositores']);
 
       if (!mounted) return;
+
       setState(() {
         _places = places;
+
         _instructors = [
           for (final item in instructors)
             {
@@ -813,11 +1512,17 @@ class _EventEditorState extends State<EventEditor> {
         ];
       });
     } catch (e) {
-      if (mounted) setState(() => _error = errorText(e));
+      if (mounted) {
+        setState(() => _error = errorText(e));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
+
+  // SELECCIONAR FECHA
 
   Future<void> _chooseDate() async {
     final d = await showDatePicker(
@@ -826,129 +1531,627 @@ class _EventEditorState extends State<EventEditor> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
+
     if (d == null || !mounted) return;
-    setState(
-      () => _date = DateTime(d.year, d.month, d.day, _date.hour, _date.minute),
-    );
+
+    setState(() {
+      _date = DateTime(d.year, d.month, d.day, _date.hour, _date.minute);
+    });
   }
+
+  // SELECCIONAR HORA
 
   Future<void> _chooseTime() async {
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),
     );
+
     if (t == null || !mounted) return;
-    setState(
-      () => _date = DateTime(
-        _date.year,
-        _date.month,
-        _date.day,
-        t.hour,
-        t.minute,
-      ),
-    );
+
+    setState(() {
+      _date = DateTime(_date.year, _date.month, _date.day, t.hour, t.minute);
+    });
   }
 
-  // Edita una copia: cancelar el diálogo no cambia los datos originales.
-  Future<void> _editSubevent([int? index]) async {
-    if (_loading || _error != null || _places.isEmpty) {
-      notice(context, 'El catálogo de lugares todavía no está disponible.');
-      return;
-    }
-    final previous = index == null ? null : _subevents[index];
-    final draft = <String, dynamic>{
-      ...?previous,
-      'titulo': previous?['titulo'] ?? '',
-      'descripcion': previous?['descripcion'] ?? '',
-      'lugar': previous?['lugar'] ?? _place.text.trim(),
-      'cupo': previous?['cupo'] ?? 30,
+  // TIPO VISUAL DEL SUBEVENTO
+
+  String _subeventType(Map<String, dynamic> sub) {
+    return switch (sub['tipo'].toString().trim().toLowerCase()) {
+      'taller' => 'taller',
+      'curso' => 'curso',
+      'exposición' || 'exposicion' || 'foro' => 'foro',
+      _ => 'subevento',
     };
-    final initialPlace = (draft['lugar'] as String).trim();
-    final places = <String>{
-      ..._places.where((place) => place.trim().isNotEmpty),
-      if (initialPlace.isNotEmpty) initialPlace,
-    };
-    final formKey = GlobalKey<FormState>();
-    final result = await showDialog<Map<String, dynamic>>(
+  }
+
+  // VER SUBEVENTO
+
+  Future<void> _viewSubevent(int index) async {
+    final sub = _subevents[index];
+    final tipo = _subeventType(sub);
+
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(index == null ? 'Añadir subevento' : 'Editar subevento'),
+        title: Text('Ver $tipo'),
+
         content: SizedBox(
-          width: 460,
+          width: 520,
+
           child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    initialValue: '${draft['titulo']}',
-                    maxLength: 160,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre del subevento',
-                      hintText: 'Ej. Fibra óptica',
-                    ),
-                    validator: requiredText,
-                    onChanged: (v) => draft['titulo'] = v.trim(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              children: [
+                heading('${sub['titulo']}'),
+
+                badge('${sub['estado'] ?? 'Borrador'}'),
+
+                const SizedBox(height: 16),
+
+                Text('${sub['descripcion'] ?? ''}'),
+
+                const SizedBox(height: 16),
+
+                if (sub['fecha'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today),
+                    title: const Text('Fecha y hora'),
+                    subtitle: Text(eventDate(sub['fecha'])),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: '${draft['descripcion']}',
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'Descripción'),
-                    onChanged: (v) => draft['descripcion'] = v.trim(),
+
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.location_on_outlined),
+                  title: const Text('Lugar'),
+                  subtitle: Text('${sub['lugar'] ?? 'Sin asignar'}'),
+                ),
+
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.people_outline),
+                  title: const Text('Cupo'),
+
+                  subtitle: Text(
+                    sub['cupo_ilimitado'] == true
+                        ? 'Ilimitado'
+                        : '${sub['cupo'] ?? sub['cupo_maximo'] ?? 30} personas',
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: initialPlace.isEmpty ? null : initialPlace,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Lugar'),
-                    items: [
-                      for (final place in places)
-                        DropdownMenuItem<String>(
-                          value: place,
-                          child: Text(place),
-                        ),
-                    ],
-                    validator: requiredText,
-                    onChanged: (value) => draft['lugar'] = value ?? '',
+                ),
+
+                if (sub['inscritos'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Inscritos'),
+                    subtitle: Text('${sub['inscritos']}'),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: '${draft['cupo']}',
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Cupo del subevento',
-                    ),
-                    onChanged: (v) => draft['cupo'] = int.tryParse(v.trim()),
-                    validator: (v) {
-                      final n = int.tryParse((v ?? '').trim());
-                      return n == null || n < 1 || n > 100000
-                          ? 'Ingresa un cupo de 1 a 100000.'
-                          : null;
-                    },
+
+                if (sub['puntos_xp'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.bolt_rounded),
+                    title: const Text('Experiencia'),
+                    subtitle: Text('${sub['puntos_xp']} XP'),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
+
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-              Navigator.pop(dialogContext, draft);
-            },
-            child: const Text('Guardar subevento'),
+            child: const Text('Cerrar'),
           ),
         ],
       ),
     );
+  }
+
+  // SOLICITUDES DEL SUBEVENTO
+
+  Future<void> _subeventApplications(int index) async {
+    final sub = _subevents[index];
+
+    await showDialog<void>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Solicitudes · ${sub['titulo']}'),
+
+        content: SizedBox(
+          width: 460,
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Icon(Icons.people_outline, size: 48, color: UnixColors.link),
+
+              const SizedBox(height: 16),
+
+              const Text(
+                'Solicitudes del subevento',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 12),
+
+              muted(
+                'La consulta de solicitudes de este subevento '
+                'está pendiente de integración con el backend.',
+              ),
+            ],
+          ),
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ELIMINAR SUBEVENTO
+
+  Future<void> _deleteSubevent(int index) async {
+    final sub = _subevents[index];
+
+    final tipo = _subeventType(sub);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $tipo'),
+
+        content: Text(
+          '¿Seguro que deseas eliminar el $tipo '
+          '"${sub['titulo']}"? '
+          'El cambio se aplicará al guardar el evento principal.',
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+
+            child: const Text('Cancelar'),
+          ),
+
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+
+            onPressed: () => Navigator.pop(dialogContext, true),
+
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _subevents.remove(sub);
+    });
+  }
+
+  // DISEÑO DE LAS TARJETAS DE SUBEVENTOS
+
+  Widget _buildSubeventCard(int index) {
+    final sub = _subevents[index];
+
+    final tipo = _subeventType(sub);
+
+    final cupo =
+        int.tryParse('${sub['cupo'] ?? sub['cupo_maximo'] ?? 30}') ?? 30;
+
+    final ilimitado = sub['cupo_ilimitado'] == true;
+
+    final inscritos = int.tryParse('${sub['inscritos'] ?? ''}');
+
+    final disponibles = inscritos == null
+        ? null
+        : (cupo - inscritos).clamp(0, cupo);
+
+    final icon = switch (tipo) {
+      'curso' => Icons.menu_book_outlined,
+      'foro' => Icons.co_present_outlined,
+      'taller' => Icons.school_outlined,
+      _ => Icons.event_outlined,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+
+      child: panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            // NOMBRE, ICONO Y ESTADO
+
+            Row(
+              children: [
+                Icon(icon, color: UnixColors.link, size: 25),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Text(
+                    '${sub['titulo']}',
+
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                badge('${sub['estado'] ?? 'Borrador'}'),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // TIPO Y LUGAR
+            muted(
+              '${tipo[0].toUpperCase()}${tipo.substring(1)}'
+              ' · ${sub['lugar'] ?? 'Sin asignar'}',
+            ),
+
+            if (sub['fecha'] != null) muted(eventDate(sub['fecha'])),
+
+            const SizedBox(height: 10),
+
+            // DESCRIPCIÓN
+            if ('${sub['descripcion'] ?? ''}'.isNotEmpty)
+              Text(
+                '${sub['descripcion']}',
+
+                maxLines: 3,
+
+                overflow: TextOverflow.ellipsis,
+              ),
+
+            const SizedBox(height: 12),
+
+            // CUPO E INSCRITOS
+            Text(
+              ilimitado
+                  ? inscritos == null
+                        ? 'Cupo ilimitado'
+                        : '$inscritos inscritos · Cupo ilimitado'
+                  : inscritos == null
+                  ? 'Cupo: $cupo personas'
+                  : '$inscritos inscritos · '
+                        '$disponibles lugares disponibles',
+            ),
+
+            const SizedBox(height: 8),
+
+            // BARRA DE OCUPACIÓN
+            if (!ilimitado && inscritos != null && cupo > 0)
+              LinearProgressIndicator(
+                value: (inscritos / cupo).clamp(0.0, 1.0).toDouble(),
+
+                color: disponibles == 0 ? Colors.red : UnixColors.link,
+              ),
+
+            if (sub['puntos_xp'] != null) ...[
+              const SizedBox(height: 10),
+              badge('${sub['puntos_xp']} XP'),
+            ],
+
+            const SizedBox(height: 14),
+
+            // BOTONES DE ADMINISTRACIÓN
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+
+              children: [
+                // VER
+
+                FilledButton(
+                  onPressed: _saving ? null : () => _viewSubevent(index),
+
+                  child: Text('Ver $tipo'),
+                ),
+
+                // EDITAR
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : () => _editSubevent(index),
+
+                  icon: const Icon(Icons.edit_outlined),
+
+                  label: const Text('Editar'),
+                ),
+
+                // SOLICITUDES
+                if (tipo == 'taller' || tipo == 'foro')
+                  OutlinedButton.icon(
+                    onPressed: _saving
+                        ? null
+                        : () => _subeventApplications(index),
+
+                    icon: const Icon(Icons.people_outline),
+
+                    label: const Text('Solicitudes'),
+                  ),
+
+                // ELIMINAR
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+
+                    side: const BorderSide(color: Colors.red),
+                  ),
+
+                  onPressed: _saving ? null : () => _deleteSubevent(index),
+
+                  icon: const Icon(Icons.delete_outline),
+
+                  label: const Text('Eliminar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // CREAR O EDITAR SUBEVENTOS
+
+  Future<void> _editSubevent([int? index]) async {
+    final previous = index == null ? null : _subevents[index];
+
+    final draft = <String, dynamic>{
+      ...?previous,
+
+      'titulo': previous?['titulo'] ?? '',
+
+      'tipo': switch (previous?['tipo']?.toString().trim().toLowerCase()) {
+        'taller' => 'Taller',
+        'exposición' || 'exposicion' || 'foro' => 'Exposición',
+        'curso' => 'Curso',
+        _ => null,
+      },
+
+      'descripcion': previous?['descripcion'] ?? '',
+
+      'lugar': previous?['lugar'] ?? _place.text.trim(),
+
+      'cupo': previous?['cupo'] ?? previous?['cupo_maximo'] ?? 30,
+    };
+
+    final places = <String>{
+      ..._places
+          .map((place) => place.trim())
+          .where(
+            (place) =>
+                place.isNotEmpty &&
+                place.toLowerCase() != 'laboratorio de ejemplo',
+          ),
+    };
+
+    final savedPlace = '${draft['lugar'] ?? ''}'.trim();
+
+    String selectedPlace = places.contains(savedPlace) ? savedPlace : '';
+
+    draft['lugar'] = draft['tipo'] == 'Curso' ? _online : selectedPlace;
+
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              index == null
+                  ? 'Añadir subevento'
+                  : 'Editar ${_subeventType(previous!)}',
+            ),
+
+            content: SizedBox(
+              width: 460,
+
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+
+                    children: [
+                      // NOMBRE
+
+                      TextFormField(
+                        initialValue: '${draft['titulo']}',
+                        maxLength: 160,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre del subevento',
+                          hintText: 'Ej. Fibra óptica',
+                        ),
+
+                        validator: requiredText,
+
+                        onChanged: (v) => draft['titulo'] = v.trim(),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // TIPO DE ACTIVIDAD
+                      DropdownButtonFormField<String>(
+                        initialValue: draft['tipo'] as String?,
+                        isExpanded: true,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Tipo de actividad',
+                        ),
+
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Taller',
+                            child: Text('Taller'),
+                          ),
+
+                          DropdownMenuItem(
+                            value: 'Exposición',
+                            child: Text('Foro'),
+                          ),
+
+                          DropdownMenuItem(
+                            value: 'Curso',
+                            child: Text('Curso'),
+                          ),
+                        ],
+
+                        validator: requiredText,
+
+                        onChanged: (value) {
+                          setDialogState(() {
+                            draft['tipo'] = value;
+
+                            draft['lugar'] = value == 'Curso'
+                                ? _online
+                                : selectedPlace;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // DESCRIPCIÓN
+                      TextFormField(
+                        initialValue: '${draft['descripcion']}',
+                        maxLines: 3,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Descripción',
+                        ),
+
+                        onChanged: (v) => draft['descripcion'] = v.trim(),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // LUGAR O MODALIDAD
+                      if (draft['tipo'] == 'Curso')
+                        const InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Lugar o modalidad',
+                          ),
+
+                          child: Text(_online),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedPlace.isEmpty
+                              ? null
+                              : selectedPlace,
+
+                          isExpanded: true,
+
+                          decoration: const InputDecoration(labelText: 'Lugar'),
+
+                          items: [
+                            for (final place in places)
+                              DropdownMenuItem<String>(
+                                value: place,
+                                child: Text(place),
+                              ),
+                          ],
+
+                          validator: requiredText,
+
+                          onChanged: (value) {
+                            selectedPlace = value ?? '';
+                            draft['lugar'] = selectedPlace;
+                          },
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      // CUPO DEL SUBEVENTO
+                      TextFormField(
+                        initialValue: '${draft['cupo']}',
+                        keyboardType: TextInputType.number,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Cupo del subevento',
+                        ),
+
+                        onChanged: (v) =>
+                            draft['cupo'] = int.tryParse(v.trim()),
+
+                        validator: (v) {
+                          final n = int.tryParse((v ?? '').trim());
+
+                          if (n == null || n < 1 || n > 100000) {
+                            return 'Ingresa un cupo de 1 a 100000.';
+                          }
+
+                          final inscritos =
+                              int.tryParse('${previous?['inscritos'] ?? 0}') ??
+                              0;
+
+                          if (n < inscritos) {
+                            return 'Ya hay $inscritos inscritos.';
+                          }
+
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancelar'),
+              ),
+
+              FilledButton(
+                onPressed: () {
+                  if (!formKey.currentState!.validate()) return;
+
+                  if (draft['tipo'] == 'Curso') {
+                    draft['lugar'] = _online;
+                  }
+
+                  Navigator.pop(dialogContext, draft);
+                },
+
+                child: Text(
+                  index == null ? 'Guardar subevento' : 'Guardar cambios',
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
     if (result == null || !mounted) return;
+
     setState(() {
       if (index == null) {
         _subevents.add(result);
@@ -958,31 +2161,116 @@ class _EventEditorState extends State<EventEditor> {
     });
   }
 
-  Future<void> _save({bool draft = false}) async {
+  // ELIMINAR ACTIVIDAD PRINCIPAL
+
+  Future<void> _confirmDelete() async {
+    if (_saving || widget.event == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $_typeLabel'),
+
+        content: Text(
+          '¿Seguro que deseas eliminar el $_typeLabel '
+          '"${_title.text.trim()}"? '
+          'Esta acción no se puede deshacer.',
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+
+            child: const Text('Cancelar'),
+          ),
+
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+
+            onPressed: () => Navigator.pop(dialogContext, true),
+
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted || _saving) {
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      await PortalApi.request(
+        'eventos/${widget.event!['id']}/',
+        method: 'DELETE',
+      );
+
+      if (mounted) {
+        Navigator.pop(context, '__deleted__');
+      }
+    } catch (e) {
+      if (mounted) {
+        notice(context, errorText(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  // GUARDAR ACTIVIDAD
+
+  Future<void> _save() async {
     if (_saving || !_key.currentState!.validate()) return;
-    final state = draft ? 'Borrador' : _state;
+
+    final state = _state;
+
     if (state != 'Borrador' &&
         state != 'Finalizado' &&
         !_date.isAfter(DateTime.now())) {
       notice(context, 'Selecciona una fecha futura.');
+
       return;
     }
+
     setState(() => _saving = true);
+
     try {
       final data = <String, dynamic>{
         'titulo': _title.text.trim(),
+
         'descripcion': _description.text.trim(),
+
         'lugar': _type == 'Curso' ? _online : _normalizePlace(_place.text),
+
         'cupo': _unlimited ? 30 : int.parse(_capacity.text.trim()),
+
         'cupo_ilimitado': _unlimited,
+
         if (_type == 'Evento') 'subeventos': _subevents,
+
         if (_type == 'Curso') 'contenido_bloques': _content,
+
         'fecha': _date.toUtc().toIso8601String(),
+
         'tipo': _type,
+
+        'puntos_xp': int.parse(_xp.text.trim()),
+
         'estado': state,
+
         'encargados_ids': _selected.map((i) => i['id']).toList(),
       };
+
       final event = widget.event;
+
       if (event == null) {
         await PortalApi.createActivity(data);
       } else {
@@ -992,18 +2280,29 @@ class _EventEditorState extends State<EventEditor> {
           data: data,
         );
       }
-      if (mounted) Navigator.pop(context, _type);
+
+      if (mounted) {
+        Navigator.pop(context, _type);
+      }
     } catch (e) {
-      if (mounted) notice(context, errorText(e));
+      if (mounted) {
+        notice(context, errorText(e));
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
+
+  // DISEÑO PRINCIPAL
 
   @override
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
+
     final q = _search.text.trim().toLowerCase();
+
     final matches = _instructors
         .where(
           (i) =>
@@ -1011,198 +2310,314 @@ class _EventEditorState extends State<EventEditor> {
               '${i['nombre']} ${i['numero_control']}'.toLowerCase().contains(q),
         )
         .toList();
+
+    // COLUMNA IZQUIERDA
+
     final info = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+
       children: [
         TextFormField(
           controller: _title,
+
           maxLength: 160,
+
           decoration: const InputDecoration(labelText: 'Nombre'),
+
           validator: requiredText,
         ),
+
         const SizedBox(height: 16),
+
         TextFormField(
           controller: _description,
+
           maxLines: 4,
+
           decoration: const InputDecoration(labelText: 'Descripción'),
         ),
+
         const SizedBox(height: 16),
+
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _chooseDate,
+
                 icon: const Icon(Icons.calendar_today),
+
                 label: Text('${_date.day}/${_date.month}/${_date.year}'),
               ),
             ),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _chooseTime,
+
                 icon: const Icon(Icons.schedule),
+
                 label: Text(
-                  '${_date.hour.toString().padLeft(2, '0')}:${_date.minute.toString().padLeft(2, '0')}',
+                  '${_date.hour.toString().padLeft(2, '0')}:'
+                  '${_date.minute.toString().padLeft(2, '0')}',
                 ),
               ),
             ),
           ],
         ),
+
         const SizedBox(height: 16),
+
+        // TIPO DE ACTIVIDAD PRINCIPAL
         DropdownButtonFormField<String>(
           initialValue: _type,
+
+          isExpanded: true,
+
           decoration: const InputDecoration(labelText: 'Tipo de actividad'),
-          items: [
-            'Evento',
-            'Taller',
-            'Exposición',
-            if (widget.event == null) 'Curso',
-          ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+
+          items:
+              [
+                'Evento',
+                'Taller',
+                'Exposición',
+
+                if (widget.event == null || _type == 'Curso') 'Curso',
+              ].map((s) {
+                return DropdownMenuItem<String>(
+                  value: s,
+
+                  child: Text(s == 'Exposición' ? 'Foro' : s),
+                );
+              }).toList(),
+
           onChanged: widget.event != null
               ? null
               : (value) {
                   if (value == null) return;
+
                   setState(() => _type = value);
                 },
         ),
+
         const SizedBox(height: 16),
+
+        // LUGAR O MODALIDAD
         if (_type == 'Curso')
           const InputDecorator(
             decoration: InputDecoration(labelText: 'Lugar o modalidad'),
+
             child: Text(_online),
           )
         else
           DropdownButtonFormField<String>(
             key: ValueKey((_places.length, _type)),
+
             initialValue: _place.text.isEmpty ? null : _place.text,
+
             isExpanded: true,
+
             decoration: const InputDecoration(labelText: 'Lugar o modalidad'),
-            items: <String>{
-              ..._places.map(_normalizePlace).where((place) => place.isNotEmpty),
-              if (_place.text.isNotEmpty) _place.text,
-            }.map((place) => DropdownMenuItem(
-              value: place,
-              child: Text(place),
-            )).toList(),
+
+            items:
+                <String>{
+                  ..._places
+                      .map(_normalizePlace)
+                      .where((place) => place.isNotEmpty),
+
+                  if (_place.text.isNotEmpty) _place.text,
+                }.map((place) {
+                  return DropdownMenuItem<String>(
+                    value: place,
+
+                    child: Text(place),
+                  );
+                }).toList(),
+
             onChanged: _loading ? null : (value) => _place.text = value ?? '',
+
             validator: requiredText,
           ),
-        const SizedBox(height: 16),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: 32),
+
+        // ESTADO
         DropdownButtonFormField<String>(
           initialValue: _state,
+
           decoration: const InputDecoration(labelText: 'Estado'),
-          items: [
-            'Borrador',
-            'Reclutando',
-            'Publicado',
-            'Finalizado',
-          ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-          onChanged: (v) => setState(() => _state = v!),
+
+          items: ['Borrador', 'Reclutando', 'Publicado', 'Finalizado'].map((s) {
+            return DropdownMenuItem<String>(value: s, child: Text(s));
+          }).toList(),
+
+          onChanged: (v) {
+            if (v != null) {
+              setState(() => _state = v);
+            }
+          },
         ),
       ],
     );
+
+    // COLUMNA DERECHA
+
     final people = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+
       children: [
         const Text(
           'Encargados',
+
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
+
         const SizedBox(height: 12),
+
         TextField(
           controller: _search,
+
           onChanged: (_) => setState(() {}),
+
           decoration: const InputDecoration(
             hintText: 'Buscar por nombre o ID',
             prefixIcon: Icon(Icons.search),
           ),
         ),
+
         const SizedBox(height: 10),
+
         Wrap(
           spacing: 6,
           runSpacing: 6,
+
           children: [
             for (final i in _selected)
               InputChip(
                 label: Text('${i['nombre']}'),
-                onDeleted: () => setState(
-                  () => _selected.removeWhere((s) => s['id'] == i['id']),
-                ),
+
+                onDeleted: () {
+                  setState(() {
+                    _selected.removeWhere((s) => s['id'] == i['id']);
+                  });
+                },
               ),
           ],
         ),
+
         muted('${_selected.length} encargados seleccionados'),
+
         const SizedBox(height: 8),
+
         if (_loading) const LinearProgressIndicator(),
+
         if (_error != null) errorPanel(_error!, _load),
+
         if (!_loading && _error == null)
           Container(
             constraints: const BoxConstraints(maxHeight: 210),
+
             child: matches.isEmpty
                 ? muted('No hay profesores que coincidan.')
                 : ListView.builder(
                     shrinkWrap: true,
                     primary: false,
                     itemCount: matches.length,
+
                     itemBuilder: (_, index) {
                       final i = matches[index];
+
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
+
                         leading: const Icon(Icons.person_add_alt_1),
+
                         title: Text('${i['nombre']}'),
+
                         subtitle: Text('ID: ${i['numero_control']}'),
+
                         trailing: const Icon(Icons.add),
-                        onTap: () => setState(() {
-                          _selected.add(i);
-                          _search.clear();
-                        }),
+
+                        onTap: () {
+                          setState(() {
+                            _selected.add(i);
+                            _search.clear();
+                          });
+                        },
                       );
                     },
                   ),
           ),
+
         const SizedBox(height: 18),
+
+        // LÍMITE DE ASISTENTES
         panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               const Text(
                 'Límite de asistentes',
+
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
+
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+
                 title: const Text('Cupo ilimitado'),
+
                 subtitle: const Text(
                   'Desactívalo para indicar el máximo de asistentes.',
                 ),
+
                 value: _unlimited,
+
                 onChanged: (value) {
                   setState(() => _unlimited = value);
                 },
               ),
+
               const SizedBox(height: 10),
+
               if (!_unlimited)
                 Row(
                   children: [
                     IconButton(
                       tooltip: 'Reducir cupo',
+
                       onPressed: () {
                         final n = int.tryParse(_capacity.text) ?? 1;
-                        if (n > 1) setState(() => _capacity.text = '${n - 1}');
+
+                        if (n > 1) {
+                          setState(() {
+                            _capacity.text = '${n - 1}';
+                          });
+                        }
                       },
+
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
+
                     Expanded(
                       child: TextFormField(
                         controller: _capacity,
+
                         keyboardType: TextInputType.number,
+
                         textAlign: TextAlign.center,
+
                         decoration: const InputDecoration(labelText: 'Cupo'),
+
                         validator: (v) {
                           final n = int.tryParse(v ?? '');
+
                           final count =
                               (widget.event?['inscritos'] as int?) ?? 0;
+
                           return n == null || n < 1 || n > 100000
                               ? 'De 1 a 100000'
                               : n < count
@@ -1211,186 +2626,306 @@ class _EventEditorState extends State<EventEditor> {
                         },
                       ),
                     ),
+
                     IconButton(
                       tooltip: 'Aumentar cupo',
+
                       onPressed: () {
                         final n = int.tryParse(_capacity.text) ?? 0;
+
                         if (n < 100000) {
-                          setState(() => _capacity.text = '${n + 1}');
+                          setState(() {
+                            _capacity.text = '${n + 1}';
+                          });
                         }
                       },
+
                       icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
                 ),
+
               const SizedBox(height: 10),
+
               muted(
                 _unlimited
-                    ? 'Este evento no tendrá límite de asistentes.'
+                    ? 'Esta actividad no tendrá límite de asistentes.'
                     : '${widget.event?['inscritos'] ?? 0} inscritos. '
                           'El cupo no puede ser menor a los inscritos actuales.',
               ),
             ],
           ),
         ),
+
+        const SizedBox(height: 18),
+
+        // PUNTOS DE EXPERIENCIA
+        panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.bolt_rounded, color: portalOrange),
+
+                  SizedBox(width: 8),
+
+                  Expanded(
+                    child: Text(
+                      'Puntos de experiencia (XP)',
+
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              muted('Define los puntos de experiencia del $_typeLabel.'),
+
+              const SizedBox(height: 14),
+
+              TextFormField(
+                controller: _xp,
+
+                keyboardType: TextInputType.number,
+
+                decoration: InputDecoration(
+                  labelText: 'Valor del $_typeLabel',
+
+                  prefixIcon: const Icon(Icons.star_outline),
+
+                  suffixText: 'XP',
+                ),
+
+                validator: (value) {
+                  final xp = int.tryParse(value?.trim() ?? '');
+
+                  if (xp == null || xp < 1) {
+                    return 'Ingresa una cantidad de XP válida.';
+                  }
+
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
       ],
     );
+
+    // VENTANA PRINCIPAL
+
     return PortalScaffold(
-      title: widget.event == null
-          ? 'Crear ${_type.toLowerCase()}'
-          : 'Editar ${_type.toLowerCase()}',
+      title: widget.event == null ? 'Crear $_typeLabel' : 'Editar $_typeLabel',
+
       child: Form(
         key: _key,
+
         child: AbsorbPointer(
           absorbing: _saving,
+
           child: Column(
             children: [
               if (_saving) const LinearProgressIndicator(),
+
               panel(
                 child: LayoutBuilder(
-                  builder: (ctx, c) => c.maxWidth < 750
-                      ? Column(
-                          children: [info, const SizedBox(height: 28), people],
-                        )
-                      : Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: info),
-                            const SizedBox(width: 28),
-                            Expanded(child: people),
-                          ],
-                        ),
+                  builder: (ctx, c) {
+                    if (c.maxWidth < 750) {
+                      return Column(
+                        children: [info, const SizedBox(height: 28), people],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        Expanded(child: info),
+
+                        const SizedBox(width: 28),
+
+                        Expanded(child: people),
+                      ],
+                    );
+                  },
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // NUEVA SECCIÓN DE SUBEVENTOS
               if (_type == 'Evento')
                 panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
+
                     children: [
                       const Text(
                         'Subeventos',
+
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+
                       const SizedBox(height: 8),
+
                       muted(
-                        'Añade las actividades del evento principal. '
-                        'Cada una tiene su propio cupo.',
+                        'Añade y administra los talleres, '
+                        'cursos y foros del evento principal.',
                       ),
-                      const SizedBox(height: 12),
+
+                      const SizedBox(height: 16),
+
                       if (_subevents.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
+
                           child: Text('Todavía no has añadido subeventos.'),
                         ),
+
+                      // TARJETAS DE SUBEVENTOS
                       for (var i = 0; i < _subevents.length; i++)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.event_note_outlined),
-                          title: Text('${_subevents[i]['titulo']}'),
-                          subtitle: Text(
-                            '${_subevents[i]['lugar']} · '
-                            'Cupo: ${_subevents[i]['cupo']} personas',
-                          ),
-                          onTap: () => _editSubevent(i),
-                          trailing: IconButton(
-                            tooltip: 'Eliminar subevento',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () =>
-                                setState(() => _subevents.removeAt(i)),
-                          ),
-                        ),
+                        _buildSubeventCard(i),
+
                       const SizedBox(height: 12),
+
+                      // AÑADIR SUBEVENTO
                       OutlinedButton.icon(
-                        onPressed: () => _editSubevent(),
+                        onPressed: _saving ? null : () => _editSubevent(),
+
                         icon: const Icon(Icons.add),
+
                         label: const Text('Añadir subevento'),
                       ),
                     ],
                   ),
                 ),
+
               const SizedBox(height: 20),
+
+              // CONTENIDO DEL CURSO
               if (_type == 'Curso')
                 panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
+
                     children: [
                       const Text('Contenido del curso'),
+
                       for (final block in _content)
                         Padding(
                           key: ObjectKey(block),
+
                           padding: const EdgeInsets.symmetric(vertical: 8),
+
                           child: TextFormField(
                             initialValue: block['contenido'] as String,
+
                             maxLines: block['tipo'] == 'enlace' ? 1 : 3,
+
                             decoration: InputDecoration(
                               labelText: block['tipo'] == 'enlace'
                                   ? 'Enlace'
                                   : 'Párrafo',
+
                               suffixIcon: IconButton(
                                 tooltip: 'Quitar bloque',
+
                                 icon: const Icon(Icons.delete_outline),
-                                onPressed: () =>
-                                    setState(() => _content.remove(block)),
+
+                                onPressed: () {
+                                  setState(() {
+                                    _content.remove(block);
+                                  });
+                                },
                               ),
                             ),
-                            onChanged: (value) =>
-                                block['contenido'] = value.trim(),
+
+                            onChanged: (value) {
+                              block['contenido'] = value.trim();
+                            },
+
                             validator: (value) {
                               final missing = requiredText(value);
-                              if (missing != null) return missing;
+
+                              if (missing != null) {
+                                return missing;
+                              }
+
                               if (block['tipo'] == 'enlace') {
                                 final uri = Uri.tryParse(value!.trim());
+
                                 if (uri == null ||
                                     uri.host.isEmpty ||
                                     !['https', 'http'].contains(uri.scheme)) {
                                   return 'Ingresa un enlace HTTP o HTTPS válido.';
                                 }
                               }
+
                               return null;
                             },
                           ),
                         ),
+
                       Wrap(
                         spacing: 12,
+
                         children: [
                           for (final kind in ['parrafo', 'enlace'])
                             TextButton.icon(
                               icon: const Icon(Icons.add),
+
                               label: Text(
                                 kind == 'parrafo'
                                     ? 'Añadir párrafo'
                                     : 'Añadir enlace',
                               ),
-                              onPressed: () => setState(
-                                () => _content.add({
-                                  'tipo': kind,
-                                  'contenido': '',
-                                }),
-                              ),
+
+                              onPressed: () {
+                                setState(() {
+                                  _content.add({'tipo': kind, 'contenido': ''});
+                                });
+                              },
                             ),
                         ],
                       ),
                     ],
                   ),
                 ),
+
               const SizedBox(height: 16),
+
+              // BOTONES INFERIORES
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
+
                 children: [
-                  OutlinedButton(
-                    onPressed: _saving ? null : () => _save(draft: true),
-                    child: const Text('Guardar borrador'),
-                  ),
+                  if (widget.event != null)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+
+                        side: const BorderSide(color: Colors.red),
+                      ),
+
+                      onPressed: _saving ? null : _confirmDelete,
+
+                      icon: const Icon(Icons.delete_outline),
+
+                      label: const Text('Eliminar'),
+                    ),
+
                   FilledButton(
                     onPressed: _saving ? null : _save,
-                    child: Text(
-                      _saving ? 'Guardando…' : 'Guardar ${_type.toLowerCase()}',
-                    ),
+
+                    child: Text(_saving ? 'Guardando…' : 'Guardar $_typeLabel'),
                   ),
                 ],
               ),

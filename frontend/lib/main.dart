@@ -23,11 +23,20 @@ import 'backend_config.dart';
 const String authBaseUrl = '$backendUrl/api/auth';
 
 String resolverRol(Map<String, dynamic> data) {
-  final rol =
-      (data['rol'] ?? data['Rol'])?.toString().trim().toLowerCase() ?? '';
-  if (data['es_superadmin'] == true || rol == 'superadmin' || rol == 'admin') {
+  final rol = (data['rol'] ?? data['Rol'])
+          ?.toString()
+          .trim()
+          .toLowerCase() ??
+      '';
+
+  if (rol == 'alumno' || rol == 'instructor') {
+    return rol;
+  }
+
+  if (data['es_superadmin'] == true) {
     return 'superadmin';
   }
+
   return rol;
 }
 
