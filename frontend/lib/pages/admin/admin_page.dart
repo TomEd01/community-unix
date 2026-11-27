@@ -256,7 +256,7 @@ class _AdminPageState extends State<_AdminShell> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        if (![1, 5, 6, 7].contains(selected)) ...[
+                                        if (selected == 0) ...[
                                           Text(
                                             selected == 0
                                                 ? 'Panel de administración'
