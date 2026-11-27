@@ -702,6 +702,12 @@ class SuperAdminUsuarioDetailView(APIView):
         usuario_objetivo.is_superuser = nuevo_estado
         usuario_objetivo.save()
 
+        if nuevo_estado and (usuario_objetivo.rol or '').capitalize() == 'Externo':
+            return Response(
+                {"error": "No se puede otorgar permisos de Super Admin a usuarios con rol Externo. Solo Instructores y Alumnos."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         accion = "otorgado" if nuevo_estado else "revocado"
         return Response({
             "mensaje": f"Se ha {accion} el permiso de Super Admin a {usuario_objetivo.nombre_completo}.",
