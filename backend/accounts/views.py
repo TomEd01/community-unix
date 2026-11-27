@@ -15,6 +15,8 @@ from .models import Usuario, Alumno, Instructor, Externo, HorarioClase, VinculoA
 from .permissions import EsSuperAdmin
 #Libreria para crear un JSON Web Token (JWT)
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -72,11 +74,42 @@ class GoogleLoginView(generics.CreateAPIView):
                 "Nuevo": necesita_onboarding,
                 "es_superadmin": user.is_superuser,
                 "token": token_acceso,
+                "refresh": str(refresh),
+                "expira_en_segundos": int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()),
                 }, status=status.HTTP_200_OK)
 
         except ValueError:
             # Si el token es inválido o expiró
             return Response({"error": "Token de Google inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
+class RenovarTokenView(TokenRefreshView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (TokenError, InvalidToken):
+            return Response(
+                {
+                    "error": "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+                    "codigo": "sesion_expirada",
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        datos = serializer.validated_data
+        return Response(
+            {
+                "mensaje": "Sesión renovada correctamente.",
+                "token": datos["access"],
+                "access": datos["access"],
+                "refresh": datos.get("refresh"),
+                "expira_en_segundos": int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()),
+            },
+            status=status.HTTP_200_OK
+        )
+
 @method_decorator(csrf_exempt, name='dispatch')
 class CompletarPerfilView(APIView):
     # Se exige el token JWT: Si la petición no trae un token válido, 
