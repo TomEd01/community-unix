@@ -164,223 +164,575 @@ class _PortalCoursesState extends State<PortalCourses> {
   Widget build(BuildContext context) {
     UnixTheme.watch(context);
 
+    final scheme = Theme.of(context).colorScheme;
     final courses = _courses
         .where(
           (c) =>
-              (widget.adminMode ||
-                  c['publicado'] == true) &&
-              '${c['titulo']}'
-                  .toLowerCase()
-                  .contains(_query),
+              (widget.adminMode || c['publicado'] == true) &&
+              '${c['titulo']}'.toLowerCase().contains(_query),
         )
         .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!widget.adminMode)
-          portalDataNotice(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 900.0;
+        final columns = availableWidth >= 1050
+            ? 3
+            : availableWidth >= 620
+                ? 2
+                : 1;
+        const spacing = 16.0;
+        final cardWidth = (availableWidth - spacing * (columns - 1)) / columns;
 
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          spacing: 16,
-          runSpacing: 12,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            heading(
-              widget.adminMode
-                  ? 'Administrar cursos'
-                  : 'Cursos asíncronos',
-            ),
+            if (!widget.adminMode) portalDataNotice(),
 
-            if (widget.adminMode)
-              FilledButton.icon(
-                onPressed:
-                    widget.onCreate ?? () => _edit(),
-
-                icon: const Icon(Icons.add),
-
-                label: const Text('Crear curso'),
-              ),
-          ],
-        ),
-
-        TextField(
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'Buscar cursos',
-          ),
-
-          onChanged: (v) {
-            setState(() {
-              _query = v.trim().toLowerCase();
-            });
-          },
-        ),
-
-        const SizedBox(height: 18),
-
-        if (_loading || _deleting)
-          const LinearProgressIndicator(),
-
-        if (_error != null)
-          errorPanel(_error!, _load),
-
-        if (!_loading &&
-            _error == null &&
-            courses.isEmpty)
-          emptyPanel('No hay cursos que mostrar.'),
-
-        // TARJETAS DE CURSOS
-
-        for (final c in courses)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-
-            child: panel(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-                  Row(
+            // ENCABEZADO DE LA PANTALLA
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: availableWidth > 520 ? 420 : availableWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.menu_book_outlined,
-                        color: UnixColors.link,
+                      Text(
+                        widget.adminMode ? 'Administrar cursos' : 'Cursos asíncronos',
+                        style: TextStyle(
+                          color: UnixColors.text,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Text(
-                          '${c['titulo']}',
-
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      const SizedBox(height: 5),
+                      Text(
+                        widget.adminMode
+                            ? 'Organiza y administra los cursos de la comunidad.'
+                            : 'Explora los cursos disponibles y continúa aprendiendo.',
+                        style: TextStyle(
+                          color: UnixColors.muted,
+                          fontSize: 14,
                         ),
                       ),
                     ],
                   ),
+                ),
+                if (widget.adminMode)
+                  FilledButton.icon(
+                    onPressed: widget.onCreate ?? () => _edit(),
+                    icon: const Icon(Icons.add_rounded, size: 19),
+                    label: const Text('Crear curso'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 15,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ],
+            ),
 
-                  const SizedBox(height: 8),
+            const SizedBox(height: 20),
 
-                  muted('${c['descripcion']}'),
-
-                  const SizedBox(height: 12),
-
-                  if (widget.adminMode)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+            // BANNER INFORMATIVO
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: const [
+                    Color(0xFF102A56),
+                    Color(0xFF1D4ED8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 7),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        badge(
-                          c['publicado'] == true
-                              ? 'Publicado'
-                              : 'Borrador',
-                        ),
-
-                        if (c['puntos_xp'] != null)
-                          badge(
-                            '${c['puntos_xp']} XP',
+                        Text(
+                          widget.adminMode
+                              ? '¡Todo el aprendizaje en un solo lugar!'
+                              : '¡Bienvenido a los cursos!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
                           ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          widget.adminMode
+                              ? 'Crea cursos, actualiza sus contenidos y mantén organizada la formación de la comunidad.'
+                              : 'Consulta los contenidos, avanza a tu ritmo y desarrolla nuevas habilidades.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            height: 1.4,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Icon(
+                    widget.adminMode
+                        ? Icons.auto_stories_rounded
+                        : Icons.school_rounded,
+                    size: 62,
+                    color: Colors.white.withValues(alpha: 0.24),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // BUSCADOR
+            TextField(
+              onChanged: (value) {
+                setState(() => _query = value.trim().toLowerCase());
+              },
+              style: TextStyle(color: UnixColors.text),
+              decoration: InputDecoration(
+                hintText: 'Buscar cursos...',
+                hintStyle: TextStyle(color: UnixColors.muted),
+                prefixIcon: Icon(Icons.search_rounded, color: UnixColors.muted),
+                filled: true,
+                fillColor: UnixColors.card,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: UnixColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            if (_loading || _deleting)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: const LinearProgressIndicator(minHeight: 3),
+              ),
+
+            if (_error != null) errorPanel(_error!, _load),
+
+            if (!_loading && _error == null && courses.isEmpty)
+              emptyPanel('No hay cursos que mostrar.'),
+
+            // TARJETAS RESPONSIVAS
+            if (courses.isNotEmpty)
+              Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (var index = 0; index < courses.length; index++)
+                    _buildCourseCard(courses[index], cardWidth, index, scheme),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _youtubeThumbnailForCourse(Map<String, dynamic> course) {
+    // El listado puede traer el video directamente o incluir módulos.
+    // Usamos el primer enlace de YouTube disponible como miniatura del curso.
+    final explicitThumbnail =
+        '${course['miniatura_url'] ?? course['thumbnail_url'] ?? ''}'.trim();
+    if (explicitThumbnail.startsWith('https://') ||
+        explicitThumbnail.startsWith('http://')) {
+      return explicitThumbnail;
+    }
+
+    final candidates = <dynamic>[
+      course['video_url'],
+      course['video_embed'],
+      course['youtube_url'],
+    ];
+
+    final modules = course['modulos'];
+    if (modules is List) {
+      for (final module in modules) {
+        if (module is Map) {
+          candidates.add(module['video_url']);
+          candidates.add(module['video_embed']);
+        }
+      }
+    }
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim() ?? '';
+      if (value.isEmpty) continue;
+
+      // Si el backend ya entrega una miniatura, úsala tal cual.
+      if (value.startsWith('https://') &&
+          (value.contains('ytimg.com') ||
+              value.contains('youtube-nocookie.com') && value.contains('thumbnail'))) {
+        return value;
+      }
+
+      final uri = Uri.tryParse(value);
+      if (uri == null) continue;
+
+      String? videoId;
+      if (uri.host == 'youtu.be' || uri.host.endsWith('.youtu.be')) {
+        videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+      } else if (uri.host.contains('youtube.com') ||
+          uri.host.contains('youtube-nocookie.com')) {
+        if (uri.path == '/watch') {
+          videoId = uri.queryParameters['v'];
+        } else if (uri.pathSegments.isNotEmpty &&
+            ['embed', 'shorts', 'live'].contains(uri.pathSegments.first)) {
+          videoId = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
+        }
+      }
+
+      if (videoId != null && videoId.isNotEmpty) {
+        return 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
+      }
+    }
+
+    return null;
+  }
+
+  Widget _buildCourseCard(
+    Map<String, dynamic> course,
+    double width,
+    int index,
+    ColorScheme scheme,
+  ) {
+    final title = '${course['titulo'] ?? 'Curso'}';
+    final description = '${course['descripcion'] ?? 'Sin descripción disponible.'}';
+    final published = course['publicado'] == true;
+    final xp = course['puntos_xp'];
+    final rawProgress = course['progreso'];
+    final progress = rawProgress is num
+        ? (rawProgress.toDouble().clamp(0.0, 100.0).toDouble() / 100.0)
+        : 0.0;
+    const accentColors = [
+      Color(0xFF2563EB),
+      Color(0xFF0F4C81),
+      Color(0xFF0E7490),
+      Color(0xFF1D4ED8),
+    ];
+    final accent = accentColors[index % accentColors.length];
+    final courseIcon = _iconForCourse(title);
+    final thumbnailUrl = _youtubeThumbnailForCourse(course);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark
+        ? const Color(0xFFD1DCEB)
+        : UnixColors.muted;
+
+    return SizedBox(
+      width: width,
+      child: Container(
+        decoration: BoxDecoration(
+          color: UnixColors.card,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(color: UnixColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha:
+                Theme.of(context).brightness == Brightness.dark ? 0.12 : 0.045,
+              ),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // FRANJA VISUAL DEL CURSO
+            Container(
+              height: 102,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    accent,
+                    Color.lerp(accent, Colors.black, 0.24)!,
+                  ],
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (thumbnailUrl != null)
+                    Image.network(
+                      thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                     )
                   else ...[
-                    LinearProgressIndicator(
-                      value:
-                          (c['progreso'] as num)
-                                  .toDouble() /
-                              100,
+                    Positioned(
+                      right: -8,
+                      bottom: -33,
+                      child: Icon(
+                        courseIcon,
+                        size: 142,
+                        color: Colors.white.withValues(alpha: 0.13),
+                      ),
                     ),
-
-                    const SizedBox(height: 6),
-
-                    muted(
-                      'Progreso: ${c['progreso']}%',
+                    Positioned(
+                      left: 18,
+                      top: 17,
+                      child: Container(
+                        width: 57,
+                        height: 57,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Icon(courseIcon, color: Colors.white, size: 31),
+                      ),
                     ),
                   ],
+                  if (thumbnailUrl != null)
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.58),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.75)),
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 34),
+                      ),
+                    ),
+                  Positioned(
+                    right: 13,
+                    top: 13,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        published ? 'Publicado' : 'Borrador',
+                        style: TextStyle(
+                          color: published
+                              ? const Color(0xFF176B43)
+                              : const Color(0xFF80551A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                  const SizedBox(height: 12),
-
-                  // BOTONES DE ADMINISTRACIÓN
-
-                  Wrap(
-                    alignment: widget.adminMode
-                        ? WrapAlignment.start
-                        : WrapAlignment.end,
-
-                    spacing: 10,
-                    runSpacing: 10,
-
+            Padding(
+              padding: const EdgeInsets.fromLTRB(17, 16, 17, 15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // VER CURSO
-
-                      FilledButton(
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: UnixColors.text,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                      if (xp != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: UnixColors.selected,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Text(
+                            '$xp XP',
+                            style: TextStyle(
+                              color: UnixColors.link,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  if (!widget.adminMode) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 7,
+                        backgroundColor: UnixColors.selected,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      'Progreso: ${rawProgress ?? 0}%',
+                      style: TextStyle(
+                        color: secondaryTextColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Divider(height: 1, color: UnixColors.border),
+                  const SizedBox(height: 13),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.start,
+                    children: [
+                      FilledButton.icon(
                         onPressed: _deleting
                             ? null
                             : () async {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        CourseDetail(
-                                      id: c['id'],
-                                      adminMode:
-                                          widget.adminMode,
+                                    builder: (_) => CourseDetail(
+                                      id: course['id'],
+                                      adminMode: widget.adminMode,
                                     ),
                                   ),
                                 );
-
                                 if (mounted) _load();
                               },
-
-                        child: Text(
+                        icon: Icon(
                           widget.adminMode
-                              ? 'Ver curso'
-                              : 'Continuar',
+                              ? Icons.visibility_outlined
+                              : Icons.play_arrow_rounded,
+                          size: 17,
+                        ),
+                        label: Text(widget.adminMode ? 'Ver curso' : 'Continuar'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-
                       if (widget.adminMode) ...[
-                        // EDITAR
-
                         OutlinedButton.icon(
-                          onPressed: _deleting
-                              ? null
-                              : () => _edit(c),
-
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                          ),
-
+                          onPressed: _deleting ? null : () => _edit(course),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
                           label: const Text('Editar'),
-                        ),
-
-                   
-
-                        // ELIMINAR
-
-                        OutlinedButton.icon(
-                          style:
-                              OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-
-                            side: const BorderSide(
-                              color: Colors.red,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2563EB),
+                            side: const BorderSide(color: Color(0xFFBFDBFE)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-
-                          onPressed: _deleting
-                              ? null
-                              : () => _deleteCourse(c),
-
-                          icon: const Icon(
-                            Icons.delete_outline,
-                          ),
-
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _deleting ? null : () => _deleteCourse(course),
+                          icon: const Icon(Icons.delete_outline, size: 16),
                           label: const Text('Eliminar'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE04444),
+                            side: BorderSide(
+                              color: const Color(0xFFE04444).withValues(alpha: 0.55),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -388,10 +740,35 @@ class _PortalCoursesState extends State<PortalCourses> {
                 ],
               ),
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
+
+  IconData _iconForCourse(String title) {
+    final value = title.toLowerCase();
+    if (value.contains('linux') || value.contains('terminal')) {
+      return Icons.terminal_rounded;
+    }
+    if (value.contains('red') || value.contains('network')) {
+      return Icons.hub_outlined;
+    }
+    if (value.contains('seguridad')) {
+      return Icons.shield_outlined;
+    }
+    if (value.contains('python') || value.contains('programación') || value.contains('codigo')) {
+      return Icons.code_rounded;
+    }
+    if (value.contains('docker') || value.contains('contenedor')) {
+      return Icons.view_in_ar_outlined;
+    }
+    if (value.contains('git') || value.contains('versiones')) {
+      return Icons.account_tree_outlined;
+    }
+    return Icons.menu_book_rounded;
+  }
+
 }
 
 // FORMULARIO DE CURSO

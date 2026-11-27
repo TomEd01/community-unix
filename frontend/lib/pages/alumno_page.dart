@@ -325,18 +325,11 @@ class _AlumnoPageState extends State<AlumnoPage> {
             Expanded(
               child: ListView.separated(
                 padding: EdgeInsets.symmetric(horizontal: 13),
-                itemCount: 3,
+                itemCount: _items.length,
                 separatorBuilder: (_, _) => SizedBox(height: 5),
                 itemBuilder: (context, index) {
-                  // Menú original:
-                  // final navIndex = [0, 1, 5, 2, 3, 4][index];
+                  final navIndex = index;
 
-                  final navIndex = [0, 6, 4][index];
-                  //los comenbtarios de abajo son del menu original, que se cambio para que el menu lateral tenga solo 3 opciones, Inicio, Mis clases y Mi perfil
-                 // itemCount: _items.length,
-                 //separatorBuilder: (_, _) => SizedBox(height: 5),
-                 //itemBuilder: (context, index) {
-                 //final navIndex = [0, 1, 5, 2, 3, 4][index];
                   final item = _items[navIndex];
                   final selected = _selectedIndex == navIndex;
 
@@ -622,10 +615,10 @@ class _AlumnoPageState extends State<AlumnoPage> {
         return AlumnoPerfilPage();
 
       case 6:
-      return const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: AlumnoVinculoProfesor(),
-      );
+        return const SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: AlumnoVinculoProfesor(),
+        );
       default:
         return PortalDashboard(nombre: _nombre, alumno: true);
     }
