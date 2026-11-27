@@ -1,6 +1,7 @@
 import '../../theme/unix_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:blobatar/flutter.dart';
+import 'unix_notifications.dart';
 
 /// Barra común de Instructor y Super Admin, siguiendo el diseño de Alumno.
 class UnixAccountBar extends StatelessWidget {
@@ -92,13 +93,7 @@ class UnixAccountBar extends StatelessWidget {
           UnixThemeToggle(compact: compact),
           const SizedBox(width: 8),
           if (!tiny) ...[
-            IconButton(
-              tooltip: notificationsTooltip,
-              onPressed: onNotifications,
-              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-              padding: const EdgeInsets.all(8),
-              icon: Icon(Icons.notifications_none_rounded, color: _muted),
-            ),
+            const UnixNotifications(),
             const SizedBox(width: 8),
             Container(width: 1, height: 28, color: _border),
             const SizedBox(width: 12),

@@ -1079,11 +1079,17 @@ class _EventDetailState extends State<EventDetail> {
                     ),
                   ),
 
-                  if (e['estado'] == 'Reclutando' &&
-                      date.isAfter(DateTime.now()) &&
-                      e['solicitud'] == null)
+                  if (e['solicitud'] == null &&
+                      (e['tipo'] == 'Exposición' ||
+                          e['tipo'] == 'Foro' ||
+                          (e['estado'] == 'Reclutando' &&
+                              date.isAfter(DateTime.now()))))
                     OutlinedButton.icon(
-                      onPressed: _busy ? null : _apply,
+                      onPressed: _busy ||
+                              e['estado'] != 'Reclutando' ||
+                              !date.isAfter(DateTime.now())
+                          ? null
+                          : _apply,
 
                       icon: const Icon(Icons.mic_none),
 
