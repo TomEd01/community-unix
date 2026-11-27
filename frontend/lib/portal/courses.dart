@@ -189,7 +189,7 @@ class _PortalCoursesState extends State<PortalCourses> {
             heading(
               widget.adminMode
                   ? 'Administrar cursos'
-                  : 'Cursos asíncronos',
+                  : 'Cursos',
             ),
 
             if (widget.adminMode)
