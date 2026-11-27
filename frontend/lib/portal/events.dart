@@ -495,7 +495,7 @@ class _EventDetailState extends State<EventDetail> {
     _load();
   }
 
-  // NOMBRE VISUAL DE LA ACTIVIDAD
+  // TIPO DE ACTIVIDAD
 
   String _activityLabel(dynamic type) {
     return switch (type.toString().trim().toLowerCase()) {
@@ -532,26 +532,24 @@ class _EventDetailState extends State<EventDetail> {
   // REGISTRAR O CANCELAR ASISTENCIA
 
   Future<void> _attend() async {
-    if (_busy) return;
+    if (widget.adminMode || _busy || _event == null) return;
 
     setState(() => _busy = true);
 
     try {
       await PortalApi.request(
         'eventos/${widget.id}/asistencia/',
-
         method: _event!['inscrito'] == true
             ? 'DELETE'
             : 'POST',
       );
 
-      await _load();
+      if (mounted) await _load();
     } catch (e) {
       if (mounted) {
         notice(context, errorText(e));
+        await _load();
       }
-
-      await _load();
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -562,12 +560,19 @@ class _EventDetailState extends State<EventDetail> {
   // ENVIAR SOLICITUD
 
   Future<void> _apply() async {
+    if (widget.adminMode || _busy || _event == null) return;
+
     final data = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => const ApplicationDialog(),
     );
 
-    if (data == null || !mounted || _busy) return;
+    if (data == null ||
+        !mounted ||
+        _busy ||
+        widget.adminMode) {
+      return;
+    }
 
     setState(() => _busy = true);
 
@@ -578,7 +583,9 @@ class _EventDetailState extends State<EventDetail> {
         data: data,
       );
 
-      await _load();
+      if (mounted) {
+        await _load();
+      }
 
       if (mounted) {
         notice(
@@ -589,9 +596,8 @@ class _EventDetailState extends State<EventDetail> {
     } catch (e) {
       if (mounted) {
         notice(context, errorText(e));
+        await _load();
       }
-
-      await _load();
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -607,7 +613,6 @@ class _EventDetailState extends State<EventDetail> {
     }
 
     final event = _event!;
-
     final tipo = _activityLabel(event['tipo']);
 
     final confirmed = await showDialog<bool>(
@@ -707,6 +712,8 @@ class _EventDetailState extends State<EventDetail> {
 
     final attended = e['inscrito'] == true;
 
+    final isAdmin = widget.adminMode;
+
     return PortalScaffold(
       title: tipo[0].toUpperCase() + tipo.substring(1),
 
@@ -788,7 +795,7 @@ class _EventDetailState extends State<EventDetail> {
 
             // ENCARGADOS
 
-            if (records(e['encargados']).isNotEmpty) ...[
+            if (records(e['encargados'] ?? []).isNotEmpty) ...[
               const Text(
                 'Encargados',
 
@@ -801,9 +808,12 @@ class _EventDetailState extends State<EventDetail> {
 
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
 
                 children: [
-                  for (final i in records(e['encargados']))
+                  for (final i in records(
+                    e['encargados'] ?? [],
+                  ))
                     Chip(
                       avatar: const Icon(
                         Icons.person_outline,
@@ -847,9 +857,9 @@ class _EventDetailState extends State<EventDetail> {
                   ),
 
                   subtitle: Text(
-                    '${sub['descripcion']}\n'
+                    '${sub['descripcion'] ?? ''}\n'
                     '${sub['lugar']} · '
-                    'Cupo: ${sub['cupo']} personas',
+                    'Cupo: ${sub['cupo'] ?? sub['cupo_maximo'] ?? 30} personas',
                   ),
 
                   isThreeLine: true,
@@ -861,64 +871,23 @@ class _EventDetailState extends State<EventDetail> {
             if (_busy)
               const LinearProgressIndicator(),
 
-            // BOTONES DE ACCIONES
+            // BOTONES SEGÚN EL ROL
 
             Wrap(
               spacing: 12,
               runSpacing: 12,
 
               children: [
-                // ASISTIR
+                // BOTONES EXCLUSIVOS DEL SUPER ADMIN
 
-                FilledButton.icon(
-                  onPressed:
-                      _busy || (!attended && (!open || full))
-                          ? null
-                          : _attend,
-
-                  icon: Icon(
-                    attended
-                        ? Icons.event_busy
-                        : full
-                            ? Icons.lock_outline
-                            : Icons.event_available,
-                  ),
-
-                  label: Text(
-                    attended
-                        ? 'Cancelar asistencia'
-                        : !open
-                            ? 'Inscripciones cerradas'
-                            : full
-                                ? 'Agotado'
-                                : 'Asistir',
-                  ),
-                ),
-
-                // SOLICITUD DE EXPOSITOR
-
-                if (e['estado'] == 'Reclutando' &&
-                    date.isAfter(DateTime.now()) &&
-                    e['solicitud'] == null)
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _apply,
-
-                    icon: const Icon(Icons.mic_none),
-
-                    label: const Text(
-                      'Quiero ser Expositor',
-                    ),
-                  ),
-
-                // REVISAR SOLICITUDES
-
-                if (widget.adminMode)
+                if (isAdmin) ...[
                   OutlinedButton.icon(
                     onPressed: _busy
                         ? null
                         : () async {
                             await Navigator.push(
                               context,
+
                               MaterialPageRoute(
                                 builder: (_) =>
                                     EventApplications(
@@ -939,9 +908,6 @@ class _EventDetailState extends State<EventDetail> {
                     ),
                   ),
 
-                // ELIMINAR ACTIVIDAD
-
-                if (widget.adminMode)
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
@@ -951,8 +917,9 @@ class _EventDetailState extends State<EventDetail> {
                       ),
                     ),
 
-                    onPressed:
-                        _busy ? null : _deleteActivity,
+                    onPressed: _busy
+                        ? null
+                        : _deleteActivity,
 
                     icon: const Icon(
                       Icons.delete_outline,
@@ -960,14 +927,55 @@ class _EventDetailState extends State<EventDetail> {
 
                     label: const Text('Eliminar'),
                   ),
+                ]
+
+                // BOTONES EXCLUSIVOS DE PARTICIPANTES
+
+                else ...[
+                  FilledButton.icon(
+                    onPressed:
+                        _busy || (!attended && (!open || full))
+                            ? null
+                            : _attend,
+
+                    icon: Icon(
+                      attended
+                          ? Icons.event_busy
+                          : full
+                              ? Icons.lock_outline
+                              : Icons.event_available,
+                    ),
+
+                    label: Text(
+                      attended
+                          ? 'Cancelar asistencia'
+                          : !open
+                              ? 'Inscripciones cerradas'
+                              : full
+                                  ? 'Agotado'
+                                  : 'Asistir',
+                    ),
+                  ),
+
+                  if (e['estado'] == 'Reclutando' &&
+                      date.isAfter(DateTime.now()) &&
+                      e['solicitud'] == null)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _apply,
+
+                      icon: const Icon(Icons.mic_none),
+
+                      label: const Text(
+                        'Quiero ser Expositor',
+                      ),
+                    ),
+                ],
               ],
             ),
 
-            if (e['solicitud'] != null)
+            if (!isAdmin && e['solicitud'] != null)
               Padding(
-                padding: const EdgeInsets.only(
-                  top: 14,
-                ),
+                padding: const EdgeInsets.only(top: 14),
 
                 child: Text(
                   'Solicitud de expositor: '
@@ -977,9 +985,7 @@ class _EventDetailState extends State<EventDetail> {
 
             if (full)
               Padding(
-                padding: const EdgeInsets.only(
-                  top: 14,
-                ),
+                padding: const EdgeInsets.only(top: 14),
 
                 child: muted(
                   'El $tipo alcanzó su límite de asistentes.',
@@ -1242,7 +1248,6 @@ class _EventApplicationsState extends State<EventApplications> {
     );
   }
 }
-
 class EventEditor extends StatefulWidget {
   final Map<String, dynamic>? event;
   final String defaultType;
@@ -1305,6 +1310,7 @@ class _EventEditorState extends State<EventEditor> {
     final e = widget.event;
 
     _unlimited = e?['cupo_ilimitado'] == true;
+
     _subevents = records(e?['subeventos'] ?? []);
 
     _title = TextEditingController(
@@ -1323,7 +1329,6 @@ class _EventEditorState extends State<EventEditor> {
       text: '${e?['cupo'] ?? 30}',
     );
 
-    // Cada actividad tiene sus propios puntos XP.
     _xp = TextEditingController(
       text: '${e?['puntos_xp'] ?? 10}',
     );
@@ -1335,7 +1340,11 @@ class _EventEditorState extends State<EventEditor> {
     _state = e?['estado'] ?? 'Borrador';
     _type = e?['tipo'] ?? widget.defaultType;
 
-    _selected = e == null ? [] : records(e['encargados']);
+    _selected = records(e?['encargados'] ?? []);
+
+    _content.addAll(
+      records(e?['contenido_bloques'] ?? []),
+    );
 
     _load();
   }
@@ -1351,6 +1360,8 @@ class _EventEditorState extends State<EventEditor> {
 
     super.dispose();
   }
+
+  // CARGAR CATÁLOGOS
 
   Future<void> _load() async {
     setState(() {
@@ -1404,6 +1415,8 @@ class _EventEditorState extends State<EventEditor> {
     }
   }
 
+  // SELECCIONAR FECHA
+
   Future<void> _chooseDate() async {
     final d = await showDatePicker(
       context: context,
@@ -1425,6 +1438,8 @@ class _EventEditorState extends State<EventEditor> {
     });
   }
 
+  // SELECCIONAR HORA
+
   Future<void> _chooseTime() async {
     final t = await showTimePicker(
       context: context,
@@ -1444,164 +1459,100 @@ class _EventEditorState extends State<EventEditor> {
     });
   }
 
-  // CREAR O EDITAR SUBEVENTOS
+  // TIPO VISUAL DEL SUBEVENTO
 
-  Future<void> _editSubevent([int? index]) async {
-    if (_loading || _error != null || _places.isEmpty) {
-      notice(
-        context,
-        'El catálogo de lugares todavía no está disponible.',
-      );
-      return;
-    }
-
-    final previous = index == null ? null : _subevents[index];
-
-    final draft = <String, dynamic>{
-      ...?previous,
-
-      'titulo': previous?['titulo'] ?? '',
-
-      'tipo': switch (previous?['tipo']?.toString().toLowerCase()) {
-        'evento' => 'Evento',
-        'taller' => 'Taller',
-        'exposición' || 'exposicion' => 'Exposición',
-        _ => null,
-      },
-
-      'descripcion': previous?['descripcion'] ?? '',
-      'lugar': previous?['lugar'] ?? _place.text.trim(),
-      'cupo': previous?['cupo'] ?? 30,
+  String _subeventType(Map<String, dynamic> sub) {
+    return switch (
+      sub['tipo'].toString().trim().toLowerCase()
+    ) {
+      'taller' => 'taller',
+      'curso' => 'curso',
+      'exposición' || 'exposicion' || 'foro' => 'foro',
+      _ => 'subevento',
     };
+  }
 
-    final initialPlace = (draft['lugar'] as String).trim();
+  // VER SUBEVENTO
 
-    final places = <String>{
-      ..._places.where((place) => place.trim().isNotEmpty),
-      if (initialPlace.isNotEmpty) initialPlace,
-    };
+  Future<void> _viewSubevent(int index) async {
+    final sub = _subevents[index];
+    final tipo = _subeventType(sub);
 
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<Map<String, dynamic>>(
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(
-          index == null ? 'Añadir subevento' : 'Editar subevento',
-        ),
+        title: Text('Ver $tipo'),
 
         content: SizedBox(
-          width: 460,
+          width: 520,
+
           child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    initialValue: '${draft['titulo']}',
-                    maxLength: 160,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre del subevento',
-                      hintText: 'Ej. Fibra óptica',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+
+              children: [
+                heading('${sub['titulo']}'),
+
+                badge('${sub['estado'] ?? 'Borrador'}'),
+
+                const SizedBox(height: 16),
+
+                Text('${sub['descripcion'] ?? ''}'),
+
+                const SizedBox(height: 16),
+
+                if (sub['fecha'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today),
+                    title: const Text('Fecha y hora'),
+                    subtitle: Text(
+                      eventDate(sub['fecha']),
                     ),
-                    validator: requiredText,
-                    onChanged: (v) => draft['titulo'] = v.trim(),
                   ),
 
-                  const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.location_on_outlined,
+                  ),
+                  title: const Text('Lugar'),
+                  subtitle: Text(
+                    '${sub['lugar'] ?? 'Sin asignar'}',
+                  ),
+                ),
 
-                  DropdownButtonFormField<String>(
-                    initialValue: draft['tipo'] as String?,
-                    isExpanded: true,
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.people_outline),
+                  title: const Text('Cupo'),
 
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo de actividad',
-                    ),
+                  subtitle: Text(
+                    sub['cupo_ilimitado'] == true
+                        ? 'Ilimitado'
+                        : '${sub['cupo'] ?? sub['cupo_maximo'] ?? 30} personas',
+                  ),
+                ),
 
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Evento',
-                        child: Text('Evento'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Taller',
-                        child: Text('Taller'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Exposición',
-                        child: Text('Foro'),
-                      ),
-                    ],
-
-                    validator: requiredText,
-
-                    onChanged: (value) {
-                      draft['tipo'] = value;
-                    },
+                if (sub['inscritos'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Inscritos'),
+                    subtitle: Text('${sub['inscritos']}'),
                   ),
 
-                  const SizedBox(height: 12),
-
-                  TextFormField(
-                    initialValue: '${draft['descripcion']}',
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Descripción',
+                if (sub['puntos_xp'] != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.bolt_rounded),
+                    title: const Text('Experiencia'),
+                    subtitle: Text(
+                      '${sub['puntos_xp']} XP',
                     ),
-                    onChanged: (v) =>
-                        draft['descripcion'] = v.trim(),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  DropdownButtonFormField<String>(
-                    initialValue:
-                        initialPlace.isEmpty ? null : initialPlace,
-
-                    isExpanded: true,
-
-                    decoration: const InputDecoration(
-                      labelText: 'Lugar',
-                    ),
-
-                    items: [
-                      for (final place in places)
-                        DropdownMenuItem<String>(
-                          value: place,
-                          child: Text(place),
-                        ),
-                    ],
-
-                    validator: requiredText,
-
-                    onChanged: (value) =>
-                        draft['lugar'] = value ?? '',
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  TextFormField(
-                    initialValue: '${draft['cupo']}',
-                    keyboardType: TextInputType.number,
-
-                    decoration: const InputDecoration(
-                      labelText: 'Cupo del subevento',
-                    ),
-
-                    onChanged: (v) =>
-                        draft['cupo'] = int.tryParse(v.trim()),
-
-                    validator: (v) {
-                      final n = int.tryParse((v ?? '').trim());
-
-                      return n == null || n < 1 || n > 100000
-                          ? 'Ingresa un cupo de 1 a 100000.'
-                          : null;
-                    },
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
@@ -1609,49 +1560,93 @@ class _EventEditorState extends State<EventEditor> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-
-              Navigator.pop(dialogContext, draft);
-            },
-
-            child: const Text('Guardar subevento'),
+            child: const Text('Cerrar'),
           ),
         ],
       ),
     );
-
-    if (result == null || !mounted) return;
-
-    setState(() {
-      if (index == null) {
-        _subevents.add(result);
-      } else {
-        _subevents[index] = result;
-      }
-    });
   }
 
-  // ELIMINAR ACTIVIDAD
+  // SOLICITUDES DEL SUBEVENTO
 
-  Future<void> _confirmDelete() async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _subeventApplications(int index) async {
+    final sub = _subevents[index];
+
+    await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Eliminar $_typeLabel'),
 
-        content: Text(
-          '¿Seguro que deseas eliminar "${_title.text.trim()}"? '
-          'Esta acción no se puede deshacer.',
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Solicitudes · ${sub['titulo']}',
+        ),
+
+        content: SizedBox(
+          width: 460,
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Icon(
+                Icons.people_outline,
+                size: 48,
+                color: UnixColors.link,
+              ),
+
+              const SizedBox(height: 16),
+
+              const Text(
+                'Solicitudes del subevento',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              muted(
+                'La consulta de solicitudes de este subevento '
+                'está pendiente de integración con el backend.',
+              ),
+            ],
+          ),
         ),
 
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ELIMINAR SUBEVENTO
+
+  Future<void> _deleteSubevent(int index) async {
+    final sub = _subevents[index];
+
+    final tipo = _subeventType(sub);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $tipo'),
+
+        content: Text(
+          '¿Seguro que deseas eliminar el $tipo '
+          '"${sub['titulo']}"? '
+          'El cambio se aplicará al guardar el evento principal.',
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
+
             child: const Text('Cancelar'),
           ),
 
@@ -1661,7 +1656,8 @@ class _EventEditorState extends State<EventEditor> {
               foregroundColor: Colors.white,
             ),
 
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
 
             child: const Text('Eliminar'),
           ),
@@ -1669,7 +1665,518 @@ class _EventEditorState extends State<EventEditor> {
       ),
     );
 
-    if (confirmed != true || !mounted || widget.event == null) {
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _subevents.remove(sub);
+    });
+  }
+
+  // DISEÑO DE LAS TARJETAS DE SUBEVENTOS
+
+  Widget _buildSubeventCard(int index) {
+    final sub = _subevents[index];
+
+    final tipo = _subeventType(sub);
+
+    final cupo = int.tryParse(
+          '${sub['cupo'] ?? sub['cupo_maximo'] ?? 30}',
+        ) ??
+        30;
+
+    final ilimitado = sub['cupo_ilimitado'] == true;
+
+    final inscritos = int.tryParse(
+      '${sub['inscritos'] ?? ''}',
+    );
+
+    final disponibles = inscritos == null
+        ? null
+        : (cupo - inscritos).clamp(0, cupo);
+
+    final icon = switch (tipo) {
+      'curso' => Icons.menu_book_outlined,
+      'foro' => Icons.co_present_outlined,
+      'taller' => Icons.school_outlined,
+      _ => Icons.event_outlined,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+
+      child: panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            // NOMBRE, ICONO Y ESTADO
+
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: UnixColors.link,
+                  size: 25,
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Text(
+                    '${sub['titulo']}',
+
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                badge('${sub['estado'] ?? 'Borrador'}'),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // TIPO Y LUGAR
+
+            muted(
+              '${tipo[0].toUpperCase()}${tipo.substring(1)}'
+              ' · ${sub['lugar'] ?? 'Sin asignar'}',
+            ),
+
+            if (sub['fecha'] != null)
+              muted(
+                eventDate(sub['fecha']),
+              ),
+
+            const SizedBox(height: 10),
+
+            // DESCRIPCIÓN
+
+            if ('${sub['descripcion'] ?? ''}'.isNotEmpty)
+              Text(
+                '${sub['descripcion']}',
+
+                maxLines: 3,
+
+                overflow: TextOverflow.ellipsis,
+              ),
+
+            const SizedBox(height: 12),
+
+            // CUPO E INSCRITOS
+
+            Text(
+              ilimitado
+                  ? inscritos == null
+                      ? 'Cupo ilimitado'
+                      : '$inscritos inscritos · Cupo ilimitado'
+                  : inscritos == null
+                      ? 'Cupo: $cupo personas'
+                      : '$inscritos inscritos · '
+                          '$disponibles lugares disponibles',
+            ),
+
+            const SizedBox(height: 8),
+
+            // BARRA DE OCUPACIÓN
+
+            if (!ilimitado && inscritos != null && cupo > 0)
+              LinearProgressIndicator(
+                value: (inscritos / cupo)
+                    .clamp(0.0, 1.0)
+                    .toDouble(),
+
+                color: disponibles == 0
+                    ? Colors.red
+                    : UnixColors.link,
+              ),
+
+            if (sub['puntos_xp'] != null) ...[
+              const SizedBox(height: 10),
+              badge('${sub['puntos_xp']} XP'),
+            ],
+
+            const SizedBox(height: 14),
+
+            // BOTONES DE ADMINISTRACIÓN
+
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+
+              children: [
+                // VER
+
+                FilledButton(
+                  onPressed: _saving
+                      ? null
+                      : () => _viewSubevent(index),
+
+                  child: Text('Ver $tipo'),
+                ),
+
+                // EDITAR
+
+                OutlinedButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () => _editSubevent(index),
+
+                  icon: const Icon(Icons.edit_outlined),
+
+                  label: const Text('Editar'),
+                ),
+
+                // SOLICITUDES
+
+                if (tipo == 'taller' || tipo == 'foro')
+                  OutlinedButton.icon(
+                    onPressed: _saving
+                        ? null
+                        : () => _subeventApplications(index),
+
+                    icon: const Icon(Icons.people_outline),
+
+                    label: const Text('Solicitudes'),
+                  ),
+
+                // ELIMINAR
+
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+
+                    side: const BorderSide(
+                      color: Colors.red,
+                    ),
+                  ),
+
+                  onPressed: _saving
+                      ? null
+                      : () => _deleteSubevent(index),
+
+                  icon: const Icon(Icons.delete_outline),
+
+                  label: const Text('Eliminar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // CREAR O EDITAR SUBEVENTOS
+
+  Future<void> _editSubevent([int? index]) async {
+  final previous = index == null ? null : _subevents[index];
+
+  final draft = <String, dynamic>{
+    ...?previous,
+
+    'titulo': previous?['titulo'] ?? '',
+
+    'tipo': switch (
+      previous?['tipo']?.toString().trim().toLowerCase()
+    ) {
+      'taller' => 'Taller',
+      'exposición' || 'exposicion' || 'foro' => 'Exposición',
+      'curso' => 'Curso',
+      _ => null,
+    },
+
+    'descripcion': previous?['descripcion'] ?? '',
+
+    'lugar': previous?['lugar'] ?? _place.text.trim(),
+
+    'cupo': previous?['cupo'] ??
+        previous?['cupo_maximo'] ??
+        30,
+  };
+
+  final places = <String>{
+    ..._places.map((place) => place.trim()).where(
+      (place) =>
+          place.isNotEmpty &&
+          place.toLowerCase() != 'laboratorio de ejemplo',
+    ),
+  };
+
+  final savedPlace = '${draft['lugar'] ?? ''}'.trim();
+
+  String selectedPlace = places.contains(savedPlace)
+      ? savedPlace
+      : '';
+
+  draft['lugar'] = draft['tipo'] == 'Curso'
+      ? _online
+      : selectedPlace;
+
+  final formKey = GlobalKey<FormState>();
+
+  final result = await showDialog<Map<String, dynamic>>(
+    context: context,
+
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        return AlertDialog(
+          title: Text(
+            index == null
+                ? 'Añadir subevento'
+                : 'Editar ${_subeventType(previous!)}',
+          ),
+
+          content: SizedBox(
+            width: 460,
+
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+
+                  children: [
+                    // NOMBRE
+
+                    TextFormField(
+                      initialValue: '${draft['titulo']}',
+                      maxLength: 160,
+
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del subevento',
+                        hintText: 'Ej. Fibra óptica',
+                      ),
+
+                      validator: requiredText,
+
+                      onChanged: (v) =>
+                          draft['titulo'] = v.trim(),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // TIPO DE ACTIVIDAD
+
+                    DropdownButtonFormField<String>(
+                      initialValue: draft['tipo'] as String?,
+                      isExpanded: true,
+
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo de actividad',
+                      ),
+
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Taller',
+                          child: Text('Taller'),
+                        ),
+
+                        DropdownMenuItem(
+                          value: 'Exposición',
+                          child: Text('Foro'),
+                        ),
+
+                        DropdownMenuItem(
+                          value: 'Curso',
+                          child: Text('Curso'),
+                        ),
+                      ],
+
+                      validator: requiredText,
+
+                      onChanged: (value) {
+                        setDialogState(() {
+                          draft['tipo'] = value;
+
+                          draft['lugar'] = value == 'Curso'
+                              ? _online
+                              : selectedPlace;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // DESCRIPCIÓN
+
+                    TextFormField(
+                      initialValue: '${draft['descripcion']}',
+                      maxLines: 3,
+
+                      decoration: const InputDecoration(
+                        labelText: 'Descripción',
+                      ),
+
+                      onChanged: (v) =>
+                          draft['descripcion'] = v.trim(),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // LUGAR O MODALIDAD
+
+                    if (draft['tipo'] == 'Curso')
+                      const InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Lugar o modalidad',
+                        ),
+
+                        child: Text(_online),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedPlace.isEmpty
+                            ? null
+                            : selectedPlace,
+
+                        isExpanded: true,
+
+                        decoration: const InputDecoration(
+                          labelText: 'Lugar',
+                        ),
+
+                        items: [
+                          for (final place in places)
+                            DropdownMenuItem<String>(
+                              value: place,
+                              child: Text(place),
+                            ),
+                        ],
+
+                        validator: requiredText,
+
+                        onChanged: (value) {
+                          selectedPlace = value ?? '';
+                          draft['lugar'] = selectedPlace;
+                        },
+                      ),
+
+                    const SizedBox(height: 12),
+
+                    // CUPO DEL SUBEVENTO
+
+                    TextFormField(
+                      initialValue: '${draft['cupo']}',
+                      keyboardType: TextInputType.number,
+
+                      decoration: const InputDecoration(
+                        labelText: 'Cupo del subevento',
+                      ),
+
+                      onChanged: (v) =>
+                          draft['cupo'] = int.tryParse(v.trim()),
+
+                      validator: (v) {
+                        final n = int.tryParse(
+                          (v ?? '').trim(),
+                        );
+
+                        if (n == null || n < 1 || n > 100000) {
+                          return 'Ingresa un cupo de 1 a 100000.';
+                        }
+
+                        final inscritos = int.tryParse(
+                          '${previous?['inscritos'] ?? 0}',
+                        ) ?? 0;
+
+                        if (n < inscritos) {
+                          return 'Ya hay $inscritos inscritos.';
+                        }
+
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+
+                if (draft['tipo'] == 'Curso') {
+                  draft['lugar'] = _online;
+                }
+
+                Navigator.pop(dialogContext, draft);
+              },
+
+              child: Text(
+                index == null
+                    ? 'Guardar subevento'
+                    : 'Guardar cambios',
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  if (result == null || !mounted) return;
+
+  setState(() {
+    if (index == null) {
+      _subevents.add(result);
+    } else {
+      _subevents[index] = result;
+    }
+  });
+}
+
+  // ELIMINAR ACTIVIDAD PRINCIPAL
+
+  Future<void> _confirmDelete() async {
+    if (_saving || widget.event == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $_typeLabel'),
+
+        content: Text(
+          '¿Seguro que deseas eliminar el $_typeLabel '
+          '"${_title.text.trim()}"? '
+          'Esta acción no se puede deshacer.',
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
+
+            child: const Text('Cancelar'),
+          ),
+
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
+
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted || _saving) {
       return;
     }
 
@@ -1685,9 +2192,13 @@ class _EventEditorState extends State<EventEditor> {
         Navigator.pop(context, '__deleted__');
       }
     } catch (e) {
-      if (mounted) notice(context, errorText(e));
+      if (mounted) {
+        notice(context, errorText(e));
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -1701,7 +2212,11 @@ class _EventEditorState extends State<EventEditor> {
     if (state != 'Borrador' &&
         state != 'Finalizado' &&
         !_date.isAfter(DateTime.now())) {
-      notice(context, 'Selecciona una fecha futura.');
+      notice(
+        context,
+        'Selecciona una fecha futura.',
+      );
+
       return;
     }
 
@@ -1710,6 +2225,7 @@ class _EventEditorState extends State<EventEditor> {
     try {
       final data = <String, dynamic>{
         'titulo': _title.text.trim(),
+
         'descripcion': _description.text.trim(),
 
         'lugar': _type == 'Curso'
@@ -1732,7 +2248,6 @@ class _EventEditorState extends State<EventEditor> {
 
         'tipo': _type,
 
-        // XP independiente para cada actividad.
         'puntos_xp': int.parse(_xp.text.trim()),
 
         'estado': state,
@@ -1753,15 +2268,21 @@ class _EventEditorState extends State<EventEditor> {
         );
       }
 
-      if (mounted) Navigator.pop(context, _type);
+      if (mounted) {
+        Navigator.pop(context, _type);
+      }
     } catch (e) {
-      if (mounted) notice(context, errorText(e));
+      if (mounted) {
+        notice(context, errorText(e));
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
-  // DISEÑO DEL EDITOR
+  // DISEÑO PRINCIPAL
 
   @override
   Widget build(BuildContext context) {
@@ -1772,7 +2293,9 @@ class _EventEditorState extends State<EventEditor> {
     final matches = _instructors
         .where(
           (i) =>
-              !_selected.any((s) => s['id'] == i['id']) &&
+              !_selected.any(
+                (s) => s['id'] == i['id'],
+              ) &&
               '${i['nombre']} ${i['numero_control']}'
                   .toLowerCase()
                   .contains(q),
@@ -1783,13 +2306,17 @@ class _EventEditorState extends State<EventEditor> {
 
     final info = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+
       children: [
         TextFormField(
           controller: _title,
+
           maxLength: 160,
+
           decoration: const InputDecoration(
             labelText: 'Nombre',
           ),
+
           validator: requiredText,
         ),
 
@@ -1797,7 +2324,9 @@ class _EventEditorState extends State<EventEditor> {
 
         TextFormField(
           controller: _description,
+
           maxLines: 4,
+
           decoration: const InputDecoration(
             labelText: 'Descripción',
           ),
@@ -1810,7 +2339,9 @@ class _EventEditorState extends State<EventEditor> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _chooseDate,
+
                 icon: const Icon(Icons.calendar_today),
+
                 label: Text(
                   '${_date.day}/${_date.month}/${_date.year}',
                 ),
@@ -1822,7 +2353,9 @@ class _EventEditorState extends State<EventEditor> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _chooseTime,
+
                 icon: const Icon(Icons.schedule),
+
                 label: Text(
                   '${_date.hour.toString().padLeft(2, '0')}:'
                   '${_date.minute.toString().padLeft(2, '0')}',
@@ -1834,8 +2367,11 @@ class _EventEditorState extends State<EventEditor> {
 
         const SizedBox(height: 16),
 
+        // TIPO DE ACTIVIDAD PRINCIPAL
+
         DropdownButtonFormField<String>(
           initialValue: _type,
+
           isExpanded: true,
 
           decoration: const InputDecoration(
@@ -1849,10 +2385,10 @@ class _EventEditorState extends State<EventEditor> {
 
             if (widget.event == null || _type == 'Curso')
               'Curso',
-
           ].map((s) {
             return DropdownMenuItem<String>(
               value: s,
+
               child: Text(
                 s == 'Exposición' ? 'Foro' : s,
               ),
@@ -1870,11 +2406,14 @@ class _EventEditorState extends State<EventEditor> {
 
         const SizedBox(height: 16),
 
+        // LUGAR O MODALIDAD
+
         if (_type == 'Curso')
           const InputDecorator(
             decoration: InputDecoration(
               labelText: 'Lugar o modalidad',
             ),
+
             child: Text(_online),
           )
         else
@@ -1898,10 +2437,10 @@ class _EventEditorState extends State<EventEditor> {
 
               if (_place.text.isNotEmpty)
                 _place.text,
-
             }.map((place) {
               return DropdownMenuItem<String>(
                 value: place,
+
                 child: Text(place),
               );
             }).toList(),
@@ -1914,6 +2453,8 @@ class _EventEditorState extends State<EventEditor> {
           ),
 
         const SizedBox(height: 32),
+
+        // ESTADO
 
         DropdownButtonFormField<String>(
           initialValue: _state,
@@ -1930,6 +2471,7 @@ class _EventEditorState extends State<EventEditor> {
           ].map((s) {
             return DropdownMenuItem<String>(
               value: s,
+
               child: Text(s),
             );
           }).toList(),
@@ -1947,9 +2489,11 @@ class _EventEditorState extends State<EventEditor> {
 
     final people = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+
       children: [
         const Text(
           'Encargados',
+
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 18,
@@ -1960,6 +2504,7 @@ class _EventEditorState extends State<EventEditor> {
 
         TextField(
           controller: _search,
+
           onChanged: (_) => setState(() {}),
 
           decoration: const InputDecoration(
@@ -1973,6 +2518,7 @@ class _EventEditorState extends State<EventEditor> {
         Wrap(
           spacing: 6,
           runSpacing: 6,
+
           children: [
             for (final i in _selected)
               InputChip(
@@ -2052,9 +2598,11 @@ class _EventEditorState extends State<EventEditor> {
         panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               const Text(
                 'Límite de asistentes',
+
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                 ),
@@ -2103,7 +2651,9 @@ class _EventEditorState extends State<EventEditor> {
                     Expanded(
                       child: TextFormField(
                         controller: _capacity,
+
                         keyboardType: TextInputType.number,
+
                         textAlign: TextAlign.center,
 
                         decoration: const InputDecoration(
@@ -2163,11 +2713,12 @@ class _EventEditorState extends State<EventEditor> {
 
         const SizedBox(height: 18),
 
-        // PUNTOS DE EXPERIENCIA PARA TODAS LAS ACTIVIDADES
+        // PUNTOS DE EXPERIENCIA
 
         panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               const Row(
                 children: [
@@ -2181,6 +2732,7 @@ class _EventEditorState extends State<EventEditor> {
                   Expanded(
                     child: Text(
                       'Puntos de experiencia (XP)',
+
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                       ),
@@ -2199,11 +2751,16 @@ class _EventEditorState extends State<EventEditor> {
 
               TextFormField(
                 controller: _xp,
+
                 keyboardType: TextInputType.number,
 
                 decoration: InputDecoration(
                   labelText: 'Valor del $_typeLabel',
-                  prefixIcon: const Icon(Icons.star_outline),
+
+                  prefixIcon: const Icon(
+                    Icons.star_outline,
+                  ),
+
                   suffixText: 'XP',
                 ),
 
@@ -2259,9 +2816,12 @@ class _EventEditorState extends State<EventEditor> {
                     return Row(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
+
                       children: [
                         Expanded(child: info),
+
                         const SizedBox(width: 28),
+
                         Expanded(child: people),
                       ],
                     );
@@ -2271,7 +2831,7 @@ class _EventEditorState extends State<EventEditor> {
 
               const SizedBox(height: 20),
 
-              // SUBEVENTOS
+              // NUEVA SECCIÓN DE SUBEVENTOS
 
               if (_type == 'Evento')
                 panel(
@@ -2282,6 +2842,7 @@ class _EventEditorState extends State<EventEditor> {
                     children: [
                       const Text(
                         'Subeventos',
+
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -2291,11 +2852,11 @@ class _EventEditorState extends State<EventEditor> {
                       const SizedBox(height: 8),
 
                       muted(
-                        'Añade las actividades del evento principal. '
-                        'Cada una tiene su propio cupo.',
+                        'Añade y administra los talleres, '
+                        'cursos y foros del evento principal.',
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
                       if (_subevents.isEmpty)
                         const Padding(
@@ -2308,50 +2869,25 @@ class _EventEditorState extends State<EventEditor> {
                           ),
                         ),
 
+                      // TARJETAS DE SUBEVENTOS
+
                       for (var i = 0;
                           i < _subevents.length;
                           i++)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-
-                          leading: const Icon(
-                            Icons.event_note_outlined,
-                          ),
-
-                          title: Text(
-                            '${_subevents[i]['titulo']}',
-                          ),
-
-                          subtitle: Text(
-                            '${_subevents[i]['lugar']} · '
-                            'Cupo: ${_subevents[i]['cupo']} personas',
-                          ),
-
-                          onTap: () => _editSubevent(i),
-
-                          trailing: IconButton(
-                            tooltip: 'Eliminar subevento',
-
-                            icon: const Icon(
-                              Icons.delete_outline,
-                            ),
-
-                            onPressed: () {
-                              setState(() {
-                                _subevents.removeAt(i);
-                              });
-                            },
-                          ),
-                        ),
+                        _buildSubeventCard(i),
 
                       const SizedBox(height: 12),
 
+                      // AÑADIR SUBEVENTO
+
                       OutlinedButton.icon(
-                        onPressed: () => _editSubevent(),
+                        onPressed: _saving
+                            ? null
+                            : () => _editSubevent(),
+
                         icon: const Icon(Icons.add),
-                        label: const Text(
-                          'Añadir subevento',
-                        ),
+
+                        label: const Text('Añadir subevento'),
                       ),
                     ],
                   ),
@@ -2368,7 +2904,9 @@ class _EventEditorState extends State<EventEditor> {
                         CrossAxisAlignment.stretch,
 
                     children: [
-                      const Text('Contenido del curso'),
+                      const Text(
+                        'Contenido del curso',
+                      ),
 
                       for (final block in _content)
                         Padding(
@@ -2382,16 +2920,14 @@ class _EventEditorState extends State<EventEditor> {
                             initialValue:
                                 block['contenido'] as String,
 
-                            maxLines:
-                                block['tipo'] == 'enlace'
-                                    ? 1
-                                    : 3,
+                            maxLines: block['tipo'] == 'enlace'
+                                ? 1
+                                : 3,
 
                             decoration: InputDecoration(
-                              labelText:
-                                  block['tipo'] == 'enlace'
-                                      ? 'Enlace'
-                                      : 'Párrafo',
+                              labelText: block['tipo'] == 'enlace'
+                                  ? 'Enlace'
+                                  : 'Párrafo',
 
                               suffixIcon: IconButton(
                                 tooltip: 'Quitar bloque',
@@ -2413,8 +2949,7 @@ class _EventEditorState extends State<EventEditor> {
                             },
 
                             validator: (value) {
-                              final missing =
-                                  requiredText(value);
+                              final missing = requiredText(value);
 
                               if (missing != null) {
                                 return missing;
@@ -2481,20 +3016,23 @@ class _EventEditorState extends State<EventEditor> {
                 children: [
                   if (widget.event != null)
                     OutlinedButton.icon(
-                      onPressed:
-                          _saving ? null : _confirmDelete,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
 
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                      ),
-
-                      label: const Text(
-                        'Eliminar',
-                        style: TextStyle(
+                        side: const BorderSide(
                           color: Colors.red,
                         ),
                       ),
+
+                      onPressed: _saving
+                          ? null
+                          : _confirmDelete,
+
+                      icon: const Icon(
+                        Icons.delete_outline,
+                      ),
+
+                      label: const Text('Eliminar'),
                     ),
 
                   FilledButton(

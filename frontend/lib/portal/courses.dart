@@ -159,60 +159,6 @@ class _PortalCoursesState extends State<PortalCourses> {
     await _removeCourse(course);
   }
 
-  // SOLICITUDES DEL CURSO
-
-  void _courseApplications(
-    Map<String, dynamic> course,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          'Solicitudes · ${course['titulo']}',
-        ),
-
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.people_outline,
-                size: 48,
-                color: UnixColors.link,
-              ),
-
-              const SizedBox(height: 16),
-
-              const Text(
-                'Solicitudes del curso',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              muted(
-                'El servicio de solicitudes de cursos '
-                'está pendiente de conexión.',
-              ),
-            ],
-          ),
-        ),
-
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext),
-
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -412,21 +358,7 @@ class _PortalCoursesState extends State<PortalCourses> {
                           label: const Text('Editar'),
                         ),
 
-                        // SOLICITUDES
-
-                        OutlinedButton.icon(
-                          onPressed: _deleting
-                              ? null
-                              : () =>
-                                  _courseApplications(c),
-
-                          icon: const Icon(
-                            Icons.people_outline,
-                          ),
-
-                          label:
-                              const Text('Solicitudes'),
-                        ),
+                   
 
                         // ELIMINAR
 
